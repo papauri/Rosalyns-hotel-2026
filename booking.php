@@ -17,6 +17,7 @@ require_once 'includes/booking-functions.php';
 require_once 'includes/page-guard.php';
 require_once 'config/email.php';
 require_once 'includes/validation.php';
+require_once 'includes/booking-timeline.php';
 
 function bookingResolveOccupancyPolicy(array $room): array {
     $policy = resolveOccupancyPolicy($room, null);
@@ -436,6 +437,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Commit transaction - booking secured with foreign key constraints!
             $pdo->commit();
+
+            // Log booking creation to timeline
+            foreach ($createdBookingIds as $index => $bookingId) {
+                $timelineBookingData = [
+                    'id' => $bookingId,
+                    'booking_reference' => $createdReferences[$index],
+                    'room_id' => $room_id,
+                    'guest_name' => $guest_name,
+                    'guest_email' => $guest_email,
+                    'check_in_date' => $check_in_date,
+                    'check_out_date' => $check_out_date,
+                    'number_of_nights' => $number_of_nights,
+                    'number_of_guests' => $number_of_guests,
+                    'total_amount' => $total_amount,
+                    'status' => $booking_status,
+                    'is_tentative' => $is_tentative
+                ];
+                logBookingCreated($timelineBookingData, 'guest', null, $guest_name);
+            }
 
             // Send email notifications using working email system
             $booking_data = [
@@ -900,7 +920,7 @@ try {
                     <!-- Occupancy Type Selection -->
                     <div class="form-group">
                         <label class="required">Occupancy Type</label>
-                        <div class="occupancy-type-group">
+                        <div class="occupancy-type-group" id="occupancyTypeGroup">
                             <label class="occupancy-type-label" id="singleOccupancyLabel">
                                 <input type="radio" name="occupancy_type" value="single">
                                 <strong>Single</strong>
@@ -920,7 +940,7 @@ try {
                                 <span id="triplePriceDisplay" class="price-display">-</span>
                             </label>
                         </div>
-                        <small class="form-hint">
+                        <small class="form-hint" id="occupancyHint">
                             <i class="fas fa-info-circle"></i> Prices vary based on occupancy type
                         </small>
                     </div>
@@ -1226,6 +1246,7 @@ try {
             const singleInput = document.querySelector('input[name="occupancy_type"][value="single"]');
             const doubleInput = document.querySelector('input[name="occupancy_type"][value="double"]');
             const tripleInput = document.querySelector('input[name="occupancy_type"][value="triple"]');
+            const occupancyHint = document.getElementById('occupancyHint');
             const mapping = [
                 { key: 'single_enabled', input: singleInput, labelId: 'singleOccupancyLabel' },
                 { key: 'double_enabled', input: doubleInput, labelId: 'doubleOccupancyLabel' },
@@ -1233,23 +1254,43 @@ try {
             ];
 
             let firstEnabled = null;
+            let enabledCount = 0;
             mapping.forEach(item => {
                 const enabled = Number(room[item.key] || 0) === 1;
-                if (enabled && !firstEnabled) firstEnabled = item.input;
+                if (enabled) {
+                    enabledCount++;
+                    if (!firstEnabled) firstEnabled = item.input;
+                }
                 if (item.input) {
                     item.input.disabled = !enabled;
                     const label = document.getElementById(item.labelId);
                     if (label) {
-                        label.style.opacity = enabled ? '1' : '0.45';
-                        label.style.pointerEvents = enabled ? 'auto' : 'none';
+                        // Hide disabled options completely instead of just dimming
+                        label.style.display = enabled ? '' : 'none';
+                        label.classList.toggle('selected', false);
                     }
                 }
             });
 
+            // Auto-select first enabled option if current selection is disabled
             const checked = document.querySelector('input[name="occupancy_type"]:checked');
             if (!checked || checked.disabled) {
                 if (firstEnabled) {
                     firstEnabled.checked = true;
+                    firstEnabled.dispatchEvent(new Event('change'));
+                }
+            }
+
+            // Update hint based on available options
+            if (occupancyHint) {
+                if (enabledCount === 1) {
+                    const enabledType = mapping.find(item => Number(room[item.key] || 0) === 1);
+                    if (enabledType) {
+                        const typeName = enabledType.key.replace('_enabled', '');
+                        occupancyHint.innerHTML = `<i class="fas fa-info-circle"></i> Only ${typeName} occupancy available for this room`;
+                    }
+                } else {
+                    occupancyHint.innerHTML = '<i class="fas fa-info-circle"></i> Prices vary based on occupancy type';
                 }
             }
         }

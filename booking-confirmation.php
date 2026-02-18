@@ -1,4 +1,9 @@
 <?php
+/**
+ * Booking Confirmation Page
+ * Displays booking details after successful submission
+ */
+
 // Start session
 session_start();
 require_once 'config/database.php';
@@ -35,6 +40,15 @@ $phone_main = getSetting('phone_main');
 $email_reservations = getSetting('email_reservations');
 $whatsapp_number = getSetting('whatsapp_number');
 $payment_policy = getSetting('payment_policy');
+
+// Fetch policies for footer modals
+$policies = [];
+try {
+    $policyStmt = $pdo->query("SELECT slug, title, summary, content FROM policies WHERE is_active = 1 ORDER BY display_order ASC, id ASC");
+    $policies = $policyStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error fetching policies: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -42,22 +56,37 @@ $payment_policy = getSetting('payment_policy');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <meta name="theme-color" content="#1A1A1A">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=yes">
     <title>Booking Confirmed | <?php echo htmlspecialchars($site_name); ?></title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'"></head>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    
+    <!-- Main CSS - Loads all stylesheets in correct order -->
+    <link rel="stylesheet" href="css/base/critical.css">
+    <link rel="stylesheet" href="css/main.css">
+</head>
 <body class="confirmation-page">
+    <?php include 'includes/loader.php'; ?>
+    <?php include 'includes/header.php'; ?>
+    <?php include 'includes/alert.php'; ?>
+    
+    <main>
     <?php if (isset($error)): ?>
-    <div class="confirmation-container">
-        <div class="confirmation-card">
-            <div style="text-align: center;">
-                <i class="fas fa-exclamation-circle" style="font-size: 60px; color: #dc3545; margin-bottom: 20px;"></i>
-                <h1>Error</h1>
-                <p><?php echo htmlspecialchars($error); ?></p>
-                <a href="booking.php" class="btn btn-primary" style="display: inline-block; margin-top: 20px;">
-                    Back to Booking
-                </a>
+    <div class="main-content">
+        <div class="confirmation-container">
+            <div class="confirmation-card">
+                <div style="text-align: center;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 60px; color: #dc3545; margin-bottom: 20px;"></i>
+                    <h1>Error</h1>
+                    <p><?php echo htmlspecialchars($error); ?></p>
+                    <a href="booking.php" class="btn btn-primary" style="display: inline-block; margin-top: 20px;">
+                        Back to Booking
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -71,175 +100,177 @@ $payment_policy = getSetting('payment_policy');
             ? 'Your room has been placed on temporary hold. We\'ll send you a reminder before expiration.'
             : 'Thank you for choosing ' . htmlspecialchars($site_name) . '. Your reservation has been received.';
     ?>
-    <div class="confirmation-container">
-        <div class="success-icon <?php echo $icon_class_wrapper; ?>">
-            <i class="fas <?php echo $icon_class; ?>"></i>
-        </div>
-
-        <div class="confirmation-card">
-            <h1>
-                <?php echo $heading; ?>
-                <span class="booking-type-indicator <?php echo $is_tentative ? 'tentative' : 'standard'; ?>">
-                    <?php echo $is_tentative ? 'Tentative' : 'Standard'; ?>
-                </span>
-            </h1>
-            <p class="subtitle"><?php echo $subtitle; ?></p>
-
-            <?php if ($is_tentative && $booking['tentative_expires_at']): ?>
-            <div class="tentative-badge">
-                <i class="fas fa-hourglass-half"></i>
-                Room on Hold
-            </div>
-            <?php endif; ?>
-
-            <div class="booking-reference-box">
-                <label>Booking Reference</label>
-                <div class="reference-number"><?php echo htmlspecialchars($booking['booking_reference']); ?></div>
+    <div class="main-content">
+        <div class="confirmation-container">
+            <div class="success-icon <?php echo $icon_class_wrapper; ?>">
+                <i class="fas <?php echo $icon_class; ?>"></i>
             </div>
 
-            <div class="booking-details-grid">
-                <div class="detail-item full-width">
-                    <label>Room</label>
-                    <div class="value"><?php echo htmlspecialchars($booking['room_name']); ?></div>
-                </div>
-                <div class="detail-item">
-                    <label>Guest Name</label>
-                    <div class="value"><?php echo htmlspecialchars($booking['guest_name']); ?></div>
-                </div>
-                <div class="detail-item">
-                    <label>Email</label>
-                    <div class="value"><?php echo htmlspecialchars($booking['guest_email']); ?></div>
-                </div>
-                <div class="detail-item">
-                    <label>Check-in</label>
-                    <div class="value"><?php echo date('M j, Y', strtotime($booking['check_in_date'])); ?></div>
-                </div>
-                <div class="detail-item">
-                    <label>Check-out</label>
-                    <div class="value"><?php echo date('M j, Y', strtotime($booking['check_out_date'])); ?></div>
-                </div>
-                <div class="detail-item">
-                    <label>Number of Nights</label>
-                    <div class="value"><?php echo $booking['number_of_nights']; ?> <?php echo $booking['number_of_nights'] == 1 ? 'night' : 'nights'; ?></div>
-                </div>
-                <div class="detail-item">
-                    <label>Number of Guests</label>
-                    <div class="value"><?php echo $booking['number_of_guests']; ?> <?php echo $booking['number_of_guests'] == 1 ? 'guest' : 'guests'; ?></div>
-                </div>
-                <?php
-                    $child_guests = (int)($booking['child_guests'] ?? 0);
-                    $adult_guests = (int)($booking['adult_guests'] ?? max(1, ((int)$booking['number_of_guests']) - $child_guests));
-                    $child_supplement_total = (float)($booking['child_supplement_total'] ?? 0);
-                ?>
-                <div class="detail-item">
-                    <label>Guest Split</label>
-                    <div class="value">
-                        <?php echo $adult_guests; ?> adult<?php echo $adult_guests === 1 ? '' : 's'; ?>
-                        <?php if ($child_guests > 0): ?>
-                            + <?php echo $child_guests; ?> child<?php echo $child_guests === 1 ? '' : 'ren'; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php if ($child_guests > 0): ?>
-                <div class="detail-item">
-                    <label>Child Supplement</label>
-                    <div class="value"><?php echo $currency_symbol; ?><?php echo number_format($child_supplement_total, 0); ?></div>
+            <div class="confirmation-card">
+                <h1>
+                    <?php echo $heading; ?>
+                    <span class="booking-type-indicator <?php echo $is_tentative ? 'tentative' : 'standard'; ?>">
+                        <?php echo $is_tentative ? 'Tentative' : 'Standard'; ?>
+                    </span>
+                </h1>
+                <p class="subtitle"><?php echo $subtitle; ?></p>
+
+                <?php if ($is_tentative && $booking['tentative_expires_at']): ?>
+                <div class="tentative-badge">
+                    <i class="fas fa-hourglass-half"></i>
+                    Room on Hold
                 </div>
                 <?php endif; ?>
-                <div class="detail-item full-width">
-                    <label>Total Amount</label>
-                    <div class="value" style="font-size: 24px; color: var(--gold);">
-                        <?php echo $currency_symbol; ?><?php echo number_format($booking['total_amount'], 0); ?>
+
+                <div class="booking-reference-box">
+                    <label>Booking Reference</label>
+                    <div class="reference-number"><?php echo htmlspecialchars($booking['booking_reference']); ?></div>
+                </div>
+
+                <div class="booking-details-grid">
+                    <div class="detail-item full-width">
+                        <label>Room</label>
+                        <div class="value"><?php echo htmlspecialchars($booking['room_name']); ?></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Guest Name</label>
+                        <div class="value"><?php echo htmlspecialchars($booking['guest_name']); ?></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Email</label>
+                        <div class="value"><?php echo htmlspecialchars($booking['guest_email']); ?></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Check-in</label>
+                        <div class="value"><?php echo date('M j, Y', strtotime($booking['check_in_date'])); ?></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Check-out</label>
+                        <div class="value"><?php echo date('M j, Y', strtotime($booking['check_out_date'])); ?></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Number of Nights</label>
+                        <div class="value"><?php echo $booking['number_of_nights']; ?> <?php echo $booking['number_of_nights'] == 1 ? 'night' : 'nights'; ?></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Number of Guests</label>
+                        <div class="value"><?php echo $booking['number_of_guests']; ?> <?php echo $booking['number_of_guests'] == 1 ? 'guest' : 'guests'; ?></div>
+                    </div>
+                    <?php
+                        $child_guests = (int)($booking['child_guests'] ?? 0);
+                        $adult_guests = (int)($booking['adult_guests'] ?? max(1, ((int)$booking['number_of_guests']) - $child_guests));
+                        $child_supplement_total = (float)($booking['child_supplement_total'] ?? 0);
+                    ?>
+                    <div class="detail-item">
+                        <label>Guest Split</label>
+                        <div class="value">
+                            <?php echo $adult_guests; ?> adult<?php echo $adult_guests === 1 ? '' : 's'; ?>
+                            <?php if ($child_guests > 0): ?>
+                                + <?php echo $child_guests; ?> child<?php echo $child_guests === 1 ? '' : 'ren'; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if ($child_guests > 0): ?>
+                    <div class="detail-item">
+                        <label>Child Supplement</label>
+                        <div class="value"><?php echo $currency_symbol; ?><?php echo number_format($child_supplement_total, 0); ?></div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="detail-item full-width">
+                        <label>Total Amount</label>
+                        <div class="value" style="font-size: 24px; color: var(--gold);">
+                            <?php echo $currency_symbol; ?><?php echo number_format($booking['total_amount'], 0); ?>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Check-in Time</label>
+                        <div class="value"><?php echo htmlspecialchars(getSetting('check_in_time', '2:00 PM')); ?></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Check-out Time</label>
+                        <div class="value"><?php echo htmlspecialchars(getSetting('check_out_time', '11:00 AM')); ?></div>
                     </div>
                 </div>
-                <div class="detail-item">
-                    <label>Check-in Time</label>
-                    <div class="value"><?php echo htmlspecialchars(getSetting('check_in_time', '2:00 PM')); ?></div>
-                </div>
-                <div class="detail-item">
-                    <label>Check-out Time</label>
-                    <div class="value"><?php echo htmlspecialchars(getSetting('check_out_time', '11:00 AM')); ?></div>
-                </div>
-            </div>
 
-            <?php if ($is_tentative && $booking['tentative_expires_at']): ?>
-            <div class="tentative-info-box">
-                <h3><i class="fas fa-clock"></i> Tentative Booking Details</h3>
-                <p>
-                    Your room has been placed on temporary hold. You'll receive a reminder email before expiration.
-                    To confirm this booking, please contact us before the expiration time.
+                <?php if ($is_tentative && $booking['tentative_expires_at']): ?>
+                <div class="tentative-info-box">
+                    <h3><i class="fas fa-clock"></i> Tentative Booking Details</h3>
+                    <p>
+                        Your room has been placed on temporary hold. You'll receive a reminder email before expiration.
+                        To confirm this booking, please contact us before the expiration time.
+                    </p>
+                    <div class="expires-at">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Expires: <?php echo date('M j, Y \a\t g:i A', strtotime($booking['tentative_expires_at'])); ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <div class="payment-info">
+                    <h3><i class="fas fa-info-circle"></i> <?php echo $is_tentative ? 'Next Steps' : 'Payment Information'; ?></h3>
+                    <p>
+                        <?php if ($is_tentative): ?>
+                            <strong>1. Confirm your booking:</strong> Contact us before expiration to convert this to a confirmed reservation.<br>
+                            <strong>2. Payment:</strong> Once confirmed, payment of <?php echo $currency_symbol . number_format($booking['total_amount'], 0); ?> will be collected at check-in.<br>
+                            <strong>3. Reminder:</strong> You'll receive a reminder email <?php echo (int)getSetting('tentative_reminder_hours', 24); ?> hours before expiration.<br>
+                            <strong>4. Questions?</strong> Contact us anytime at <?php echo htmlspecialchars($phone_main); ?>.
+                        <?php else: ?>
+                            <?php echo getSetting('payment_policy', 'Payment will be made at the hotel upon arrival.<br>We accept cash payments only. Please bring the total amount of <strong>' . $currency_symbol . number_format($booking['total_amount'], 0) . '</strong> with you.'); ?>
+                        <?php endif; ?>
+                    </p>
+                </div>
+
+                <div class="action-buttons">
+                    <a href="tel:<?php echo str_replace(' ', '', $phone_main); ?>" class="btn btn-secondary">
+                        <i class="fas fa-phone"></i> Call Hotel
+                    </a>
+                    <a href="https://wa.me/<?php echo $whatsapp_number; ?>?text=Hi, I have a booking (<?php echo $booking['booking_reference']; ?>)" class="btn btn-whatsapp" target="_blank">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </a>
+                    <a href="mailto:<?php echo $email_reservations; ?>?subject=Booking <?php echo $booking['booking_reference']; ?>" class="btn btn-secondary">
+                        <i class="fas fa-envelope"></i> Email
+                    </a>
+                    <button onclick="window.print()" class="btn btn-secondary">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <a href="index.php" class="btn btn-primary">
+                        <i class="fas fa-home"></i> Back to Home
+                    </a>
+                </div>
+
+                
+                <div class="next-steps">
+                    <h3>What Happens Next?</h3>
+                    <ol>
+                        <?php if ($is_tentative): ?>
+                            <li><strong>Tentative booking email sent</strong> to <?php echo htmlspecialchars($booking['guest_email']); ?> - please check your inbox</li>
+                            <li><strong>Room is on hold</strong> until <?php echo date('M j, Y \a\t g:i A', strtotime($booking['tentative_expires_at'])); ?></li>
+                            <li>You'll receive a <strong>reminder email</strong> <?php echo (int)getSetting('tentative_reminder_hours', 24); ?> hours before expiration</li>
+                            <li><strong>Contact us</strong> before expiration to confirm your booking and secure your reservation</li>
+                            <li>Once confirmed, payment of <strong><?php echo $currency_symbol; ?><?php echo number_format($booking['total_amount'], 0); ?></strong> will be collected at check-in</li>
+                        <?php else: ?>
+                            <li><strong>Confirmation email sent</strong> to <?php echo htmlspecialchars($booking['guest_email']); ?> - please check your inbox</li>
+                            <li>Our reception team will review your booking and may contact you to confirm details</li>
+                            <li>Please save your booking reference: <strong><?php echo $booking['booking_reference']; ?></strong></li>
+                            <li>Arrive on your check-in date and present your booking reference at reception</li>
+                            <li>Payment of <strong><?php echo $currency_symbol; ?><?php echo number_format($booking['total_amount'], 0); ?></strong> will be collected at check-in</li>
+                        <?php endif; ?>
+                    </ol>
+                </div>
+
+                <p style="text-align: center; margin-top: 32px; color: #999; font-size: 13px;">
+                    <i class="fas fa-question-circle"></i> Questions? Contact us at <?php echo htmlspecialchars($phone_main); ?>
                 </p>
-                <div class="expires-at">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Expires: <?php echo date('M j, Y \a\t g:i A', strtotime($booking['tentative_expires_at'])); ?>
-                </div>
             </div>
-            <?php endif; ?>
-
-            <div class="payment-info">
-                <h3><i class="fas fa-info-circle"></i> <?php echo $is_tentative ? 'Next Steps' : 'Payment Information'; ?></h3>
-                <p>
-                    <?php if ($is_tentative): ?>
-                        <strong>1. Confirm your booking:</strong> Contact us before expiration to convert this to a confirmed reservation.<br>
-                        <strong>2. Payment:</strong> Once confirmed, payment of <?php echo $currency_symbol . number_format($booking['total_amount'], 0); ?> will be collected at check-in.<br>
-                        <strong>3. Reminder:</strong> You'll receive a reminder email <?php echo (int)getSetting('tentative_reminder_hours', 24); ?> hours before expiration.<br>
-                        <strong>4. Questions?</strong> Contact us anytime at <?php echo htmlspecialchars($phone_main); ?>.
-                    <?php else: ?>
-                        <?php echo getSetting('payment_policy', 'Payment will be made at the hotel upon arrival.<br>We accept cash payments only. Please bring the total amount of <strong>' . $currency_symbol . number_format($booking['total_amount'], 0) . '</strong> with you.'); ?>
-                    <?php endif; ?>
-                </p>
-            </div>
-
-            <div class="action-buttons">
-                <a href="tel:<?php echo str_replace(' ', '', $phone_main); ?>" class="btn btn-secondary">
-                    <i class="fas fa-phone"></i> Call Hotel
-                </a>
-                <a href="https://wa.me/<?php echo $whatsapp_number; ?>?text=Hi, I have a booking (<?php echo $booking['booking_reference']; ?>)" class="btn btn-whatsapp" target="_blank">
-                    <i class="fab fa-whatsapp"></i> WhatsApp
-                </a>
-                <a href="mailto:<?php echo $email_reservations; ?>?subject=Booking <?php echo $booking['booking_reference']; ?>" class="btn btn-secondary">
-                    <i class="fas fa-envelope"></i> Email
-                </a>
-                <button onclick="window.print()" class="btn btn-secondary">
-                    <i class="fas fa-print"></i> Print
-                </button>
-                <a href="index.php" class="btn btn-primary">
-                    <i class="fas fa-home"></i> Back to Home
-                </a>
-            </div>
-
-            
-            <div class="next-steps">
-                <h3>What Happens Next?</h3>
-                <ol>
-                    <?php if ($is_tentative): ?>
-                        <li><strong>Tentative booking email sent</strong> to <?php echo htmlspecialchars($booking['guest_email']); ?> - please check your inbox</li>
-                        <li><strong>Room is on hold</strong> until <?php echo date('M j, Y \a\t g:i A', strtotime($booking['tentative_expires_at'])); ?></li>
-                        <li>You'll receive a <strong>reminder email</strong> <?php echo (int)getSetting('tentative_reminder_hours', 24); ?> hours before expiration</li>
-                        <li><strong>Contact us</strong> before expiration to confirm your booking and secure your reservation</li>
-                        <li>Once confirmed, payment of <strong><?php echo $currency_symbol; ?><?php echo number_format($booking['total_amount'], 0); ?></strong> will be collected at check-in</li>
-                    <?php else: ?>
-                        <li><strong>Confirmation email sent</strong> to <?php echo htmlspecialchars($booking['guest_email']); ?> - please check your inbox</li>
-                        <li>Our reception team will review your booking and may contact you to confirm details</li>
-                        <li>Please save your booking reference: <strong><?php echo $booking['booking_reference']; ?></strong></li>
-                        <li>Arrive on your check-in date and present your booking reference at reception</li>
-                        <li>Payment of <strong><?php echo $currency_symbol; ?><?php echo number_format($booking['total_amount'], 0); ?></strong> will be collected at check-in</li>
-                    <?php endif; ?>
-                </ol>
-            </div>
-
-            <p style="text-align: center; margin-top: 32px; color: #999; font-size: 13px;">
-                <i class="fas fa-question-circle"></i> Questions? Contact us at <?php echo htmlspecialchars($phone_main); ?>
-            </p>
         </div>
     </div>
     <?php endif; ?>
+    </main>
 
-    <script>
-        // Optional: Auto-print confirmation
-        // window.print();
-    </script>
-
+    <?php include 'includes/footer.php'; ?>
     <?php include 'includes/scroll-to-top.php'; ?>
+    
+    <script src="js/modal.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
