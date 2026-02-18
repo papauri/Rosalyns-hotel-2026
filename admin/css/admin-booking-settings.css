@@ -1,0 +1,134 @@
+/* Booking settings visual refresh */
+.page-header {
+    margin-bottom: 18px;
+}
+
+.page-title {
+    margin: 0;
+}
+
+.settings-card {
+    background: #fff;
+    border: 1px solid #e8e3d7;
+    border-radius: 14px;
+    box-shadow: 0 6px 22px rgba(18, 24, 38, 0.06);
+    padding: 20px;
+    margin-bottom: 18px;
+}
+
+.settings-card h2 {
+    margin: 0 0 16px;
+    color: #1A1A1A;
+    font-size: 1.2rem;
+}
+
+.current-value {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #f9f7f2;
+    border: 1px solid #ece5d7;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.current-value .value {
+    color: #8B7355;
+    font-weight: 700;
+}
+
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: #2b3442;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.form-control {
+    width: 100%;
+    border: 1px solid #d8d2c6;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fff;
+    color: #1f2937;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #8B7355;
+    box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.14);
+}
+
+.help-text {
+    margin: 6px 0 0;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.btn-submit {
+    border: none;
+    border-radius: 10px;
+    padding: 11px 16px;
+    background: linear-gradient(135deg, #8B7355 0%, #a78d66 100%);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-submit:hover {
+    transform: translateY(-1px);
+}
+
+.template-preview-actions {
+    margin-top: 10px;
+}
+
+.btn-preview {
+    background: linear-gradient(135deg, #1f4d7a 0%, #2a6aa5 100%);
+}
+
+.template-preview-panel {
+    margin-top: 20px;
+    border: 1px solid #dbe7f3;
+    border-radius: 12px;
+    background: #f7fbff;
+    padding: 14px;
+}
+
+.template-preview-html {
+    margin-top: 10px;
+    background: #fff;
+    border: 1px solid #dde5ef;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.template-preview-text {
+    margin-top: 12px;
+}
+
+.template-preview-text pre {
+    background: #0f172a;
+    color: #f8fafc;
+    border-radius: 8px;
+    padding: 10px;
+    overflow-x: auto;
+}
+
+.info-box {
+    background: #f8fafc;
+    border-left: 4px solid #8B7355;
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.info-box ul {
+    margin: 8px 0 0 18px;
+}
+

@@ -1,0 +1,204 @@
+/* Admin Finance Shared Theme */
+:root {
+    --finance-bg: #f7f6f3;
+    --finance-surface: #ffffff;
+    --finance-border: #e7e2d8;
+    --finance-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+    --finance-text: #1f2937;
+    --finance-muted: #6b7280;
+    --finance-accent: #8b7355;
+    --finance-accent-2: #a48a64;
+    --finance-success: #1f7a42;
+    --finance-warning: #b7791f;
+    --finance-danger: #b42318;
+    --finance-info: #1d4ed8;
+}
+
+body {
+    background: radial-gradient(circle at top right, #fdfbf7 0%, var(--finance-bg) 45%, #f3f0ea 100%);
+}
+
+.summary-cards,
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.summary-card,
+.stat-card,
+.section-card,
+.report-section,
+.detail-card,
+.filters-card,
+.filter-section,
+.form-container,
+.payment-summary-card,
+.table-container,
+.invoices-table,
+.vat-info {
+    background: var(--finance-surface);
+    border: 1px solid var(--finance-border);
+    border-radius: 14px;
+    box-shadow: var(--finance-shadow);
+}
+
+.summary-card,
+.stat-card {
+    padding: 16px 18px;
+}
+
+.summary-card .label,
+.stat-label {
+    color: var(--finance-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.summary-card .value,
+.stat-value,
+.summary-value {
+    color: var(--finance-text);
+    font-weight: 700;
+    margin-top: 8px;
+}
+
+.report-section,
+.section-card,
+.detail-card,
+.table-container,
+.invoices-table,
+.filter-section,
+.filters-card,
+.payment-summary-card,
+.vat-info,
+.form-container {
+    padding: 16px;
+    margin-bottom: 18px;
+}
+
+.table,
+.report-table,
+.invoices-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table thead th,
+.report-table thead th,
+.invoices-table thead th {
+    text-align: left;
+    padding: 11px 10px;
+    border-bottom: 1px solid var(--finance-border);
+    color: #4b5563;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table tbody td,
+.report-table tbody td,
+.invoices-table tbody td {
+    padding: 11px 10px;
+    border-bottom: 1px solid #f0ece5;
+    color: var(--finance-text);
+    vertical-align: top;
+}
+
+.badge,
+.badge-sm,
+.status-badge {
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+
+.badge-pending,
+.badge-partial { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.badge-paid,
+.badge-completed { background: #ecfdf3; color: #166534; border-color: #bbf7d0; }
+.badge-refunded,
+.badge-cancelled,
+.badge-failed { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.badge-room { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+.badge-conference { background: #f5f3ff; color: #5b21b6; border-color: #ddd6fe; }
+
+.btn,
+.btn-action,
+.btn-primary,
+.btn-secondary,
+.btn-filter,
+.btn-reset {
+    border-radius: 10px;
+}
+
+.quick-actions,
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quick-actions .btn,
+.action-buttons .btn,
+.action-buttons .btn-action {
+    border: 1px solid var(--finance-border);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.quick-actions .btn:hover,
+.action-buttons .btn:hover,
+.action-buttons .btn-action:hover {
+    transform: translateY(-1px);
+}
+
+.filter-form,
+.filters-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.filter-group input,
+.filter-group select,
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    border: 1px solid #d8d2c7;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fff;
+}
+
+.filter-group input:focus,
+.filter-group select:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--finance-accent);
+    box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.16);
+}
+
+.pagination .current {
+    background: var(--finance-accent);
+    color: #fff;
+    border-color: var(--finance-accent);
+}
+

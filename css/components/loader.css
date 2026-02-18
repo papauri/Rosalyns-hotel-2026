@@ -1,0 +1,227 @@
+/**
+ * Loader Components
+ * Rosalyn's Hotel 2026
+ * Loading spinner and progress indicators with BEM methodology
+ */
+
+/* ============================================
+   PAGE LOADER
+   ============================================ */
+
+.loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--transition-base) var(--easing-out);
+}
+
+.loader--active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ============================================
+   LOADER CONTENT
+   ============================================ */
+
+.loader__content {
+    text-align: center;
+    padding: var(--space-8);
+}
+
+.loader__title {
+    font-family: var(--font-serif);
+    font-size: var(--text-xl);
+    font-weight: var(--font-light);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-4);
+    letter-spacing: var(--tracking-tight);
+}
+
+.loader__subtitle {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-6);
+    line-height: var(--leading-relaxed);
+}
+
+/* ============================================
+   MASONRY SPINNER
+   ============================================ */
+
+.loader__spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto var(--space-6);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ============================================
+   LOADER TEXT
+   ============================================ */
+
+.loader__text {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin-top: var(--space-4);
+    font-family: var(--font-sans);
+    font-weight: var(--font-medium);
+}
+
+/* ============================================
+   LOADER PROGRESS BAR
+   ============================================ */
+
+.loader__progress {
+    width: 200px;
+    height: 4px;
+    background: var(--color-gray-200);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin: var(--space-4) auto;
+}
+
+.loader__progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-dark) 50%, var(--color-primary) 100%);
+    border-radius: var(--radius-full);
+    width: 0%;
+    animation: progress 2s ease-in-out infinite;
+}
+
+@keyframes progress {
+    0% { width: 0%; }
+    50% { width: 75%; }
+    100% { width: 100%; }
+}
+
+/* ============================================
+   LOADER ANIMATIONS
+   ============================================ */
+
+.loader--fade {
+    transition: opacity var(--transition-slow) var(--easing-out);
+}
+
+.loader--slide {
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all var(--transition-base) var(--easing-out);
+}
+
+.loader--fade.loader--active,
+.loader--slide.loader--active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+    .loader__content {
+        padding: var(--space-6);
+    }
+    
+    .loader__title {
+        font-size: var(--text-lg);
+    }
+    
+    .loader__subtitle {
+        font-size: var(--text-sm);
+        margin-bottom: var(--space-4);
+    }
+    
+    .loader__spinner {
+        width: 40px;
+        height: 40px;
+        margin: var(--space-4) auto;
+    }
+    
+    .loader__progress {
+        width: 150px;
+    }
+}
+
+@media (max-width: 480px) {
+    .loader__content {
+        padding: var(--space-4);
+    }
+    
+    .loader__title {
+        font-size: var(--text-base);
+    }
+    
+    .loader__subtitle {
+        margin-bottom: var(--space-3);
+    }
+    
+    .loader__spinner {
+        width: 32px;
+        height: 32px;
+        margin: var(--space-3) auto;
+    }
+    
+    .loader__progress {
+        width: 120px;
+    }
+}
+
+/* ============================================
+   ACCESSIBILITY & REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .loader {
+        transition: none;
+    }
+    
+    .loader__spinner {
+        animation: none;
+        border-top-color: var(--color-text-secondary);
+    }
+    
+    .loader__progress-bar {
+        animation: none;
+        width: 50%; /* Show half progress without animation */
+    }
+}
+
+/* ============================================
+   HIGH CONTRAST MODE
+   ============================================ */
+
+@media (prefers-contrast: high) {
+    .loader {
+        background: rgba(255, 255, 255, 0.98);
+    }
+    
+    .loader__spinner {
+        border-width: 4px;
+        border-top-width: 4px;
+    }
+    
+    .loader__progress {
+        background: var(--color-gray-300);
+        border: 2px solid var(--color-text-primary);
+    }
+}

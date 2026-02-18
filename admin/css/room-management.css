@@ -1,0 +1,223 @@
+/* Room Management page specific refinements */
+
+.page-header-row {
+    background: var(--admin-surface, #fff);
+    border: 1px solid var(--admin-surface-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.page-header-row .page-title {
+    margin: 0;
+}
+
+.room-cards-grid {
+    margin-top: 12px;
+}
+
+.room-card {
+    position: relative;
+}
+
+.drag-handle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: rgba(17, 24, 39, 0.4);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+}
+
+.room-card.dragging .drag-handle {
+    cursor: grabbing;
+}
+
+.order-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(17, 24, 39, 0.72);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.room-card-image,
+.no-image-placeholder {
+    height: 190px;
+    width: 100%;
+}
+
+.room-card-image {
+    object-fit: cover;
+    display: block;
+}
+
+.no-image-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #f6f7fb, #eceff6);
+    color: #7a8090;
+}
+
+.no-image-placeholder i {
+    font-size: 24px;
+}
+
+.room-card-desc {
+    min-height: 34px;
+    margin-bottom: 8px;
+}
+
+.room-card-price {
+    margin-bottom: 10px;
+}
+
+.room-card-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    margin-bottom: 10px;
+}
+
+.detail-item {
+    font-size: 12px;
+    color: #4b5563;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.room-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.room-badge {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+}
+
+.badge-video {
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+.room-card-actions .btn-action {
+    min-height: 34px;
+    border-radius: 8px;
+}
+
+.room-card-actions .btn-edit {
+    flex: 1 1 auto;
+}
+
+.modal-content {
+    max-width: 920px;
+    width: min(920px, calc(100vw - 32px));
+}
+
+#imageModal .modal-content,
+#videoModal .modal-content {
+    max-width: 760px;
+}
+
+.modal-body {
+    padding: 18px;
+}
+
+.form-section {
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--admin-surface-border, #e5e7eb);
+}
+
+.form-section-title {
+    font-weight: 700;
+    color: var(--navy, #1f2937);
+    margin-bottom: 12px;
+}
+
+.form-row,
+.form-row-3,
+.checkbox-row {
+    display: grid;
+    gap: 12px;
+}
+
+.form-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-row-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.checkbox-row {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 18px 20px;
+    border-top: 1px solid var(--admin-surface-border, #e5e7eb);
+}
+
+.current-image {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--admin-surface-border, #e5e7eb);
+}
+
+.upload-area {
+    border: 2px dashed #d6dbe6;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    background: #fafbff;
+    cursor: pointer;
+    transition: border-color .2s ease, background .2s ease;
+}
+
+.upload-area:hover {
+    border-color: var(--gold, #8B7355);
+    background: #f5f8ff;
+}
+
+@media (max-width: 900px) {
+    .form-row,
+    .form-row-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .room-card-details {
+        grid-template-columns: 1fr;
+    }
+}
+

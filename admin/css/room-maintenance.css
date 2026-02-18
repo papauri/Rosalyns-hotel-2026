@@ -1,0 +1,63 @@
+.filters-bar form select {
+    min-width: 200px;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-pill.planned { background: #eef2ff; color: #3747a5; }
+.status-pill.in_progress { background: #fff4e5; color: #a46200; }
+.status-pill.completed { background: #e8f7ee; color: #1f7a45; }
+.status-pill.cancelled { background: #f4f5f7; color: #5d6878; }
+
+.maintenance-modal-content {
+    width: min(760px, 94vw);
+}
+
+.maintenance-modal-content h3 {
+    margin: 0 0 14px;
+    color: var(--navy, #1f2d3d);
+}
+
+.maintenance-modal-content .form-group {
+    margin-bottom: 12px;
+}
+
+.maintenance-modal-content .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #394656;
+}
+
+.maintenance-modal-content input,
+.maintenance-modal-content select,
+.maintenance-modal-content textarea {
+    width: 100%;
+    border: 1px solid #dbe2ea;
+    border-radius: 8px;
+    padding: 9px 10px;
+}
+
+.maintenance-modal-content .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.maintenance-modal-content .modal-body {
+    max-height: min(72vh, 720px);
+    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    .maintenance-modal-content .form-row {
+        grid-template-columns: 1fr;
+    }
+}
