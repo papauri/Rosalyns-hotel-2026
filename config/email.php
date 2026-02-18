@@ -7,6 +7,11 @@
 // Require database connection for settings
 require_once __DIR__ . '/database.php';
 
+// WhatsApp notification functions
+if (file_exists(__DIR__ . '/../includes/whatsapp-functions.php')) {
+    require_once __DIR__ . '/../includes/whatsapp-functions.php';
+}
+
 // Load PHPMailer
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -117,7 +122,7 @@ function sendEmail($to, $toName, $subject, $htmlBody, $textBody = '') {
         // Content
         $mail->isHTML(true);
         $mail->Subject = $subject;
-        $mail->Body = $htmlBody;
+        $mail->Body = wrapEmailTemplate($htmlBody, $subject);
         $mail->AltBody = $textBody ?: strip_tags($htmlBody);
         
         $mail->send();
@@ -754,12 +759,27 @@ function sendBookingConfirmedEmail($booking) {
         </div>';
         
         // Send email
-        return sendEmail(
+        $emailResult = sendEmail(
             $booking['guest_email'],
             $booking['guest_name'],
             'Booking Confirmed - ' . htmlspecialchars($email_site_name) . ' [' . $booking['booking_reference'] . ']',
             $htmlBody
         );
+        
+        // Send WhatsApp notification if enabled
+        $whatsappResult = ['guest' => ['success' => false, 'message' => 'WhatsApp not available'], 'hotel' => ['success' => false, 'message' => 'WhatsApp not available']];
+        if (function_exists('sendBookingConfirmedWhatsApp') && function_exists('isWhatsAppEnabled') && isWhatsAppEnabled()) {
+            $bookingForWhatsApp = $booking;
+            $bookingForWhatsApp['room_name'] = $room['name'];
+            $whatsappResult = sendBookingConfirmedWhatsApp($bookingForWhatsApp, $room);
+        }
+        
+        return [
+            'success' => $emailResult['success'],
+            'message' => $emailResult['message'],
+            'whatsapp_guest_sent' => $whatsappResult['guest']['success'] ?? false,
+            'whatsapp_hotel_sent' => $whatsappResult['hotel']['success'] ?? false
+        ];
         
     } catch (Exception $e) {
         error_log("Send Booking Confirmed Email Error: " . $e->getMessage());
@@ -1776,7 +1796,7 @@ function sendBookingCancelledEmail($booking, $cancellation_reason = '') {
         $ccEmails = getCCEmails();
         
         // Send email with CC to admin/invoice recipients
-        return sendEmailWithCC(
+        $emailResult = sendEmailWithCC(
             $booking['guest_email'],
             $booking['guest_name'],
             'Booking Cancelled - ' . htmlspecialchars($email_site_name) . ' [' . $booking['booking_reference'] . ']',
@@ -1784,6 +1804,21 @@ function sendBookingCancelledEmail($booking, $cancellation_reason = '') {
             '',
             $ccEmails
         );
+        
+        // Send WhatsApp notification if enabled
+        $whatsappResult = ['guest' => ['success' => false, 'message' => 'WhatsApp not available'], 'hotel' => ['success' => false, 'message' => 'WhatsApp not available']];
+        if (function_exists('sendBookingCancelledWhatsApp') && function_exists('isWhatsAppEnabled') && isWhatsAppEnabled()) {
+            $bookingForWhatsApp = $booking;
+            $bookingForWhatsApp['room_name'] = $room['name'];
+            $whatsappResult = sendBookingCancelledWhatsApp($bookingForWhatsApp, $room, $cancellation_reason);
+        }
+        
+        return [
+            'success' => $emailResult['success'],
+            'message' => $emailResult['message'],
+            'whatsapp_guest_sent' => $whatsappResult['guest']['success'] ?? false,
+            'whatsapp_hotel_sent' => $whatsappResult['hotel']['success'] ?? false
+        ];
         
     } catch (Exception $e) {
         error_log("Send Booking Cancelled Email Error: " . $e->getMessage());
@@ -1845,7 +1880,7 @@ function sendEmailWithCC($to, $toName, $subject, $htmlBody, $textBody = '', $ccE
         // Content
         $mail->isHTML(true);
         $mail->Subject = $subject;
-        $mail->Body = $htmlBody;
+        $mail->Body = wrapEmailTemplate($htmlBody, $subject);
         $mail->AltBody = $textBody ?: strip_tags($htmlBody);
         
         $mail->send();
@@ -2834,6 +2869,123 @@ function sendGymAdminNotificationEmail($data) {
             'message' => $e->getMessage()
         ];
     }
+}
+
+/**
+ * Get hotel logo URL for emails
+ */
+function getHotelLogoUrl() {
+    $logo_url = getSetting('logo_url', '');
+    $site_url = getSetting('site_url', '');
+    
+    // If logo is a relative path, make it absolute
+    if (!empty($logo_url) && strpos($logo_url, 'http') !== 0) {
+        $logo_url = rtrim($site_url, '/') . '/' . ltrim($logo_url, '/');
+    }
+    
+    return $logo_url;
+}
+
+/**
+ * Wrap email content with beautiful hotel branding template
+ * 
+ * @param string $content The email body content
+ * @param string $title Optional email title/heading
+ * @return string Wrapped HTML email
+ */
+function wrapEmailTemplate($content, $title = '') {
+    global $email_site_name, $email_site_url, $email_from_email;
+    
+    $site_name = $email_site_name ?: getSetting('site_name', 'Our Hotel');
+    $site_url = $email_site_url ?: getSetting('site_url', '');
+    $contact_email = $email_from_email ?: getSetting('email_main', '');
+    $phone = getSetting('phone_main', '');
+    $logo_url = getHotelLogoUrl();
+    
+    // Brand colors
+    $primary_color = '#1A1A1A';
+    $accent_color = '#8B7355';
+    $light_bg = '#f8f9fa';
+    
+    $logo_html = '';
+    if (!empty($logo_url)) {
+        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($site_name) . '" style="max-width: 180px; height: auto; margin-bottom: 15px;">';
+    }
+    
+    $html = '<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>' . htmlspecialchars($title ?: $site_name) . '</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+    <!-- Outer container -->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f4;">
+        <tr>
+            <td style="padding: 20px 0;">
+                <!-- Email container -->
+                <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, ' . $primary_color . ' 0%, #333333 100%); padding: 30px 40px; text-align: center;">
+                            ' . $logo_html . '
+                            ' . (empty($logo_html) ? '<h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: 1px;">' . htmlspecialchars($site_name) . '</h1>' : '') . '
+                        </td>
+                    </tr>
+                    
+                    <!-- Accent bar -->
+                    <tr>
+                        <td style="height: 4px; background: linear-gradient(90deg, ' . $accent_color . ' 0%, #a68b5b 50%, ' . $accent_color . ' 100%);"></td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            ' . $content . '
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: ' . $light_bg . '; padding: 30px 40px; border-top: 1px solid #e0e0e0;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="text-align: center;">
+                                        <p style="margin: 0 0 10px 0; color: ' . $primary_color . '; font-size: 16px; font-weight: 600;">
+                                            ' . htmlspecialchars($site_name) . '
+                                        </p>
+                                        <p style="margin: 0 0 15px 0; color: #666666; font-size: 14px;">
+                                            ' . (!empty($phone) ? '<span style="margin-right: 15px;"><a href="tel:' . htmlspecialchars($phone) . '" style="color: ' . $accent_color . '; text-decoration: none;">📞 ' . htmlspecialchars($phone) . '</a></span>' : '') . '
+                                            ' . (!empty($contact_email) ? '<span><a href="mailto:' . htmlspecialchars($contact_email) . '" style="color: ' . $accent_color . '; text-decoration: none;">✉️ ' . htmlspecialchars($contact_email) . '</a></span>' : '') . '
+                                        </p>
+                                        <p style="margin: 0;">
+                                            <a href="' . htmlspecialchars($site_url) . '" style="color: ' . $accent_color . '; text-decoration: none; font-size: 14px;">🌐 ' . htmlspecialchars($site_url) . '</a>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Bottom bar -->
+                    <tr>
+                        <td style="background-color: ' . $primary_color . '; padding: 15px 40px; text-align: center;">
+                            <p style="margin: 0; color: #888888; font-size: 12px;">
+                                © ' . date('Y') . ' ' . htmlspecialchars($site_name) . '. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>';
+    
+    return $html;
 }
 
 /**

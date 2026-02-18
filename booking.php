@@ -714,7 +714,7 @@ try {
         <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] . (isset($_GET['room_id']) ? '?room_id=' . (int)$_GET['room_id'] : '')); ?>" class="booking-form-card" id="bookingForm">
             <!-- Room Selection (hidden if pre-selected) -->
             <?php if (!$preselected_room): ?>
-            <div class="form-section">
+            <div class="form-section form-section--room">
                 <h3 class="form-section-title"><i class="fas fa-bed"></i> Select Your Room</h3>
                 <div class="room-selection">
                     <?php foreach ($available_rooms as $room): ?>

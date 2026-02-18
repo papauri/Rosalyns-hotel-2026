@@ -109,6 +109,9 @@ function _canShowNavItem($permission_key) {
         <?php if (_canShowNavItem('booking_settings')): ?>
         <li><a href="booking-settings.php" class="<?php echo $current_page === 'booking-settings.php' ? 'active' : ''; ?>"><i class="fas fa-cog"></i> Booking Settings</a></li>
         <?php endif; ?>
+        <?php if (_canShowNavItem('booking_settings')): ?>
+        <li><a href="whatsapp-settings.php" class="<?php echo $current_page === 'whatsapp-settings.php' ? 'active' : ''; ?>"><i class="fab fa-whatsapp" style="color: #25D366;"></i> WhatsApp Settings</a></li>
+        <?php endif; ?>
         <?php if (_canShowNavItem('pages')): ?>
         <li><a href="page-management.php" class="<?php echo $current_page === 'page-management.php' ? 'active' : ''; ?>"><i class="fas fa-file-alt"></i> Page Management</a></li>
         <?php endif; ?>

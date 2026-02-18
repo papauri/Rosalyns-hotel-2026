@@ -46,6 +46,7 @@ if (!$auth->checkPermission($client, 'bookings.create')) {
 }
 
 require_once __DIR__ . '/../includes/booking-functions.php';
+require_once __DIR__ . '/../includes/whatsapp-functions.php';
 if (!isBookingEnabled()) {
     ApiResponse::error('Booking system is currently disabled', 503);
 }
@@ -316,6 +317,16 @@ try {
         // Send notification to admin
         $adminResult = sendAdminNotificationEmail($bookingForEmail);
         
+        // Send WhatsApp notifications (to both guest and hotel)
+        $bookingForWhatsApp = $bookingForEmail;
+        $bookingForWhatsApp['room_name'] = $room['name'];
+        
+        if ($bookingType === 'tentative') {
+            $whatsappResult = sendTentativeWhatsAppNotifications($bookingForWhatsApp, $room);
+        } else {
+            $whatsappResult = sendBookingWhatsAppNotifications($bookingForWhatsApp, $room);
+        }
+        
         // Fetch the created booking
         $fetchStmt = $pdo->prepare("
             SELECT 
@@ -376,7 +387,11 @@ try {
                 'guest_email_sent' => $emailResult['success'],
                 'admin_email_sent' => $adminResult['success'],
                 'guest_email_message' => $emailResult['message'],
-                'admin_email_message' => $adminResult['message']
+                'admin_email_message' => $adminResult['message'],
+                'whatsapp_guest_sent' => $whatsappResult['guest']['success'] ?? false,
+                'whatsapp_hotel_sent' => $whatsappResult['hotel']['success'] ?? false,
+                'whatsapp_guest_message' => $whatsappResult['guest']['message'] ?? '',
+                'whatsapp_hotel_message' => $whatsappResult['hotel']['message'] ?? ''
             ],
             'next_steps' => []
         ];
