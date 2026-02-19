@@ -540,8 +540,6 @@ function resolveConferenceImage(?string $imagePath): string
 
     <?php include 'includes/footer.php'; ?>
     
-    <!-- Unified Navigation System - MUST LOAD FIRST -->
-    <script src="js/navigation-unified.js" defer></script>
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
     <script>

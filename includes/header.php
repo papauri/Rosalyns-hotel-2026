@@ -192,7 +192,7 @@ if ($header_logo_kicker === '') {
     </div>
     
     <nav class="header__mobile-nav" aria-label="Mobile navigation">
-        <p class="header__mobile-eyebrow">Rosalyn's Hotel</p>
+        <p class="header__mobile-eyebrow"><?php echo htmlspecialchars($site_name); ?></p>
         <ul class="header__mobile-list">
             <?php foreach ($_nav_pages as $navp): ?>
             <li class="header__mobile-item">

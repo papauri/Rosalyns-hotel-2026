@@ -11,7 +11,7 @@ try {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS booking_timeline_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            booking_id INT NOT NULL,
+            booking_id INT UNSIGNED NOT NULL,
             booking_reference VARCHAR(50) NOT NULL,
             action VARCHAR(100) NOT NULL,
             action_type ENUM('create', 'update', 'status_change', 'payment', 'cancellation', 'email', 'check_in', 'check_out', 'conversion', 'reminder', 'expiry', 'note') NOT NULL,
@@ -38,7 +38,7 @@ try {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS cancellation_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            booking_id INT NOT NULL,
+            booking_id INT UNSIGNED NOT NULL,
             booking_reference VARCHAR(50) NOT NULL,
             booking_type ENUM('room', 'conference') NOT NULL DEFAULT 'room',
             guest_email VARCHAR(254) NOT NULL,
@@ -80,7 +80,7 @@ try {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS booking_payments (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            booking_id INT NOT NULL,
+            booking_id INT UNSIGNED NOT NULL,
             booking_reference VARCHAR(50) NOT NULL,
             payment_type ENUM('deposit', 'full', 'partial', 'refund') NOT NULL,
             amount DECIMAL(12, 2) NOT NULL,

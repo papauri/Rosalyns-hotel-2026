@@ -149,9 +149,14 @@
                 document.body.style.overflow = '';
             };
 
-            toggleBtn.addEventListener('click', () =>
-                panel.classList.contains('header__mobile--active') ? close() : open()
-            );
+            toggleBtn.addEventListener('click', () => {
+                const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                if (isExpanded) {
+                    close();
+                } else {
+                    open();
+                }
+            });
             closeBtn?.addEventListener('click', close);
             overlay?.addEventListener('click', close);
             document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });

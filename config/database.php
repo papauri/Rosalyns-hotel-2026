@@ -1584,7 +1584,7 @@ function isRoomAvailable($room_id, $check_in_date, $check_out_date, $exclude_boo
         // Check for blocked dates (both room-specific and global blocks)
         $blocked_sql = "
             SELECT COUNT(*) as blocked_dates
-            FROM room_blocked_dates
+            FROM blocked_dates
             WHERE block_date >= ? AND block_date < ?
             AND (room_id = ? OR room_id IS NULL)
         ";
@@ -1687,9 +1687,9 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
                 id,
                 room_id,
                 block_date,
-                block_type,
+                reason as block_type,
                 reason
-            FROM room_blocked_dates
+            FROM blocked_dates
             WHERE block_date >= ? AND block_date < ?
             AND (room_id = ? OR room_id IS NULL)
             ORDER BY block_date ASC
@@ -1975,38 +1975,38 @@ function getBlockedDates($room_id = null, $start_date = null, $end_date = null) 
     try {
         $sql = "
             SELECT
-                rbd.id,
-                rbd.room_id,
+                bd.id,
+                bd.room_id,
                 r.name as room_name,
-                rbd.block_date,
-                rbd.block_type,
-                rbd.reason,
-                rbd.created_by,
+                bd.block_date,
+                bd.reason as block_type,
+                bd.reason,
+                bd.blocked_by as created_by,
                 au.username as created_by_name,
-                rbd.created_at
-            FROM room_blocked_dates rbd
-            LEFT JOIN rooms r ON rbd.room_id = r.id
-            LEFT JOIN admin_users au ON rbd.created_by = au.id
+                bd.created_at
+            FROM blocked_dates bd
+            LEFT JOIN rooms r ON bd.room_id = r.id
+            LEFT JOIN admin_users au ON bd.blocked_by = au.id
             WHERE 1=1
         ";
         $params = [];
         
         if ($room_id !== null) {
-            $sql .= " AND (rbd.room_id = ? OR rbd.room_id IS NULL)";
+            $sql .= " AND (bd.room_id = ? OR bd.room_id IS NULL)";
             $params[] = $room_id;
         }
         
         if ($start_date !== null) {
-            $sql .= " AND rbd.block_date >= ?";
+            $sql .= " AND bd.block_date >= ?";
             $params[] = $start_date;
         }
         
         if ($end_date !== null) {
-            $sql .= " AND rbd.block_date <= ?";
+            $sql .= " AND bd.block_date <= ?";
             $params[] = $end_date;
         }
         
-        $sql .= " ORDER BY rbd.block_date ASC, rbd.room_id ASC";
+        $sql .= " ORDER BY bd.block_date ASC, bd.room_id ASC";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -2045,7 +2045,7 @@ function getAvailableDates($room_id, $start_date, $end_date) {
         // Get blocked dates
         $blocked_sql = "
             SELECT block_date
-            FROM room_blocked_dates
+            FROM blocked_dates
             WHERE block_date >= ? AND block_date <= ?
             AND (room_id = ? OR room_id IS NULL)
         ";
@@ -2114,15 +2114,9 @@ function blockRoomDate($room_id, $block_date, $block_type = 'manual', $reason = 
     global $pdo;
     
     try {
-        // Validate block type
-        $valid_types = ['maintenance', 'event', 'manual', 'full'];
-        if (!in_array($block_type, $valid_types)) {
-            $block_type = 'manual';
-        }
-        
         // Check if date is already blocked
         $check_sql = "
-            SELECT id FROM room_blocked_dates
+            SELECT id FROM blocked_dates
             WHERE room_id " . ($room_id === null ? "IS NULL" : "= ?") . "
             AND block_date = ?
         ";
@@ -2134,12 +2128,12 @@ function blockRoomDate($room_id, $block_date, $block_type = 'manual', $reason = 
         if ($check_stmt->fetch()) {
             // Date already blocked, update instead
             $update_sql = "
-                UPDATE room_blocked_dates
-                SET block_type = ?, reason = ?, created_by = ?
+                UPDATE blocked_dates
+                SET reason = ?, blocked_by = ?
                 WHERE room_id " . ($room_id === null ? "IS NULL" : "= ?") . "
                 AND block_date = ?
             ";
-            $update_params = [$block_type, $reason, $created_by];
+            $update_params = [$reason, $created_by];
             if ($room_id !== null) {
                 $update_params[] = $room_id;
             }
@@ -2151,11 +2145,11 @@ function blockRoomDate($room_id, $block_date, $block_type = 'manual', $reason = 
         
         // Insert new blocked date
         $sql = "
-            INSERT INTO room_blocked_dates (room_id, block_date, block_type, reason, created_by)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO blocked_dates (room_id, block_date, reason, blocked_by)
+            VALUES (?, ?, ?, ?)
         ";
         $stmt = $pdo->prepare($sql);
-        return $stmt->execute([$room_id, $block_date, $block_type, $reason, $created_by]);
+        return $stmt->execute([$room_id, $block_date, $reason, $created_by]);
     } catch (PDOException $e) {
         error_log("Error blocking room date: " . $e->getMessage());
         return false;
@@ -2171,7 +2165,7 @@ function unblockRoomDate($room_id, $block_date) {
     
     try {
         $sql = "
-            DELETE FROM room_blocked_dates
+            DELETE FROM blocked_dates
             WHERE room_id " . ($room_id === null ? "IS NULL" : "= ?") . "
             AND block_date = ?
         ";

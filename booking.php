@@ -1375,8 +1375,13 @@ try {
             
             // Update occupancy prices for this room
             updateOccupancyPrices(roomId);
-            applyOccupancyAvailability(room);
-            applyChildrenPolicy(room);
+            
+            // Find the room data from roomsData array
+            const room = roomsData.find(r => r.id === roomId);
+            if (room) {
+                applyOccupancyAvailability(room);
+                applyChildrenPolicy(room);
+            }
             
             // Get current occupancy type and set price
             updatePriceBasedOnOccupancy();
@@ -1683,7 +1688,228 @@ try {
             selectBookingType('standard');
             enforceChildGuestRules();
             validateFormForSubmit();
+            initInstantValidation();
         });
+
+        // Instant field validation for better UX
+        function initInstantValidation() {
+            const nameInput = document.getElementById('guest_name');
+            const emailInput = document.getElementById('guest_email');
+            const phoneInput = document.getElementById('guest_phone');
+
+            // Name validation - at least 2 characters, letters/spaces/hyphens only
+            if (nameInput) {
+                nameInput.addEventListener('input', function() {
+                    validateNameField(this);
+                });
+                nameInput.addEventListener('blur', function() {
+                    validateNameField(this);
+                });
+            }
+
+            // Email validation
+            if (emailInput) {
+                emailInput.addEventListener('input', function() {
+                    validateEmailField(this);
+                });
+                emailInput.addEventListener('blur', function() {
+                    validateEmailField(this);
+                });
+            }
+
+            // Phone validation
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function() {
+                    validatePhoneField(this);
+                });
+                phoneInput.addEventListener('blur', function() {
+                    validatePhoneField(this);
+                });
+            }
+        }
+
+        function validateNameField(input) {
+            const value = input.value.trim();
+            const feedback = getOrCreateFeedback(input, 'name-feedback');
+            
+            // Remove previous state
+            input.classList.remove('is-valid', 'is-invalid');
+            
+            if (value === '') {
+                feedback.textContent = '';
+                feedback.className = 'field-feedback';
+                return false;
+            }
+            
+            // Check minimum length
+            if (value.length < 2) {
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Name must be at least 2 characters';
+                feedback.className = 'field-feedback text-danger';
+                return false;
+            }
+            
+            // Check for valid characters (letters, spaces, hyphens, apostrophes)
+            const namePattern = /^[a-zA-Z\s\-'\u00C0-\u017F\u0400-\u04FF]+$/;
+            if (!namePattern.test(value)) {
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Name can only contain letters, spaces, hyphens';
+                feedback.className = 'field-feedback text-danger';
+                return false;
+            }
+            
+            // Valid
+            input.classList.add('is-valid');
+            feedback.textContent = '✓ Looks good';
+            feedback.className = 'field-feedback text-success';
+            return true;
+        }
+
+        function validateEmailField(input) {
+            const value = input.value.trim();
+            const feedback = getOrCreateFeedback(input, 'email-feedback');
+            
+            // Remove previous state
+            input.classList.remove('is-valid', 'is-invalid');
+            
+            if (value === '') {
+                feedback.textContent = '';
+                feedback.className = 'field-feedback';
+                return false;
+            }
+            
+            // Comprehensive email regex
+            const emailPattern = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+            
+            if (!emailPattern.test(value)) {
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Please enter a valid email address';
+                feedback.className = 'field-feedback text-danger';
+                return false;
+            }
+            
+            // Check for common typos
+            const commonDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com'];
+            const domain = value.split('@')[1]?.toLowerCase();
+            const suggestions = {
+                'gmial.com': 'gmail.com',
+                'gmal.com': 'gmail.com',
+                'gmal.com': 'gmail.com',
+                'gmali.com': 'gmail.com',
+                'yaho.com': 'yahoo.com',
+                'yahooo.com': 'yahoo.com',
+                'hotmal.com': 'hotmail.com',
+                'hotmil.com': 'hotmail.com',
+                'outlok.com': 'outlook.com',
+                'iclod.com': 'icloud.com',
+                'icluod.com': 'icloud.com'
+            };
+            
+            if (suggestions[domain]) {
+                input.classList.add('is-invalid');
+                feedback.innerHTML = `Did you mean <strong>${value.split('@')[0]}@${suggestions[domain]}</strong>?`;
+                feedback.className = 'field-feedback text-warning';
+                return false;
+            }
+            
+            // Valid
+            input.classList.add('is-valid');
+            feedback.textContent = '✓ Valid email';
+            feedback.className = 'field-feedback text-success';
+            return true;
+        }
+
+        function validatePhoneField(input) {
+            const value = input.value.trim();
+            const feedback = getOrCreateFeedback(input, 'phone-feedback');
+            
+            // Remove previous state
+            input.classList.remove('is-valid', 'is-invalid');
+            
+            if (value === '') {
+                feedback.textContent = '';
+                feedback.className = 'field-feedback';
+                return false;
+            }
+            
+            // Remove all non-digit and non-plus characters for validation
+            const cleanNumber = value.replace(/[\s\-\(\)\.]/g, '');
+            
+            // Check for valid phone format
+            // Allows: +265999123456, 265999123456, 0999123456, +1-234-567-8900
+            const phonePattern = /^\+?[0-9]{8,15}$/;
+            
+            if (!phonePattern.test(cleanNumber)) {
+                input.classList.add('is-invalid');
+                if (cleanNumber.length < 8) {
+                    feedback.textContent = 'Phone number is too short (min 8 digits)';
+                } else if (cleanNumber.length > 15) {
+                    feedback.textContent = 'Phone number is too long (max 15 digits)';
+                } else {
+                    feedback.textContent = 'Please enter a valid phone number';
+                }
+                feedback.className = 'field-feedback text-danger';
+                return false;
+            }
+            
+            // Check for obviously invalid patterns
+            if (/^0+$/.test(cleanNumber) || /^1+$/.test(cleanNumber) || /^(\d)\1+$/.test(cleanNumber.replace('+', ''))) {
+                input.classList.add('is-invalid');
+                feedback.textContent = 'Please enter a real phone number';
+                feedback.className = 'field-feedback text-danger';
+                return false;
+            }
+            
+            // Valid - format display
+            input.classList.add('is-valid');
+            feedback.textContent = '✓ Valid phone number';
+            feedback.className = 'field-feedback text-success';
+            return true;
+        }
+
+        function getOrCreateFeedback(input, id) {
+            let feedback = document.getElementById(id);
+            if (!feedback) {
+                feedback = document.createElement('small');
+                feedback.id = id;
+                feedback.className = 'field-feedback';
+                input.parentNode.appendChild(feedback);
+            }
+            return feedback;
+        }
+
+        // Override validateFormForSubmit to include instant validation
+        const originalValidateFormForSubmit = validateFormForSubmit;
+        validateFormForSubmit = function() {
+            const checkIn = document.getElementById('check_in_date').value;
+            const checkOut = document.getElementById('check_out_date').value;
+            const numGuests = document.getElementById('number_of_guests').value;
+            const childGuests = parseInt(document.getElementById('child_guests').value || '0', 10);
+            const submitBtn = document.querySelector('.btn-submit');
+
+            const totalGuestsInt = parseInt(numGuests || '0', 10);
+            const adultsInt = totalGuestsInt - childGuests;
+            const childValid = childGuests >= 0 && childGuests < totalGuestsInt;
+
+            // Check instant validation fields
+            const nameInput = document.getElementById('guest_name');
+            const emailInput = document.getElementById('guest_email');
+            const phoneInput = document.getElementById('guest_phone');
+            
+            const nameValid = nameInput && nameInput.classList.contains('is-valid');
+            const emailValid = emailInput && emailInput.classList.contains('is-valid');
+            const phoneValid = phoneInput && phoneInput.classList.contains('is-valid');
+
+            if (selectedRoomId && checkIn && checkOut && numGuests && childValid && adultsInt >= 1 && nameValid && emailValid && phoneValid) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Booking';
+                submitBtn.style.opacity = '1';
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Complete All Fields';
+                submitBtn.style.opacity = '0.6';
+            }
+        };
     </script>
 
     <?php include 'includes/scroll-to-top.php'; ?>

@@ -46,6 +46,7 @@
 
 @import url('./utilities/animations.css');
 @import url('./utilities/inline-styles.css');
+@import url('./utilities/mobile-enhancements.css');
 
 /* ============================================
    LEGACY SUPPORT

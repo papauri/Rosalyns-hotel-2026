@@ -96,76 +96,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update every minute
     setInterval(updateTimeAndTemp, 60000);
 
-    // Mobile menu functionality
-    const mobileMenuBtn = document.querySelector('[data-mobile-toggle]');
-    const mobileMenu = document.querySelector('.header__mobile');
-    const mobileMenuOverlay = document.querySelector('[data-mobile-overlay]');
-    const mobileMenuClose = document.querySelector('[data-mobile-close]');
-
-    if (mobileMenuBtn && mobileMenu) {
-        const setMenuOpen = (open) => {
-            mobileMenu.classList.toggle('header__mobile--active', open);
-            if (mobileMenuOverlay) mobileMenuOverlay.classList.toggle('header__overlay--active', open);
-
-            mobileMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-            mobileMenuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Toggle navigation menu');
-
-            // Trap focus in menu when open
-            if (open) {
-                document.body.style.overflow = 'hidden';
-                // Focus first menu item
-                const firstLink = mobileMenu.querySelector('.header__mobile-link');
-                if (firstLink) firstLink.focus();
-            } else {
-                document.body.style.overflow = '';
-                // Return focus to toggle button
-                mobileMenuBtn.focus();
-            }
-        };
-
-        const isMenuOpen = () => mobileMenu.classList.contains('header__mobile--active');
-
-        // Primary toggle
-        mobileMenuBtn.addEventListener('click', function() {
-            setMenuOpen(!isMenuOpen());
-        });
-
-        // Close menu when clicking overlay
-        if (mobileMenuOverlay) {
-            mobileMenuOverlay.addEventListener('click', function() {
-                setMenuOpen(false);
-            });
-        }
-
-        // Close menu when clicking close button
-        if (mobileMenuClose) {
-            mobileMenuClose.addEventListener('click', function() {
-                setMenuOpen(false);
-            });
-        }
-
-        // Close menu when clicking on a link
-        const menuLinks = mobileMenu.querySelectorAll('.header__mobile-link');
-        menuLinks.forEach(link => {
-            link.addEventListener('click', function() {
-                setMenuOpen(false);
-            });
-        });
-
-        // Close on ESC
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && isMenuOpen()) {
-                setMenuOpen(false);
-            }
-        });
-
-        // Safety: if we resize to desktop breakpoint, force-close and unlock scroll
-        window.addEventListener('resize', function() {
-            if (window.innerWidth >= 1024 && isMenuOpen()) {
-                setMenuOpen(false);
-            }
-        });
-    }
+    // Mobile menu functionality is handled by js/navigation-unified.js
+    // This prevents conflicts between multiple navigation systems
     
     // Hero carousel
     const heroSlides = document.querySelectorAll('.hero-slide');

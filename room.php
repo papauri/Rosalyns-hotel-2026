@@ -210,6 +210,9 @@ try {
     <!-- Main CSS - Loads all stylesheets in correct order -->
     <link rel="stylesheet" href="css/base/critical.css">
     <link rel="stylesheet" href="css/main.css">
+    
+    <!-- Swiper CSS for Modern Carousel -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     </head>
 <body class="rooms-page">
     <?php include 'includes/loader.php'; ?>
@@ -265,31 +268,99 @@ try {
             
             if ($has_gallery_content): 
             ?>
-            <h3 class="room-gallery-title">Room Gallery</h3>
-            <div class="room-gallery-grid">
-                <?php 
-                // Display room video first if available
-                if ($room_has_video): 
-                ?>
-                <div class="gallery-item gallery-item-video">
-                    <?php echo renderVideoEmbed($room['video_path'], $room['video_type'], [
-                        'autoplay' => false,
-                        'muted' => false,
-                        'controls' => true,
-                        'loop' => false,
-                        'class' => 'room-gallery-video',
-                        'class' => 'room-gallery-video'
-                    ]); ?>
-                    <div class="gallery-item-label">Room Video Tour</div>
+            
+            <!-- Modern Room Gallery Carousel -->
+            <div class="room-gallery-carousel">
+                <div class="room-gallery-header">
+                    <h3 class="room-gallery-title">Room Gallery</h3>
+                    <div class="room-gallery-counter">
+                        <span class="current-slide">1</span> / <span class="total-slides"><?php echo count($room_images) + ($room_has_video ? 1 : 0); ?></span>
+                    </div>
                 </div>
-                <?php endif; ?>
                 
-                <?php foreach ($room_images as $img): ?>
-                <div class="gallery-item">
-                    <img src="<?php echo htmlspecialchars(proxyImageUrl(resolveImageUrl($img['image_url']))); ?>" alt="<?php echo htmlspecialchars($img['title']); ?>" loading="lazy" decoding="async">
-                    <div class="gallery-item-label"><?php echo htmlspecialchars($img['title']); ?></div>
+                <div class="swiper room-gallery-swiper">
+                    <div class="swiper-wrapper">
+                        <?php 
+                        $slide_index = 0;
+                        
+                        // Display room video first if available
+                        if ($room_has_video): 
+                            $slide_index++;
+                        ?>
+                        <div class="swiper-slide room-gallery-slide room-gallery-slide--video">
+                            <div class="room-gallery-media">
+                                <?php echo renderVideoEmbed($room['video_path'], $room['video_type'], [
+                                    'autoplay' => false,
+                                    'muted' => false,
+                                    'controls' => true,
+                                    'loop' => false,
+                                    'class' => 'room-gallery-video',
+                                    'lazy' => true
+                                ]); ?>
+                            </div>
+                            <div class="room-gallery-caption">
+                                <span class="caption-icon"><i class="fas fa-video"></i></span>
+                                <span class="caption-text">Room Video Tour</span>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php foreach ($room_images as $img): 
+                            $slide_index++;
+                        ?>
+                        <div class="swiper-slide room-gallery-slide">
+                            <div class="room-gallery-media">
+                                <img 
+                                    data-src="<?php echo htmlspecialchars(proxyImageUrl(resolveImageUrl($img['image_url']))); ?>" 
+                                    alt="<?php echo htmlspecialchars($img['title']); ?>" 
+                                    class="swiper-lazy"
+                                    decoding="async"
+                                >
+                                <div class="swiper-lazy-preloader swiper-lazy-preloader-white"></div>
+                            </div>
+                            <?php if (!empty($img['title'])): ?>
+                            <div class="room-gallery-caption">
+                                <span class="caption-text"><?php echo htmlspecialchars($img['title']); ?></span>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                    <!-- Navigation Buttons -->
+                    <button class="swiper-button-prev room-gallery-nav" aria-label="Previous slide">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="swiper-button-next room-gallery-nav" aria-label="Next slide">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
                 </div>
-                <?php endforeach; ?>
+                
+                <!-- Thumbnail Navigation -->
+                <div class="swiper room-gallery-thumbs" thumbsSlider="">
+                    <div class="swiper-wrapper">
+                        <?php 
+                        // Thumbnail for video
+                        if ($room_has_video): 
+                        ?>
+                        <div class="swiper-slide room-gallery-thumb room-gallery-thumb--video">
+                            <div class="thumb-icon"><i class="fas fa-play"></i></div>
+                            <span>Video</span>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php foreach ($room_images as $thumb): ?>
+                        <div class="swiper-slide room-gallery-thumb">
+                            <img 
+                                src="<?php echo htmlspecialchars(proxyImageUrl(resolveImageUrl($thumb['image_url']))); ?>" 
+                                alt="<?php echo htmlspecialchars($thumb['title']); ?>"
+                                loading="lazy"
+                                decoding="async"
+                            >
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
             <?php endif; ?>
 
@@ -332,7 +403,7 @@ try {
         </div>
     </section>
 
-    <section class="booking-cta" id="book">
+    <section class="booking-cta rh-reveal" id="book">
         <div class="container booking-cta__grid">
             <div class="booking-cta__content">
                 <div class="pill">Direct Booking</div>
@@ -355,7 +426,7 @@ try {
 
 
         <!-- Passalacqua-Inspired Editorial Reviews Section: Borderless, Large Serif Quotes, Gold Divider -->
-        <section class="editorial-testimonials-section" id="reviews" data-room-id="<?php echo $room['id']; ?>">
+        <section class="editorial-testimonials-section rh-reveal" id="reviews" data-room-id="<?php echo $room['id']; ?>">
             <div class="container">
                 <div class="editorial-testimonials-header">
                     <?php
@@ -397,10 +468,152 @@ try {
     <!-- Footer -->
     <?php include 'includes/footer.php'; ?>
     
-    <!-- Unified Navigation System - MUST LOAD FIRST -->
-    <script src="js/navigation-unified.js" defer></script>
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
+    
+    <!-- Scroll Reveal Animation Handler -->
+    <script>
+    // Scroll Reveal for elements with .rh-reveal class
+    document.addEventListener('DOMContentLoaded', function() {
+        const revealElements = document.querySelectorAll('.rh-reveal');
+        
+        if (revealElements.length === 0) return;
+        
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-revealed');
+                    // Optionally stop observing after reveal
+                    // revealObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            root: null,
+            rootMargin: '0px 0px -80px 0px',
+            threshold: 0.1
+        });
+        
+        revealElements.forEach(el => {
+            revealObserver.observe(el);
+        });
+        
+        // Fallback: reveal all elements after page load if IntersectionObserver not triggered
+        setTimeout(() => {
+            revealElements.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.top < window.innerHeight && rect.bottom > 0) {
+                    el.classList.add('is-revealed');
+                }
+            });
+        }, 500);
+    });
+    </script>
+    
+    <!-- Swiper JS for Carousel -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    
+    <script>
+    // Initialize Room Gallery Carousel
+    document.addEventListener('DOMContentLoaded', function() {
+        const galleryCarousel = document.querySelector('.room-gallery-swiper');
+        const thumbsCarousel = document.querySelector('.room-gallery-thumbs');
+        
+        if (galleryCarousel) {
+            // Initialize thumbnail swiper first
+            let thumbsSwiper = null;
+            if (thumbsCarousel) {
+                thumbsSwiper = new Swiper('.room-gallery-thumbs', {
+                    spaceBetween: 8,
+                    slidesPerView: 'auto',
+                    freeMode: true,
+                    watchSlidesProgress: true,
+                    centerInsufficientSlides: true,
+                    slideToClickedSlide: true
+                });
+            }
+            
+            // Initialize main gallery swiper
+            const mainSwiper = new Swiper('.room-gallery-swiper', {
+                spaceBetween: 0,
+                slidesPerView: 1,
+                lazy: {
+                    loadPrevNext: true,
+                    loadPrevNextAmount: 2
+                },
+                navigation: {
+                    nextEl: '.swiper-button-next',
+                    prevEl: '.swiper-button-prev'
+                },
+                thumbs: thumbsSwiper ? { swiper: thumbsSwiper } : false,
+                effect: 'fade',
+                fadeEffect: {
+                    crossFade: true
+                },
+                speed: 600,
+                loop: false,
+                grabCursor: true,
+                keyboard: {
+                    enabled: true,
+                    onlyInViewport: true
+                },
+                a11y: {
+                    prevSlideMessage: 'Previous image',
+                    nextSlideMessage: 'Next image',
+                    firstSlideMessage: 'This is the first image',
+                    lastSlideMessage: 'This is the last image'
+                },
+                on: {
+                    slideChange: function() {
+                        // Update counter
+                        const counter = document.querySelector('.current-slide');
+                        if (counter) {
+                            counter.textContent = this.activeIndex + 1;
+                        }
+                        
+                        // Pause any playing videos when switching slides
+                        const allVideos = document.querySelectorAll('.room-gallery-slide video');
+                        allVideos.forEach(video => {
+                            video.pause();
+                        });
+                    },
+                    init: function() {
+                        // Set initial counter
+                        const counter = document.querySelector('.current-slide');
+                        if (counter) {
+                            counter.textContent = 1;
+                        }
+                    }
+                }
+            });
+            
+            // Touch/swipe hints for mobile
+            if ('ontouchstart' in window) {
+                const slideHint = document.createElement('div');
+                slideHint.className = 'swiper-touch-hint';
+                slideHint.innerHTML = '<i class="fas fa-hand-pointer"></i> Swipe to browse';
+                slideHint.style.cssText = 'position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.7); font-size: 12px; padding: 8px 16px; background: rgba(0,0,0,0.5); border-radius: 20px; z-index: 10; pointer-events: none;';
+                galleryCarousel.appendChild(slideHint);
+                
+                // Hide hint after first swipe
+                mainSwiper.on('slideChange', function() {
+                    if (slideHint.parentNode) {
+                        slideHint.style.opacity = '0';
+                        setTimeout(() => slideHint.remove(), 300);
+                    }
+                });
+                
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    if (slideHint.parentNode) {
+                        slideHint.style.opacity = '0';
+                        setTimeout(() => slideHint.remove(), 300);
+                    }
+                }, 3000);
+            }
+        }
+    });
+    </script>
+    
     <script>
     // Reviews functionality
     (function() {
@@ -408,20 +621,22 @@ try {
         if (!reviewsSection) return;
 
         const roomId = reviewsSection.dataset.roomId;
-        const ratingSummary = document.getElementById('ratingSummary');
         const reviewsList = document.getElementById('reviewsList');
-        const reviewsFilter = document.getElementById('reviewsFilter');
         const reviewsPagination = document.getElementById('reviewsPagination');
         const reviewsEmpty = document.getElementById('reviewsEmpty');
         const currentPageSpan = document.getElementById('currentPage');
         const totalPagesSpan = document.getElementById('totalPages');
-        const prevBtn = document.querySelector('.reviews-pagination__btn--prev');
-        const nextBtn = document.querySelector('.reviews-pagination__btn--next');
-        const filterBtns = document.querySelectorAll('.reviews-filter__btn');
+        const prevBtn = document.querySelector('.editorial-testimonials-pagination-btn--prev');
+        const nextBtn = document.querySelector('.editorial-testimonials-pagination-btn--next');
+
+        // Check if required elements exist
+        if (!reviewsList || !reviewsPagination || !reviewsEmpty) {
+            console.warn('Reviews: Required elements not found');
+            return;
+        }
 
         let currentPage = 1;
         let totalPages = 1;
-        let currentSort = 'newest';
         let reviewsPerPage = 5;
         let allReviews = [];
 
@@ -433,8 +648,7 @@ try {
                 
                 if (data.success) {
                     allReviews = data.reviews || [];
-                    displayRatingSummary(data.averages || {}, data.total_count || 0);
-                    sortAndDisplayReviews();
+                    displayReviews(allReviews);
                 } else {
                     showError('Failed to load reviews');
                 }
@@ -444,45 +658,47 @@ try {
             }
         }
 
-        // Display rating summary
-        function displayRatingSummary(averages, totalCount) {
-            if (totalCount === 0) {
-                ratingSummary.innerHTML = `
-                    <div class="rating-summary__empty">
-                        <i class="fas fa-star"></i>
-                        <span>No reviews yet</span>
-                    </div>
-                `;
-                reviewsEmpty.style.display = 'block';
+        // Display reviews directly (simplified for editorial layout)
+        function displayReviews(reviews) {
+            if (reviews.length === 0) {
+                reviewsEmpty.style.display = 'flex';
                 reviewsList.style.display = 'none';
-                reviewsFilter.style.display = 'none';
+                reviewsPagination.style.display = 'none';
                 return;
             }
 
-            const avgRating = averages.avg_rating || 0;
-            const starsHtml = generateStars(avgRating);
-
-            ratingSummary.innerHTML = `
-                <div class="rating-summary__main">
-                    <div class="rating-summary__score">
-                        <span class="rating-summary__number">${avgRating.toFixed(1)}</span>
-                        <div class="rating-summary__stars">${starsHtml}</div>
-                    </div>
-                    <div class="rating-summary__count">
-                        <strong>${totalCount}</strong> review${totalCount !== 1 ? 's' : ''}
-                    </div>
-                </div>
-                <div class="rating-summary__categories">
-                    ${averages.avg_service ? `<div class="rating-summary__category"><span>Service</span><div class="rating-summary__bar"><div class="rating-summary__bar-fill" style="width: ${(averages.avg_service / 5) * 100}%"></div></div><span>${averages.avg_service.toFixed(1)}</span></div>` : ''}
-                    ${averages.avg_cleanliness ? `<div class="rating-summary__category"><span>Cleanliness</span><div class="rating-summary__bar"><div class="rating-summary__bar-fill" style="width: ${(averages.avg_cleanliness / 5) * 100}%"></div></div><span>${averages.avg_cleanliness.toFixed(1)}</span></div>` : ''}
-                    ${averages.avg_location ? `<div class="rating-summary__category"><span>Location</span><div class="rating-summary__bar"><div class="rating-summary__bar-fill" style="width: ${(averages.avg_location / 5) * 100}%"></div></div><span>${averages.avg_location.toFixed(1)}</span></div>` : ''}
-                    ${averages.avg_value ? `<div class="rating-summary__category"><span>Value</span><div class="rating-summary__bar"><div class="rating-summary__bar-fill" style="width: ${(averages.avg_value / 5) * 100}%"></div></div><span>${averages.avg_value.toFixed(1)}</span></div>` : ''}
-                </div>
-            `;
-
             reviewsEmpty.style.display = 'none';
-            reviewsList.style.display = 'block';
-            reviewsFilter.style.display = 'flex';
+            reviewsList.style.display = 'grid';
+            
+            totalPages = Math.ceil(reviews.length / reviewsPerPage);
+            if (currentPage > totalPages) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * reviewsPerPage;
+            const endIndex = startIndex + reviewsPerPage;
+            const pageReviews = reviews.slice(startIndex, endIndex);
+
+            reviewsList.innerHTML = pageReviews.map(review => {
+                const starsHtml = generateStars(review.rating || 0);
+                const date = new Date(review.created_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                return `
+                    <div class="editorial-testimonial-card">
+                        <div class="editorial-testimonial-quote">"</div>
+                        <p class="editorial-testimonial-text">${escapeHtml(review.comment)}</p>
+                        <div class="editorial-testimonial-author">
+                            <div class="editorial-testimonial-author-name">${escapeHtml(review.guest_name || 'Anonymous')}</div>
+                            <div class="editorial-testimonial-author-location">${date}</div>
+                            <div class="editorial-testimonial-rating">${starsHtml}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updatePagination();
         }
 
         // Generate star HTML
@@ -504,120 +720,16 @@ try {
             return html;
         }
 
-        // Sort and display reviews
-        function sortAndDisplayReviews() {
-            let sortedReviews = [...allReviews];
-
-            switch (currentSort) {
-                case 'newest':
-                    sortedReviews.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                    break;
-                case 'highest':
-                    sortedReviews.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-                    break;
-                case 'lowest':
-                    sortedReviews.sort((a, b) => (a.rating || 0) - (b.rating || 0));
-                    break;
-            }
-
-            totalPages = Math.ceil(sortedReviews.length / reviewsPerPage);
-            if (currentPage > totalPages) currentPage = 1;
-
-            displayReviews(sortedReviews);
-            updatePagination();
-        }
-
-        // Display reviews
-        function displayReviews(reviews) {
-            const startIndex = (currentPage - 1) * reviewsPerPage;
-            const endIndex = startIndex + reviewsPerPage;
-            const pageReviews = reviews.slice(startIndex, endIndex);
-
-            if (pageReviews.length === 0) {
-                reviewsList.innerHTML = `
-                    <div class="reviews-list__empty">
-                        <i class="fas fa-comment-slash"></i>
-                        <p>No reviews found</p>
-                    </div>
-                `;
-                return;
-            }
-
-            reviewsList.innerHTML = pageReviews.map(review => {
-                const starsHtml = generateStars(review.rating || 0);
-                const date = new Date(review.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-
-                let categoriesHtml = '';
-                if (review.service_rating || review.cleanliness_rating || review.location_rating || review.value_rating) {
-                    categoriesHtml = `
-                        <div class="review-card__categories">
-                            ${review.service_rating ? `<span><i class="fas fa-concierge-bell"></i> Service: ${review.service_rating}</span>` : ''}
-                            ${review.cleanliness_rating ? `<span><i class="fas fa-broom"></i> Cleanliness: ${review.cleanliness_rating}</span>` : ''}
-                            ${review.location_rating ? `<span><i class="fas fa-map-marker-alt"></i> Location: ${review.location_rating}</span>` : ''}
-                            ${review.value_rating ? `<span><i class="fas fa-tag"></i> Value: ${review.value_rating}</span>` : ''}
-                        </div>
-                    `;
-                }
-
-                let adminResponseHtml = '';
-                if (review.latest_response) {
-                    const responseDate = review.latest_response_date ? new Date(review.latest_response_date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    }) : '';
-                    adminResponseHtml = `
-                        <div class="review-card__admin-response">
-                            <div class="review-card__admin-header">
-                                <i class="fas fa-reply"></i>
-                                <span>Response from <?php echo htmlspecialchars($site_name); ?></span>
-                                ${responseDate ? `<span class="review-card__admin-date">${responseDate}</span>` : ''}
-                            </div>
-                            <p>${escapeHtml(review.latest_response)}</p>
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div class="review-card">
-                        <div class="review-card__header">
-                            <div class="review-card__author">
-                                <div class="review-card__avatar">
-                                    <i class="fas fa-user"></i>
-                                </div>
-                                <div class="review-card__author-info">
-                                    <div class="review-card__name">${escapeHtml(review.guest_name || 'Anonymous')}</div>
-                                    <div class="review-card__date">${date}</div>
-                                </div>
-                            </div>
-                            <div class="review-card__rating">
-                                ${starsHtml}
-                            </div>
-                        </div>
-                        ${review.title ? `<h4 class="review-card__title">${escapeHtml(review.title)}</h4>` : ''}
-                        <p class="review-card__comment">${escapeHtml(review.comment)}</p>
-                        ${categoriesHtml}
-                        ${adminResponseHtml}
-                    </div>
-                `;
-            }).join('');
-        }
-
         // Update pagination
         function updatePagination() {
-            currentPageSpan.textContent = currentPage;
-            totalPagesSpan.textContent = totalPages;
-            prevBtn.disabled = currentPage === 1;
-            nextBtn.disabled = currentPage === totalPages;
+            if (currentPageSpan) currentPageSpan.textContent = currentPage;
+            if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
+            
+            if (prevBtn) prevBtn.disabled = currentPage === 1;
+            if (nextBtn) nextBtn.disabled = currentPage === totalPages;
 
-            if (totalPages > 1) {
-                reviewsPagination.style.display = 'flex';
-            } else {
-                reviewsPagination.style.display = 'none';
+            if (reviewsPagination) {
+                reviewsPagination.style.display = totalPages > 1 ? 'flex' : 'none';
             }
         }
 
@@ -630,52 +742,40 @@ try {
 
         // Show error
         function showError(message) {
-            ratingSummary.innerHTML = `
-                <div class="rating-summary__error">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <span>${message}</span>
-                </div>
-            `;
             reviewsList.innerHTML = `
-                <div class="reviews-list__error">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <p>${message}</p>
+                <div class="editorial-testimonial-card">
+                    <div class="editorial-testimonial-quote">"</div>
+                    <p class="editorial-testimonial-text"><i class="fas fa-exclamation-circle"></i> ${escapeHtml(message)}</p>
                 </div>
             `;
+            reviewsPagination.style.display = 'none';
         }
 
-        // Event listeners
-        filterBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                filterBtns.forEach(b => b.classList.remove('reviews-filter__btn--active'));
-                btn.classList.add('reviews-filter__btn--active');
-                currentSort = btn.dataset.sort;
-                currentPage = 1;
-                sortAndDisplayReviews();
+        // Event listeners for pagination
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    displayReviews(allReviews);
+                    reviewsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             });
-        });
+        }
 
-        prevBtn.addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                sortAndDisplayReviews();
-                reviewsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        });
-
-        nextBtn.addEventListener('click', () => {
-            if (currentPage < totalPages) {
-                currentPage++;
-                sortAndDisplayReviews();
-                reviewsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        });
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    displayReviews(allReviews);
+                    reviewsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        }
 
         // Initialize
         fetchReviews();
     })();
     </script>
-    </main>
 
     <?php include 'includes/scroll-to-top.php'; ?>
 </body>
