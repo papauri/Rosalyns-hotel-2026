@@ -337,9 +337,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            if (!in_array($bookingToAssign['status'], ['pending', 'confirmed', 'checked-in'], true)) {
+            if (!in_array($bookingToAssign['status'], ['pending', 'confirmed'], true)) {
                 header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'message' => 'Only pending, confirmed, or checked-in bookings can be assigned a room']);
+                echo json_encode(['success' => false, 'message' => 'Rooms can only be assigned to pending or confirmed bookings (before check-in)']);
                 exit;
             }
 
@@ -1237,11 +1237,11 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                                     <button class="quick-action email" onclick="openResendEmailModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['status']); ?>')">
                                         <i class="fas fa-envelope"></i> Email
                                     </button>
-                                    <?php if (!$booking['individual_room_id'] && in_array($booking['status'], ['confirmed', 'pending', 'checked-in'])): ?>
+                                    <?php if (!$booking['individual_room_id'] && in_array($booking['status'], ['confirmed', 'pending'])): ?>
                                         <button class="quick-action assign" data-action="assign-room" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-check-in="<?php echo htmlspecialchars($booking['check_in_date']); ?>" data-check-out="<?php echo htmlspecialchars($booking['check_out_date']); ?>" data-room-id="<?php echo $booking['room_id']; ?>">
                                             <i class="fas fa-door-open"></i> Assign Room
                                         </button>
-                                    <?php elseif ($booking['individual_room_id']): ?>
+                                    <?php elseif ($booking['individual_room_id'] && in_array($booking['status'], ['confirmed', 'pending'])): ?>
                                         <button class="quick-action assign" style="background: #28a745; color: white;" data-action="assign-room" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-check-in="<?php echo htmlspecialchars($booking['check_in_date']); ?>" data-check-out="<?php echo htmlspecialchars($booking['check_out_date']); ?>" data-room-id="<?php echo $booking['room_id']; ?>">
                                             <i class="fas fa-edit"></i> Change Room
                                         </button>

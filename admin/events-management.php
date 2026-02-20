@@ -707,7 +707,8 @@ try {
             </div>
         </form>
     ', [
-        'size' => 'lg'
+        'size' => 'lg',
+        'show_close' => false
     ]);
     ?>
 
