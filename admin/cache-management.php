@@ -220,12 +220,15 @@ try {
         'total_size_formatted' => '0 B',
         'oldest_file' => null,
         'newest_file' => null,
-        'caches' => []
+        'caches' => [],
+        'main_cache' => ['files' => 0, 'size' => 0, 'size_formatted' => '0 B'],
+        'image_cache' => ['files' => 0, 'size' => 0, 'size_formatted' => '0 B'],
+        'page_cache' => ['files' => 0, 'size' => 0, 'size_formatted' => '0 B']
     ];
 }
 
 try {
-    $caches = listCache();
+    $caches = listAllCache();
 } catch (Exception $e) {
     error_log("Cache list error: " . $e->getMessage());
     // Empty cache list if error occurs
@@ -658,6 +661,40 @@ $cache_types = [
         .cache-table tr:hover {
             background: #f8f9fa;
         }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        
+        .badge-main {
+            background: rgba(139, 115, 85, 0.15);
+            color: #8B7355;
+        }
+        
+        .badge-image {
+            background: rgba(23, 162, 184, 0.15);
+            color: #17a2b8;
+        }
+        
+        .badge-page {
+            background: rgba(111, 66, 193, 0.15);
+            color: #6f42c1;
+        }
+        
+        .badge-active {
+            background: rgba(40, 167, 69, 0.15);
+            color: #28a745;
+        }
+        
+        .badge-expired {
+            background: rgba(220, 53, 69, 0.15);
+            color: #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -799,27 +836,25 @@ $cache_types = [
                     
                     <label class="cache-checkbox-item" style="border-color: var(--gold); background: rgba(139, 115, 85, 0.05);">
                         <input type="checkbox" name="cache_types[]" value="rooms">
-                        <span><i class="fas fa-bed"></i> <strong>Rooms & Prices</strong> (<?php 
-                            $room_count = count(array_filter($caches, function($c) { 
-                                return strpos($c['key'], 'rooms_') === 0 || strpos($c['key'], 'room_') === 0 || 
-                                       strpos($c['key'], 'facilities_') === 0 || strpos($c['key'], 'gallery_') === 0 || 
-                                       strpos($c['key'], 'hero_') === 0; 
+                        <span><i class="fas fa-bed"></i> <strong>Rooms & Prices</strong> (<?php
+                            $room_count = count(array_filter($caches, function($c) {
+                                return strpos($c['key'], 'rooms_') === 0 || strpos($c['key'], 'room_') === 0 ||
+                                       strpos($c['key'], 'facilities_') === 0 || strpos($c['key'], 'gallery_') === 0 ||
+                                       strpos($c['key'], 'hero_') === 0;
                             }));
                             echo $room_count; ?> files)</span>
                     </label>
                     
                     <label class="cache-checkbox-item" style="border-color: #17a2b8; background: rgba(23, 162, 184, 0.05);">
                         <input type="checkbox" name="cache_types[]" value="images">
-                        <span><i class="fas fa-image"></i> <strong>Image Cache</strong> (<?php 
-                            $image_count = countDirectoryFiles(IMAGE_CACHE_DIR);
-                            echo $image_count; ?> images)</span>
+                        <span><i class="fas fa-image"></i> <strong>Image Cache</strong> (<?php
+                            echo $stats['image_cache']['files']; ?> images, <?php echo $stats['image_cache']['size_formatted']; ?>)</span>
                     </label>
 
                     <label class="cache-checkbox-item" style="border-color: #6f42c1; background: rgba(111, 66, 193, 0.05);">
                         <input type="checkbox" name="cache_types[]" value="pages">
                         <span><i class="fas fa-file-code"></i> <strong>Page HTML Cache</strong> (<?php
-                            $page_cache_count = countDirectoryFiles(PAGE_CACHE_DIR);
-                            echo $page_cache_count; ?> files)</span>
+                            echo $stats['page_cache']['files']; ?> files, <?php echo $stats['page_cache']['size_formatted']; ?>)</span>
                     </label>
                     
                     <label class="cache-checkbox-item">
@@ -829,7 +864,7 @@ $cache_types = [
                     
                     <label class="cache-checkbox-item" style="border-color: #dc3545; background: rgba(220, 53, 69, 0.05);">
                         <input type="checkbox" name="cache_types[]" value="all">
-                        <span><i class="fas fa-trash"></i> <strong>ALL CACHES + IMAGES + PAGE HTML</strong></span>
+                        <span><i class="fas fa-trash"></i> <strong>ALL CACHES (<?php echo $stats['total_files']; ?> files, <?php echo $stats['total_size_formatted']; ?>)</strong></span>
                     </label>
                 </div>
                 
@@ -974,6 +1009,7 @@ $cache_types = [
                 <table class="cache-table">
                     <thead>
                         <tr>
+                            <th>Source</th>
                             <th>File Name</th>
                             <th>Cache Key</th>
                             <th>Size</th>
@@ -985,6 +1021,11 @@ $cache_types = [
                     <tbody>
                         <?php foreach ($caches as $cache): ?>
                         <tr>
+                            <td>
+                                <span class="badge badge-<?php echo $cache['source']; ?>">
+                                    <?php echo htmlspecialchars($cache['source_label']); ?>
+                                </span>
+                            </td>
                             <td><code><?php echo htmlspecialchars($cache['file']); ?></code></td>
                             <td><?php echo htmlspecialchars($cache['key']); ?></td>
                             <td><?php echo $cache['size_formatted']; ?></td>

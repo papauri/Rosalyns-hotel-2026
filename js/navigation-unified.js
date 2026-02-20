@@ -169,6 +169,9 @@
         _attachLinkListeners() {
             // Capture phase so we get the click before any other handler
             document.addEventListener('click', e => this._onLinkClick(e), true);
+            
+            // Add non-SPA loader trigger for internal links
+            document.addEventListener('click', e => this._onNonSPALinkClick(e), true);
         }
 
         _onLinkClick(e) {
@@ -222,6 +225,51 @@
         }
 
         /* ================================================================
+           Non-SPA link loader trigger
+           Shows loader for internal links that navigate to excluded pages
+           (booking, admin, etc.) where SPA doesn't handle navigation
+        ================================================================ */
+
+        _onNonSPALinkClick(e) {
+            // Skip if already handled by SPA
+            if (e.defaultPrevented) return;
+            
+            const link = e.target.closest('a');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+
+            // Skip non-navigation hrefs
+            if (!href || href === '' ||
+                href.startsWith('#') ||
+                href.startsWith('javascript:') ||
+                href.startsWith('mailto:') ||
+                href.startsWith('tel:')) return;
+
+            // Skip external / new-tab / download
+            if (this._isExternal(href))                         return;
+            if (link.target === '_blank' || link.target === '_parent') return;
+            if (link.hasAttribute('download'))                  return;
+            if (link.hasAttribute('data-no-loader'))            return;
+
+            // Check if this is an internal link to an excluded page
+            const pageName = this._pageName(href);
+            if (this._isSPA(pageName)) return; // SPA handles these
+
+            // Check if it's a same-origin internal link
+            try {
+                const url = new URL(href, window.location.origin);
+                if (url.hostname === window.location.hostname) {
+                    // This is an internal link to a non-SPA page
+                    // Show loader before navigation with destination page subtext
+                    this._showLoader(pageName);
+                }
+            } catch {
+                // Invalid URL, skip
+            }
+        }
+
+        /* ================================================================
            SPA navigation
         ================================================================ */
 
@@ -233,7 +281,7 @@
                 detail: { url, page: pageName, spa: true }
             }));
             document.body.classList.add('page-loading');
-            this._showLoader();
+            this._showLoader(pageName); // Pass destination page for correct subtext
 
             try {
                 // Build API URL
@@ -385,10 +433,16 @@
             }));
 
             // Explicit re-init for known modules
-            window.Modal?.init?.();
-            window.Enhancements?.init?.();
-            window.ScrollLazyAnimations?.reinit?.();
-            window.PageTransitions?.refresh?.();
+            // Use try/catch to prevent any module errors from breaking SPA navigation
+            try {
+                window.Modal?.init?.();
+                window.Enhancements?.init?.();
+                window.ScrollLazyAnimations?.reinit?.();
+                window.PageTransitions?.refresh?.();
+            } catch (reinitErr) {
+                // Log but don't fail - SPA navigation has already succeeded
+                console.warn('[UnifiedNavigation] Module reinit warning:', reinitErr?.message || reinitErr);
+            }
         }
 
         /* ================================================================
@@ -401,7 +455,9 @@
             if (this._isSPA(pageName)) {
                 this._navigate(url, pageName);
             } else {
-                location.reload();
+                // For non-SPA pages on back/forward, show loader with destination subtext
+                this._showLoader(pageName);
+                setTimeout(() => location.reload(), 50);
             }
         }
 
@@ -409,14 +465,35 @@
            Loader helpers
         ================================================================ */
 
-        _showLoader() {
+        _showLoader(destinationPage) {
             const l = document.getElementById('page-loader');
-            if (l) { l.classList.remove('hidden'); l.style.opacity = '1'; l.style.visibility = 'visible'; }
+            if (l) {
+                // Update loader subtext to show destination page
+                if (destinationPage && typeof window.updateLoaderSubtext === 'function') {
+                    window.updateLoaderSubtext(destinationPage);
+                }
+                // Remove hidden state first
+                l.classList.remove('loader--hidden', 'loader--hiding');
+                // Add active state to trigger proper CSS transitions
+                l.classList.add('loader--active');
+                // Clear any inline styles that might interfere
+                l.style.opacity = '';
+                l.style.visibility = '';
+            }
         }
 
         _hideLoader() {
             const l = document.getElementById('page-loader');
-            if (l) l.classList.add('hidden');
+            if (l) {
+                // First add hiding state for smooth transition
+                l.classList.add('loader--hiding');
+                l.classList.remove('loader--active');
+                // Then add hidden after transition completes
+                setTimeout(() => {
+                    l.classList.add('loader--hidden');
+                    l.classList.remove('loader--hiding');
+                }, 500);
+            }
         }
 
         /* ================================================================
@@ -426,9 +503,18 @@
         _pageName(url) {
             try {
                 const obj  = new URL(url, window.location.origin);
-                let path   = obj.pathname.replace(/^\//, '').replace(/\.php$/, '');
-                if (url.includes('room.php')) return 'room';
+                let path   = obj.pathname
+                    .replace(/^\//, '')      // Remove leading slash
+                    .replace(/\.php$/, '')   // Remove .php extension
+                    .replace(/\/$/, '');      // Remove trailing slash
+                
+                // Handle room.php special case (with or without query params)
+                if (url.includes('room.php') || path === 'room') return 'room';
+                
+                // Handle empty path or index as 'index'
                 if (path === '' || path === 'index') return 'index';
+                
+                // Get the last path segment (handles paths like /some/page)
                 return path.split('/').pop() || 'index';
             } catch {
                 return 'index';

@@ -267,6 +267,113 @@ function listCache() {
 }
 
 /**
+ * List all cache files from all cache directories (main, image, page)
+ * Returns a unified array with source directory indicator
+ */
+function listAllCache() {
+    $allCaches = [];
+    
+    // Process main cache directory
+    if (is_dir(CACHE_DIR)) {
+        $files = glob(CACHE_DIR . '/*.cache');
+        if ($files) {
+            foreach ($files as $file) {
+                $data = @file_get_contents($file);
+                if ($data) {
+                    $cache = @json_decode($data, true);
+                    if ($cache) {
+                        $allCaches[] = [
+                            'file' => basename($file),
+                            'key' => $cache['key'] ?? 'unknown',
+                            'size' => filesize($file),
+                            'size_formatted' => formatBytes(filesize($file)),
+                            'created' => $cache['created'] ?? null,
+                            'created_formatted' => $cache['created'] ? date('Y-m-d H:i:s', $cache['created']) : 'unknown',
+                            'expires' => $cache['expiry'] ?? null,
+                            'expires_formatted' => $cache['expiry'] ? date('Y-m-d H:i:s', $cache['expiry']) : 'unknown',
+                            'expired' => ($cache['expiry'] ?? 0) < time(),
+                            'ttl' => ($cache['expiry'] ?? time()) - time(),
+                            'source' => 'main',
+                            'source_label' => 'Main Cache'
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+    // Process image cache directory
+    if (is_dir(IMAGE_CACHE_DIR)) {
+        $items = @scandir(IMAGE_CACHE_DIR);
+        if ($items !== false) {
+            foreach ($items as $item) {
+                if ($item === '.' || $item === '..') {
+                    continue;
+                }
+                $path = IMAGE_CACHE_DIR . DIRECTORY_SEPARATOR . $item;
+                if (is_file($path)) {
+                    $created = filemtime($path);
+                    $allCaches[] = [
+                        'file' => $item,
+                        'key' => 'image/' . $item,
+                        'size' => filesize($path),
+                        'size_formatted' => formatBytes(filesize($path)),
+                        'created' => $created,
+                        'created_formatted' => date('Y-m-d H:i:s', $created),
+                        'expires' => null,
+                        'expires_formatted' => 'N/A',
+                        'expired' => false,
+                        'ttl' => null,
+                        'source' => 'image',
+                        'source_label' => 'Image Cache'
+                    ];
+                }
+            }
+        }
+    }
+    
+    // Process page cache directory
+    if (is_dir(PAGE_CACHE_DIR)) {
+        $files = glob(PAGE_CACHE_DIR . '/*.html');
+        if ($files) {
+            foreach ($files as $file) {
+                $data = @file_get_contents($file);
+                if ($data) {
+                    $cache = @json_decode($data, true);
+                    $created = $cache['created'] ?? filemtime($file);
+                    $expiry = $cache['expiry'] ?? null;
+                    $allCaches[] = [
+                        'file' => basename($file),
+                        'key' => 'page/' . basename($file, '.html'),
+                        'size' => filesize($file),
+                        'size_formatted' => formatBytes(filesize($file)),
+                        'created' => $created,
+                        'created_formatted' => date('Y-m-d H:i:s', $created),
+                        'expires' => $expiry,
+                        'expires_formatted' => $expiry ? date('Y-m-d H:i:s', $expiry) : 'N/A',
+                        'expired' => $expiry ? ($expiry < time()) : false,
+                        'ttl' => $expiry ? ($expiry - time()) : null,
+                        'source' => 'page',
+                        'source_label' => 'Page Cache'
+                    ];
+                }
+            }
+        }
+    }
+    
+    // Sort by source, then by file name for easier reading
+    usort($allCaches, function($a, $b) {
+        $sourceCompare = strcmp($a['source'], $b['source']);
+        if ($sourceCompare !== 0) {
+            return $sourceCompare;
+        }
+        return strcmp($a['file'], $b['file']);
+    });
+    
+    return $allCaches;
+}
+
+/**
  * Clear cache by key pattern (supports wildcards)
  */
 function clearCacheByPattern($pattern) {
@@ -300,17 +407,18 @@ function clearCacheByPattern($pattern) {
 }
 
 /**
- * Get cache statistics
+ * Get cache statistics (comprehensive - includes all cache directories)
  */
 function getCacheStats() {
-    // Ensure cache directory exists
+    // Ensure cache directories exist
     if (!file_exists(CACHE_DIR)) {
         @mkdir(CACHE_DIR, 0755, true);
     }
-    
-    $files = @glob(CACHE_DIR . '/*.cache');
-    if ($files === false) {
-        $files = [];
+    if (!file_exists(IMAGE_CACHE_DIR)) {
+        @mkdir(IMAGE_CACHE_DIR, 0755, true);
+    }
+    if (!file_exists(PAGE_CACHE_DIR)) {
+        @mkdir(PAGE_CACHE_DIR, 0755, true);
     }
     
     $stats = [
@@ -321,12 +429,34 @@ function getCacheStats() {
         'total_size_formatted' => '0 B',
         'oldest_file' => null,
         'newest_file' => null,
-        'caches' => []
+        'caches' => [],
+        // Breakdown by cache type
+        'main_cache' => [
+            'files' => 0,
+            'size' => 0,
+            'size_formatted' => '0 B'
+        ],
+        'image_cache' => [
+            'files' => 0,
+            'size' => 0,
+            'size_formatted' => '0 B'
+        ],
+        'page_cache' => [
+            'files' => 0,
+            'size' => 0,
+            'size_formatted' => '0 B'
+        ]
     ];
     
     $now = time();
     $oldest = PHP_INT_MAX;
     $newest = 0;
+    
+    // Process main cache directory
+    $files = @glob(CACHE_DIR . '/*.cache');
+    if ($files === false) {
+        $files = [];
+    }
     
     if ($files) {
         foreach ($files as $file) {
@@ -335,7 +465,10 @@ function getCacheStats() {
                 $cache = @json_decode($data, true);
                 if ($cache) {
                     $stats['total_files']++;
-                    $stats['total_size'] += filesize($file);
+                    $stats['main_cache']['files']++;
+                    $fileSize = filesize($file);
+                    $stats['total_size'] += $fileSize;
+                    $stats['main_cache']['size'] += $fileSize;
                     
                     $created = $cache['created'] ?? 0;
                     if ($created < $oldest) {
@@ -357,7 +490,75 @@ function getCacheStats() {
         }
     }
     
+    // Process image cache directory
+    $imageFiles = @scandir(IMAGE_CACHE_DIR);
+    if ($imageFiles !== false) {
+        foreach ($imageFiles as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $path = IMAGE_CACHE_DIR . DIRECTORY_SEPARATOR . $file;
+            if (is_file($path)) {
+                $stats['total_files']++;
+                $stats['image_cache']['files']++;
+                $fileSize = filesize($path);
+                $stats['total_size'] += $fileSize;
+                $stats['image_cache']['size'] += $fileSize;
+                
+                $created = filemtime($path);
+                if ($created < $oldest) {
+                    $oldest = $created;
+                    $stats['oldest_file'] = 'image/' . $file;
+                }
+                if ($created > $newest) {
+                    $newest = $created;
+                    $stats['newest_file'] = 'image/' . $file;
+                }
+            }
+        }
+    }
+    
+    // Process page cache directory
+    $pageFiles = @glob(PAGE_CACHE_DIR . '/*.html');
+    if ($pageFiles === false) {
+        $pageFiles = [];
+    }
+    
+    if ($pageFiles) {
+        foreach ($pageFiles as $file) {
+            $data = @file_get_contents($file);
+            if ($data) {
+                $cache = @json_decode($data, true);
+                $stats['total_files']++;
+                $stats['page_cache']['files']++;
+                $fileSize = filesize($file);
+                $stats['total_size'] += $fileSize;
+                $stats['page_cache']['size'] += $fileSize;
+                
+                $created = $cache['created'] ?? filemtime($file);
+                if ($created < $oldest) {
+                    $oldest = $created;
+                    $stats['oldest_file'] = 'page/' . basename($file, '.html');
+                }
+                if ($created > $newest) {
+                    $newest = $created;
+                    $stats['newest_file'] = 'page/' . basename($file, '.html');
+                }
+                
+                if (($cache['expiry'] ?? 0) < $now) {
+                    $stats['expired_files']++;
+                } else {
+                    $stats['active_files']++;
+                }
+            }
+        }
+    }
+    
+    // Format sizes
     $stats['total_size_formatted'] = formatBytes($stats['total_size']);
+    $stats['main_cache']['size_formatted'] = formatBytes($stats['main_cache']['size']);
+    $stats['image_cache']['size_formatted'] = formatBytes($stats['image_cache']['size']);
+    $stats['page_cache']['size_formatted'] = formatBytes($stats['page_cache']['size']);
     
     return $stats;
 }

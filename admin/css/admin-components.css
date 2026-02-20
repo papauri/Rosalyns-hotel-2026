@@ -43,6 +43,130 @@
     visibility: visible;
 }
 
+/* BEM Modal Support (from renderModal function) */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 9999;
+}
+
+.modal.active {
+    display: flex;
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal__backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--modal-overlay-bg);
+    backdrop-filter: blur(4px);
+    z-index: 1;
+}
+
+.modal__wrapper {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-height: 90vh;
+}
+
+.modal__container {
+    background: var(--modal-bg);
+    border-radius: var(--modal-border-radius);
+    box-shadow: var(--modal-shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    width: 90%;
+}
+
+/* Modal Sizes for BEM */
+.modal--sm .modal__container {
+    max-width: 400px;
+}
+
+.modal--md .modal__container {
+    max-width: 500px;
+}
+
+.modal--lg .modal__container {
+    max-width: 700px;
+}
+
+.modal--xl .modal__container {
+    max-width: 900px;
+}
+
+.modal__header {
+    background: var(--modal-header-bg);
+    color: var(--modal-header-color);
+    padding: 20px 24px;
+    position: relative;
+}
+
+.modal__title {
+    margin: 0;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--deep-navy, #0f1d2e);
+}
+
+.modal__body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal__footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    background: #f8f9fa;
+}
+
+.modal__close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--modal-close-color);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.modal__close:hover {
+    background: var(--modal-close-hover);
+    color: var(--deep-navy, #0f1d2e);
+    transform: rotate(90deg);
+}
+
 /* Backward compatibility for pages that still toggle modals via inline display */
 .modal-overlay[style*="display: flex"],
 .modal-overlay[style*="display:block"],

@@ -359,7 +359,9 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="css/admin-styles.css">
-    <link rel="stylesheet" href="css/admin-components.css"></head>
+    <link rel="stylesheet" href="css/admin-components.css">
+    <link rel="stylesheet" href="css/events-management.css">
+</head>
 <body>
     <?php require_once 'includes/admin-header.php'; ?>
 
@@ -696,7 +698,7 @@ try {
             </div>
             
             <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid #eee; margin-top: 20px;">
-                <button type="button" class="btn-action btn-cancel" onclick="Modal.close(\'eventModal\')">
+                <button type="button" class="btn-action btn-cancel" onclick="closeEventModal()">
                     <i class="fas fa-times"></i> Cancel
                 </button>
                 <button type="submit" class="btn-action btn-save">
@@ -711,6 +713,23 @@ try {
 
     <script src="js/admin-components.js"></script>
     <script>
+        // Direct modal control - works regardless of Modal object
+        function openEventModal() {
+            const modal = document.getElementById('eventModal');
+            if (modal) {
+                modal.classList.add('active');
+                document.body.classList.add('modal-open');
+            }
+        }
+        
+        function closeEventModal() {
+            const modal = document.getElementById('eventModal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.classList.remove('modal-open');
+            }
+        }
+        
         function openAddModal() {
             document.getElementById('formAction').value = 'add';
             document.getElementById('eventForm').reset();
@@ -721,17 +740,12 @@ try {
             document.getElementById('removeVideoFlag').value = '0';
             document.getElementById('eventVideoUrl').value = '';
             
-            // Update the modal header
-            const modalHeader = document.querySelector('#eventModal .modal-header');
-            if (modalHeader) {
-                const titleElement = modalHeader.querySelector('span');
-                if (titleElement) {
-                    titleElement.textContent = 'Add New Event';
-                } else {
-                    modalHeader.innerHTML = '<span>Add New Event</span><span class="modal-close" data-modal-close>&times;</span>';
-                }
+            // Update the modal title (renderModal uses .modal__title BEM class)
+            const modalTitle = document.querySelector('#eventModal .modal__title');
+            if (modalTitle) {
+                modalTitle.textContent = 'Add New Event';
             }
-            Modal.open('eventModal');
+            openEventModal();
         }
 
         function removeEventVideo() {
@@ -796,18 +810,13 @@ try {
                 document.getElementById('removeVideoFlag').value = '0';
             }
             
-            // Update the modal header
-            const modalHeader = document.querySelector('#eventModal .modal-header');
-            if (modalHeader) {
-                const titleElement = modalHeader.querySelector('span');
-                if (titleElement) {
-                    titleElement.textContent = 'Edit Event';
-                } else {
-                    modalHeader.innerHTML = '<span>Edit Event</span><span class="modal-close" data-modal-close>&times;</span>';
-                }
+            // Update the modal title (renderModal uses .modal__title BEM class)
+            const modalTitle = document.querySelector('#eventModal .modal__title');
+            if (modalTitle) {
+                modalTitle.textContent = 'Edit Event';
             }
             
-            Modal.open('eventModal');
+            openEventModal();
         }
 
         function deleteEvent(id) {

@@ -83,7 +83,15 @@
             if (this.isLoaded || !this.loader) return;
             
             setTimeout(() => {
-                this.loader.classList.add('hidden');
+                // Use proper CSS classes for smooth transition
+                this.loader.classList.add('loader--hiding');
+                this.loader.classList.remove('loader--active');
+                
+                setTimeout(() => {
+                    this.loader.classList.add('loader--hidden');
+                    this.loader.classList.remove('loader--hiding');
+                }, 500);
+                
                 this.isLoaded = true;
                 
                 // Trigger page loaded event
@@ -92,10 +100,16 @@
             }, CONFIG.pageLoadDelay);
         },
         
-        show() {
+        show(destinationPage) {
             if (!this.loader) return;
             this.isLoaded = false;
-            this.loader.classList.remove('hidden');
+            // Update loader subtext to show destination page
+            if (destinationPage && typeof window.updateLoaderSubtext === 'function') {
+                window.updateLoaderSubtext(destinationPage);
+            }
+            // Use proper CSS classes
+            this.loader.classList.remove('loader--hidden', 'loader--hiding');
+            this.loader.classList.add('loader--active');
             document.body.classList.remove('page-loaded');
         }
     };
@@ -265,6 +279,11 @@
         },
         
         createObserver() {
+            // Disconnect existing observer if any (prevents memory leaks)
+            if (this.observer) {
+                this.observer.disconnect();
+            }
+            
             const options = {
                 root: null,
                 rootMargin: CONFIG.scrollRootMargin,
@@ -314,6 +333,9 @@
             
             selectors.forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
+                    // Skip null elements and ensure observer exists
+                    if (!el || !this.observer) return;
+                    
                     if (!this.animatedElements.has(el)) {
                         this.setInitialState(el);
                         this.observer.observe(el);
@@ -348,8 +370,10 @@
                 element.style.transform = 'translateY(0)';
                 element.classList.add('scroll-animated', 'revealed', 'lakeside-visible');
                 
-                // Stop observing
-                this.observer.unobserve(element);
+                // Stop observing (guard against null observer)
+                if (this.observer) {
+                    this.observer.unobserve(element);
+                }
                 
                 // Add to parallax if has image
                 if (CONFIG.enableParallax && element.querySelector('img')) {
@@ -429,12 +453,20 @@
             // Re-observe elements for SPA navigation
             this.animatedElements = new WeakSet();
             this.parallaxElements = [];
+            
+            // Ensure observer exists before observing elements
+            // This guards against null observer after SPA content swap
+            if (!this.observer) {
+                this.createObserver();
+            }
+            
             this.observeElements();
         },
         
         destroy() {
             if (this.observer) {
                 this.observer.disconnect();
+                this.observer = null;
             }
         }
     };
@@ -753,7 +785,7 @@
                 HeaderScroll.refresh();
                 ScrollToTop.refresh();
             },
-            showLoader: () => PageLoader.show(),
+            showLoader: (destinationPage) => PageLoader.show(destinationPage),
             hideLoader: () => PageLoader.hide(),
             onNavigationStart: () => PageTransitions.onNavigationStart(),
             onNavigationEnd: () => PageTransitions.onNavigationEnd()

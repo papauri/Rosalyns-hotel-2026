@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Feb 18, 2026 at 11:08 PM
+-- Generation Time: Feb 20, 2026 at 11:10 AM
 -- Server version: 8.0.44-cll-lve
 -- PHP Version: 8.4.17
 
@@ -122,7 +122,8 @@ INSERT INTO `admin_activity_log` (`id`, `user_id`, `username`, `action`, `detail
 (40, 2, 'receptionist', 'login_success', 'Role: receptionist', '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36', '2026-02-17 22:52:20'),
 (41, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-18 08:57:22'),
 (42, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-18 11:44:31'),
-(43, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-18 21:45:54');
+(43, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-18 21:45:54'),
+(44, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-19 22:22:25');
 
 -- --------------------------------------------------------
 
@@ -149,7 +150,7 @@ CREATE TABLE `admin_users` (
 --
 
 INSERT INTO `admin_users` (`id`, `username`, `email`, `password_hash`, `full_name`, `role`, `is_active`, `last_login`, `created_at`, `updated_at`, `failed_login_attempts`) VALUES
-(1, 'admin', 'johnpaulchirwa@gmail.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'System Administrator', 'admin', 1, '2026-02-18 21:45:54', '2026-01-20 19:08:40', '2026-02-18 21:45:54', 0),
+(1, 'admin', 'johnpaulchirwa@gmail.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'System Administrator', 'admin', 1, '2026-02-19 22:22:25', '2026-01-20 19:08:40', '2026-02-19 22:22:25', 0),
 (2, 'receptionist', 'reception@liwondesunhotel.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'Front Desk', 'receptionist', 1, '2026-02-17 22:52:20', '2026-01-20 19:08:40', '2026-02-17 22:52:20', 0);
 
 -- --------------------------------------------------------
@@ -200,6 +201,21 @@ CREATE TABLE `api_usage_logs` (
   `response_time` decimal(10,4) NOT NULL COMMENT 'Response time in seconds',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Log of API usage for monitoring and analytics';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `blocked_dates`
+--
+
+CREATE TABLE `blocked_dates` (
+  `id` int UNSIGNED NOT NULL,
+  `room_id` int UNSIGNED DEFAULT NULL,
+  `block_date` date NOT NULL,
+  `reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `blocked_by` int UNSIGNED DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -311,7 +327,7 @@ INSERT INTO `booking_notes` (`id`, `booking_id`, `note_text`, `created_by`, `cre
 --
 
 CREATE TABLE `booking_payments` (
-  `id` int NOT NULL,
+  `id` int UNSIGNED NOT NULL,
   `booking_id` int UNSIGNED NOT NULL,
   `booking_reference` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `payment_type` enum('deposit','full','partial','refund') COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -333,7 +349,7 @@ CREATE TABLE `booking_payments` (
 --
 
 CREATE TABLE `booking_timeline_logs` (
-  `id` int NOT NULL,
+  `id` int UNSIGNED NOT NULL,
   `booking_id` int UNSIGNED NOT NULL,
   `booking_reference` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `action` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -357,8 +373,8 @@ CREATE TABLE `booking_timeline_logs` (
 --
 
 CREATE TABLE `cancellation_log` (
-  `id` int NOT NULL,
-  `booking_id` int NOT NULL,
+  `id` int UNSIGNED NOT NULL,
+  `booking_id` int UNSIGNED NOT NULL,
   `booking_reference` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `booking_type` enum('room','conference') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'room',
   `guest_email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -369,6 +385,41 @@ CREATE TABLE `cancellation_log` (
   `email_status` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Audit log for all booking cancellations with email tracking';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `conference_bookings`
+--
+
+CREATE TABLE `conference_bookings` (
+  `id` int UNSIGNED NOT NULL,
+  `booking_reference` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `conference_room_id` int UNSIGNED DEFAULT NULL,
+  `organization_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `contact_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `contact_email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `contact_phone` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `event_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `event_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `event_date` date NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `number_of_attendees` int NOT NULL DEFAULT '1',
+  `setup_requirements` text COLLATE utf8mb4_unicode_ci,
+  `catering_required` tinyint(1) DEFAULT '0',
+  `catering_details` text COLLATE utf8mb4_unicode_ci,
+  `av_requirements` text COLLATE utf8mb4_unicode_ci,
+  `special_requests` text COLLATE utf8mb4_unicode_ci,
+  `total_amount` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `amount_paid` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `payment_status` enum('unpaid','partial','paid') COLLATE utf8mb4_unicode_ci DEFAULT 'unpaid',
+  `status` enum('pending','tentative','confirmed','cancelled','completed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `is_tentative` tinyint(1) DEFAULT '0',
+  `tentative_expires_at` datetime DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -444,9 +495,7 @@ CREATE TABLE `conference_rooms` (
 --
 
 INSERT INTO `conference_rooms` (`id`, `name`, `description`, `capacity`, `size_sqm`, `daily_rate`, `amenities`, `image_path`, `is_active`, `display_order`, `created_at`, `updated_at`) VALUES
-(1, 'Njobvu Room', 'Large conference space for seminars, workshops, and corporate events. Can be divided for smaller groups.', 250, 35.00, 400000.00, 'Video Conferencing, Smart TV, Whiteboard, High-Speed WiFi, Coffee Service, Sweets, Projector hire', 'images/conference/Conference_Room1.jpeg', 1, 1, '2026-01-20 22:35:58', '2026-02-09 11:44:39'),
-(2, 'Kasupe Room', 'Small meeting room suitable for business meetings and presentations. Includes basic presentation equipment.', 120, 200.00, 200000.00, 'Stage & Podium, Professional Sound System, Projection Screen, WiFi, Air Conditioning, Breakout Rooms', 'images/conference/kasupe.jpeg', 1, 2, '2026-01-20 22:35:58', '2026-02-09 11:46:36'),
-(3, 'Gwape Room', 'Meeting room with nice views. Good for training sessions and medium-sized gatherings.', 30, 60.00, 150000.00, 'Projector & Screen, Video Conferencing, Whiteboard, WiFi, Lake View, Terrace Access', 'images/conference/lakeside-room.jpg', 1, 3, '2026-01-20 22:35:58', '2026-02-09 11:46:41');
+(1, 'Conference Room 1', 'Large conference space for seminars, workshops, and corporate events. Can be divided for smaller groups.', 250, 35.00, 400000.00, 'Video Conferencing, Smart TV, Whiteboard, High-Speed WiFi, Coffee Service, Sweets, Projector hire', 'images/conference/conference_1771583184_4949.jpeg', 1, 1, '2026-01-20 22:35:58', '2026-02-20 10:26:49');
 
 -- --------------------------------------------------------
 
@@ -535,7 +584,9 @@ INSERT INTO `cookie_consent_log` (`id`, `ip_address`, `user_agent`, `consent_lev
 (66, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-17 08:57:56'),
 (67, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-18 08:57:11'),
 (68, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-18 09:38:35'),
-(69, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-18 22:17:03');
+(69, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-18 22:17:03'),
+(70, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-19 09:19:44'),
+(71, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-19 10:58:13');
 
 -- --------------------------------------------------------
 
@@ -679,9 +730,7 @@ CREATE TABLE `facilities` (
 
 INSERT INTO `facilities` (`id`, `name`, `slug`, `description`, `short_description`, `icon_class`, `page_url`, `image_url`, `is_featured`, `is_active`, `display_order`, `created_at`, `updated_at`) VALUES
 (1, 'Restaurant', 'fine-dining', 'Our restaurant serves tasty local and international dishes. Open for breakfast, lunch, and dinner. Enjoy good food at affordable prices.', 'Good food at reasonable prices', 'fas fa-utensils', 'restaurant.php', NULL, 1, 1, 1, '2026-01-19 20:22:49', '2026-02-07 02:40:52'),
-(2, 'Luxury Spa & Wellness', 'spa-wellness', 'Full-service spa offering massages, facials, and wellness treatments. Expert therapists provide personalized experiences using premium organic products. Includes sauna and steam room.', 'Rejuvenating spa treatments and wellness services', 'fas fa-spa', NULL, NULL, 1, 1, 2, '2026-01-19 20:22:49', '2026-01-19 20:22:49'),
 (3, 'Swimming Pool', 'swimming-pool', 'Outdoor swimming pool perfect for cooling off and relaxing. Pool area with seating available.', 'Refreshing outdoor pool', 'fas fa-swimming-pool', NULL, NULL, 1, 1, 3, '2026-01-19 20:22:49', '2026-02-07 02:40:52'),
-(4, 'Fitness Center', 'fitness-center', 'Well-equipped gym with cardio machines and weights. Open daily for hotel guests.', 'Exercise facilities available', 'fas fa-dumbbell', 'gym.php', NULL, 1, 1, 4, '2026-01-19 20:22:49', '2026-02-07 02:40:52'),
 (5, 'WiFi Internet', 'wifi', 'Complimentary WiFi available throughout the hotel for all guests.', 'Free internet access', 'fas fa-wifi', NULL, NULL, 1, 1, 5, '2026-01-19 20:22:49', '2026-02-07 02:40:52'),
 (6, 'Front Desk Service', 'concierge', 'Our front desk is available to help with check-in, information, and assistance during your stay.', 'Helpful front desk staff', 'fas fa-concierge-bell', NULL, NULL, 1, 1, 6, '2026-01-19 20:22:49', '2026-02-07 02:40:52');
 
@@ -1184,7 +1233,7 @@ INSERT INTO `managed_media_catalog` (`id`, `title`, `description`, `media_type`,
 (1, 'Rosalyn\'s Beach Hotel – Image 1', '', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(18).35e879243a9ccdd6669e.jpeg', NULL, 'Rosalyn\'s Beach Hotel – Image 1', '', 'index_hotel_gallery', 'index', 'hotel_gallery', NULL, NULL, 1, 1, 'hotel_gallery', 9, NULL, '2026-02-16 12:24:27', '2026-02-16 12:24:27'),
 (2, 'Rosalyn\'s Beach Hotel – Image 2', '', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.36.41%20(1).9dcda0cf8d98e649c98a.jpeg', NULL, 'Rosalyn\'s Beach Hotel – Image 2', '', 'index_hotel_gallery', 'index', 'hotel_gallery', NULL, NULL, 1, 2, 'hotel_gallery', 10, NULL, '2026-02-16 12:24:27', '2026-02-16 12:24:27'),
 (3, 'Welcome to Rosalyns Beach Hotel', 'Located in the heart of Malawi, Rosalyns Beach Hotel offers premium accomodation', 'image', 'url', 'https://i.ibb.co/Q8MjZL6/DSC05798.jpg', NULL, 'Welcome to Rosalyns Beach Hotel', 'Our Story', 'about_us.image_url', 'index', 'about', 'about_us', 1, 1, 1, 'about_us.image_url', 1, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
-(4, 'Njobvu Room', 'Large conference space for seminars, workshops, and corporate events. Can be divided for smaller groups.', 'image', 'upload', 'images/conference/Conference_Room1.jpeg', NULL, 'Njobvu Room', 'Large conference space for seminars, workshops, and corporate events. Can be divided for smaller groups.', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 1, 1, 1, 'conference_rooms.image_path', 1, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
+(4, 'Conference Room 1 (Image)', 'Large conference space for seminars, workshops, and corporate events. Can be divided for smaller groups.', 'image', 'upload', 'images/conference/conference_1771583184_4949.jpeg', NULL, 'Conference Room 1', 'Large conference space for seminars, workshops, and corporate events. Can be divided for smaller groups.', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 1, 1, 1, 'conference_rooms.image_path', 1, NULL, '2026-02-16 13:10:31', '2026-02-20 10:26:51'),
 (5, 'Kasupe Room', 'Small meeting room suitable for business meetings and presentations. Includes basic presentation equipment.', 'image', 'upload', 'images/conference/kasupe.jpeg', NULL, 'Kasupe Room', 'Small meeting room suitable for business meetings and presentations. Includes basic presentation equipment.', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 2, 1, 2, 'conference_rooms.image_path', 2, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (6, 'Gwape Room', 'Meeting room with nice views. Good for training sessions and medium-sized gatherings.', 'image', 'upload', 'images/conference/lakeside-room.jpg', NULL, 'Gwape Room', 'Meeting room with nice views. Good for training sessions and medium-sized gatherings.', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 3, 1, 3, 'conference_rooms.image_path', 3, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (7, 'Valentines Day Celebrations', 'Love is in the Sun', 'image', 'upload', 'images/events/valentines.png', NULL, 'Valentines Day', 'Love is in the Sun', 'events.image_path', 'events', 'events_overview', 'event', 15, 1, 0, 'events.image_path', 15, NULL, '2026-02-16 13:10:31', '2026-02-16 13:12:55'),
@@ -1746,8 +1795,8 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`id`, `name`, `slug`, `description`, `short_description`, `price_per_night`, `size_sqm`, `max_guests`, `single_occupancy_enabled`, `double_occupancy_enabled`, `triple_occupancy_enabled`, `children_allowed`, `rooms_available`, `total_rooms`, `bed_type`, `image_url`, `badge`, `amenities`, `is_featured`, `is_active`, `display_order`, `created_at`, `updated_at`, `video_path`, `video_type`, `price_single_occupancy`, `price_double_occupancy`, `price_triple_occupancy`, `child_price_multiplier`) VALUES
-(2, 'VIP Beach Front Villa', 'executive-suite', 'Experience luxury beachfront living in our spacious two-room villa. Perfect for groups of up to 4, featuring a private lounge and fully-equipped kitchen. Enjoy breathtaking lake views and direct beach access.\r\n\r\n', 'Spacious room with work area', 460000.00, 60, 2, 1, 1, 0, 1, 1, 1, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-06-30%20at%2018.38.03.f4a12059d4216a3061ab.jpeg', NULL, 'King Bed,Work Desk,Butler Service,Living Area,Smart TV,High-Speed WiFi,Coffee Machine,Mini Bar,Safe', 1, 1, 1, '2026-01-19 20:22:49', '2026-02-17 21:02:59', NULL, NULL, 460000.00, 460000.00, 460000.00, 0.00),
-(4, 'Superior Suite', 'deluxe-room', 'Indulge in our luxurious Executive Suite, offering panoramic views and exclusive amenities. Perfect for couples or business travelers, this suite includes a sumptuous bed and breakfast for two, ensuring a memorable stay.', 'Comfortable room with private bathroom', 250000.00, 45, 2, 1, 1, 0, 1, 17, 17, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-10%20at%2019.27.57%20(13).60ab649ff39cf3dd7a51.jpeg', 'Popular', 'King Bed,Jacuzzi Tub,Living Area,Marble Bathroom,Premium Bedding,Smart TV,Mini Bar,Free WiFi', 1, 1, 2, '2026-01-19 20:22:49', '2026-02-18 22:21:02', NULL, NULL, 250000.00, 250000.00, 0.00, 50.00);
+(2, 'VIP Beach Front Villa', 'executive-suite', 'Experience luxury beachfront living in our spacious two-room villa. Perfect for groups of up to 4, featuring a private lounge and fully-equipped kitchen. Enjoy breathtaking lake views and direct beach access.\r\n\r\n', 'Spacious room with work area', 460000.00, 60, 2, 1, 1, 0, 1, 0, 1, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-06-30%20at%2018.38.03.f4a12059d4216a3061ab.jpeg', NULL, 'King Bed,Work Desk,Butler Service,Living Area,Smart TV,High-Speed WiFi,Coffee Machine,Mini Bar,Safe', 1, 1, 1, '2026-01-19 20:22:49', '2026-02-19 22:27:34', NULL, NULL, 460000.00, 460000.00, 460000.00, 0.00),
+(4, 'Superior Suite', 'deluxe-room', 'Indulge in our luxurious Executive Suite, offering panoramic views and exclusive amenities. Perfect for couples or business travelers, this suite includes a sumptuous bed and breakfast for two, ensuring a memorable stay.', 'Comfortable room with private bathroom', 250000.00, 45, 2, 1, 1, 0, 1, 17, 17, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-10%20at%2019.27.57%20(13).60ab649ff39cf3dd7a51.jpeg', 'Popular', 'King Bed,Jacuzzi Tub,Living Area,Marble Bathroom,Premium Bedding,Smart TV,Mini Bar,Free WiFi', 1, 1, 2, '2026-01-19 20:22:49', '2026-02-19 12:01:17', NULL, NULL, 250000.00, 250000.00, 0.00, 50.00);
 
 -- --------------------------------------------------------
 
@@ -1925,7 +1974,9 @@ INSERT INTO `session_logs` (`id`, `session_id`, `ip_address`, `device_type`, `br
 (68, 'e094f9e4e454fc5da1373bd64d70347d', '192.168.2.5', 'mobile', 'Chrome', 'Android', '/booking.php?check_in=2026-02-15&check_out=2026-02-17&guests=1', '192.168.2.18', 'Local', '2026-02-15 23:21:21', '2026-02-15 23:21:21', 1, '{\"version\":\"1.0\",\"ti'),
 (69, 'drqqccrjkafr08nhsufqg460td', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/booking.php', 'localhost', 'Local', '2026-02-17 10:42:35', '2026-02-17 21:03:32', 9, 'all'),
 (78, 's27pekk2s9np7i6t3c2mrr24p9', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/gym.php', 'localhost', 'Local', '2026-02-18 10:29:20', '2026-02-18 11:48:31', 3, 'all'),
-(81, 'jdp02hfip1clvm2mtgtt6vv63d', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/booking.php', 'localhost', 'Local', '2026-02-18 22:17:29', '2026-02-18 22:17:29', 1, 'all');
+(81, 'jdp02hfip1clvm2mtgtt6vv63d', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/booking.php', 'localhost', 'Local', '2026-02-18 22:17:29', '2026-02-18 22:17:29', 1, 'all'),
+(82, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/conference.php', 'localhost', 'Local', '2026-02-19 11:44:15', '2026-02-20 10:52:49', 9, 'all'),
+(86, 'da2ggsdcrjishlole11qh7g60m', '192.168.2.5', 'mobile', 'Chrome', 'Android', '/submit-review.php', '192.168.2.13', 'Local', '2026-02-19 18:50:14', '2026-02-19 18:50:14', 1, 'all');
 
 -- --------------------------------------------------------
 
@@ -1956,7 +2007,7 @@ INSERT INTO `site_pages` (`id`, `page_key`, `title`, `file_path`, `icon`, `nav_p
 (1, 'home', 'Home', 'index.php', 'fa-home', 10, 1, 1, 0, 'Main landing page', '2026-02-07 21:36:55', '2026-02-07 21:36:55'),
 (2, 'rooms', 'Rooms', 'rooms-gallery.php', 'fa-bed', 20, 1, 1, 0, 'Room gallery & listings', '2026-02-07 21:36:55', '2026-02-07 21:40:35'),
 (3, 'restaurant', 'Restaurant', 'restaurant.php', 'fa-utensils', 30, 1, 1, 0, 'Restaurant & menu', '2026-02-07 21:36:55', '2026-02-07 21:36:55'),
-(4, 'gym', 'Gym', 'gym.php', 'fa-dumbbell', 40, 1, 1, 0, 'Gym & fitness centre', '2026-02-07 21:36:55', '2026-02-07 21:36:55'),
+(4, 'gym', 'Gym', 'gym.php', 'fa-dumbbell', 40, 1, 0, 0, 'Gym & fitness centre', '2026-02-07 21:36:55', '2026-02-20 09:42:08'),
 (5, 'conference', 'Conference', 'conference.php', 'fa-briefcase', 50, 1, 1, 0, 'Conference facilities', '2026-02-07 21:36:55', '2026-02-07 21:36:55'),
 (6, 'events', 'Events', 'events.php', 'fa-calendar-alt', 60, 1, 1, 0, 'Hotel events', '2026-02-07 21:36:55', '2026-02-07 21:36:55'),
 (7, 'booking', 'Book Now', 'booking.php', 'fa-calendar-check', 100, 1, 1, 0, 'Booking page (CTA button, not regular nav)', '2026-02-07 21:36:55', '2026-02-07 21:40:55');
@@ -1991,10 +2042,10 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_value`, `setting_grou
 (9, 'address_line1', ' Matuwi Village', 'contact', '2026-02-17 19:45:06', NULL, NULL),
 (10, 'address_line2', 'Mangochi', 'contact', '2026-02-17 19:45:14', NULL, NULL),
 (11, 'address_country', 'Malawi', 'contact', '2026-01-19 20:22:49', NULL, NULL),
-(12, 'facebook_url', 'https://facebook.com/liwondesunhotel', 'social', '2026-01-19 20:22:49', NULL, NULL),
-(13, 'instagram_url', 'https://instagram.com/liwondesunhotel', 'social', '2026-01-19 20:22:49', NULL, NULL),
-(14, 'twitter_url', 'https://twitter.com/liwondesunhotel', 'social', '2026-01-19 20:22:49', NULL, NULL),
-(15, 'linkedin_url', 'https://linkedin.com/company/liwondesunhotel', 'social', '2026-01-19 20:22:49', NULL, NULL),
+(12, 'facebook_url', 'https://www.facebook.com/100089610594010/', 'social', '2026-02-19 11:55:57', NULL, NULL),
+(13, 'instagram_url', 'https://www.facebook.com/100089610594010/', 'social', '2026-02-19 11:56:02', NULL, NULL),
+(14, 'twitter_url', 'https://www.facebook.com/100089610594010/', 'social', '2026-02-19 11:56:05', NULL, NULL),
+(15, 'linkedin_url', 'https://www.facebook.com/100089610594010/', 'social', '2026-02-19 11:56:09', NULL, NULL),
 (16, 'working_hours', '24/7 Available', 'contact', '2026-01-19 20:22:49', NULL, NULL),
 (17, 'copyright_text', '2026 Rosalyns Beach Hotel. All rights reserved.', 'general', '2026-02-11 11:57:46', NULL, NULL),
 (18, 'currency_symbol', 'MWK', 'general', '2026-01-20 10:16:28', NULL, NULL),
@@ -2040,7 +2091,7 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_value`, `setting_grou
 (123, 'phone_alternate1', '0983 825 196', 'contact', '2026-02-04 21:24:01', NULL, NULL),
 (124, 'phone_alternate2', '0999 877 796', 'contact', '2026-02-04 21:24:01', NULL, NULL),
 (125, 'phone_alternate3', '0888 353 540', 'contact', '2026-02-04 21:24:01', NULL, NULL),
-(126, 'email_restaurant', 'rosalynsrestauraunt@gmail.com', 'contact', '2026-02-16 23:51:19', NULL, NULL),
+(126, 'email_restaurant', 'johnpaulchirwa@gmail.com', 'contact', '2026-02-19 11:56:37', NULL, NULL),
 (127, 'cache_email_enabled', '1', NULL, '2026-02-05 17:24:35', NULL, NULL),
 (128, 'cache_settings_enabled', '1', NULL, '2026-02-05 17:24:38', NULL, NULL),
 (129, 'cache_rooms_enabled', '1', NULL, '2026-02-07 12:49:46', NULL, NULL),
@@ -2183,7 +2234,17 @@ INSERT INTO `site_visitors` (`id`, `session_id`, `ip_address`, `user_agent`, `de
 (78, 's27pekk2s9np7i6t3c2mrr24p9', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/gym.php', 'localhost', 'Local', '/gym.php', NULL, 1, NULL, '2026-02-18 10:29:20'),
 (79, 's27pekk2s9np7i6t3c2mrr24p9', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-18 10:29:31'),
 (80, 's27pekk2s9np7i6t3c2mrr24p9', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/gym.php', 'localhost', 'Local', '/gym.php', NULL, 0, NULL, '2026-02-18 11:48:31'),
-(81, 'jdp02hfip1clvm2mtgtt6vv63d', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/booking.php', NULL, 1, NULL, '2026-02-18 22:17:29');
+(81, 'jdp02hfip1clvm2mtgtt6vv63d', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/booking.php', NULL, 1, NULL, '2026-02-18 22:17:29'),
+(82, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/booking.php', NULL, 1, NULL, '2026-02-19 11:44:15'),
+(83, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-19 11:50:49'),
+(84, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-19 12:01:00'),
+(85, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-19 13:27:21'),
+(86, 'da2ggsdcrjishlole11qh7g60m', '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'http://192.168.2.13:8000/', '192.168.2.13', 'Local', '/submit-review.php', NULL, 1, NULL, '2026-02-19 18:50:14'),
+(87, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-19 22:24:30'),
+(88, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking-confirmation.php?ref=LSH20264072', NULL, 0, NULL, '2026-02-19 22:25:48'),
+(89, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 10:27:23'),
+(90, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 10:28:35'),
+(91, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 10:52:49');
 
 -- --------------------------------------------------------
 
@@ -2360,6 +2421,68 @@ CREATE TABLE `v_active_tentative_bookings` (
 -- --------------------------------------------------------
 
 --
+-- Stand-in structure for view `v_media_by_page`
+-- (See below for the actual view)
+--
+CREATE TABLE `v_media_by_page` (
+`id` int unsigned
+,`title` varchar(180)
+,`description` varchar(255)
+,`media_type` enum('image','video')
+,`source_type` enum('upload','url')
+,`media_url` varchar(500)
+,`mime_type` varchar(120)
+,`alt_text` varchar(255)
+,`caption` varchar(255)
+,`placement_key` varchar(120)
+,`page_slug` varchar(100)
+,`section_key` varchar(100)
+,`entity_type` varchar(50)
+,`entity_id` int unsigned
+,`is_active` tinyint(1)
+,`display_order` int
+,`legacy_source` varchar(50)
+,`legacy_id` int unsigned
+,`created_by` int unsigned
+,`created_at` timestamp
+,`updated_at` timestamp
+,`source_columns` text
+);
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `v_room_media`
+-- (See below for the actual view)
+--
+CREATE TABLE `v_room_media` (
+`id` int unsigned
+,`title` varchar(180)
+,`description` varchar(255)
+,`media_type` enum('image','video')
+,`source_type` enum('upload','url')
+,`media_url` varchar(500)
+,`mime_type` varchar(120)
+,`alt_text` varchar(255)
+,`caption` varchar(255)
+,`placement_key` varchar(120)
+,`page_slug` varchar(100)
+,`section_key` varchar(100)
+,`entity_type` varchar(50)
+,`entity_id` int unsigned
+,`is_active` tinyint(1)
+,`display_order` int
+,`legacy_source` varchar(50)
+,`legacy_id` int unsigned
+,`created_by` int unsigned
+,`created_at` timestamp
+,`updated_at` timestamp
+,`room_id` varchar(64)
+);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `v_tentative_booking_stats`
 --
 
@@ -2468,6 +2591,15 @@ ALTER TABLE `api_usage_logs`
   ADD KEY `idx_created_at` (`created_at`);
 
 --
+-- Indexes for table `blocked_dates`
+--
+ALTER TABLE `blocked_dates`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_room_id` (`room_id`),
+  ADD KEY `idx_block_date` (`block_date`),
+  ADD KEY `idx_room_date` (`room_id`,`block_date`);
+
+--
 -- Indexes for table `bookings`
 --
 ALTER TABLE `bookings`
@@ -2530,6 +2662,16 @@ ALTER TABLE `cancellation_log`
   ADD KEY `idx_booking_reference` (`booking_reference`),
   ADD KEY `idx_cancellation_date` (`cancellation_date`),
   ADD KEY `idx_booking_type` (`booking_type`);
+
+--
+-- Indexes for table `conference_bookings`
+--
+ALTER TABLE `conference_bookings`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_booking_reference` (`booking_reference`),
+  ADD KEY `idx_event_date` (`event_date`),
+  ADD KEY `idx_status` (`status`),
+  ADD KEY `idx_contact_email` (`contact_email`);
 
 --
 -- Indexes for table `conference_inquiries`
@@ -2970,7 +3112,7 @@ ALTER TABLE `about_us`
 -- AUTO_INCREMENT for table `admin_activity_log`
 --
 ALTER TABLE `admin_activity_log`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
 
 --
 -- AUTO_INCREMENT for table `admin_users`
@@ -2991,10 +3133,16 @@ ALTER TABLE `api_usage_logs`
   MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `blocked_dates`
+--
+ALTER TABLE `blocked_dates`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `booking_email_templates`
@@ -3012,19 +3160,25 @@ ALTER TABLE `booking_notes`
 -- AUTO_INCREMENT for table `booking_payments`
 --
 ALTER TABLE `booking_payments`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `booking_timeline_logs`
 --
 ALTER TABLE `booking_timeline_logs`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `cancellation_log`
 --
 ALTER TABLE `cancellation_log`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `conference_bookings`
+--
+ALTER TABLE `conference_bookings`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `conference_inquiries`
@@ -3042,7 +3196,7 @@ ALTER TABLE `conference_rooms`
 -- AUTO_INCREMENT for table `cookie_consent_log`
 --
 ALTER TABLE `cookie_consent_log`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=70;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 
 --
 -- AUTO_INCREMENT for table `drink_menu`
@@ -3222,7 +3376,7 @@ ALTER TABLE `password_resets`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `policies`
@@ -3288,7 +3442,7 @@ ALTER TABLE `section_headers`
 -- AUTO_INCREMENT for table `session_logs`
 --
 ALTER TABLE `session_logs`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=82;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=92;
 
 --
 -- AUTO_INCREMENT for table `site_pages`
@@ -3300,13 +3454,13 @@ ALTER TABLE `site_pages`
 -- AUTO_INCREMENT for table `site_settings`
 --
 ALTER TABLE `site_settings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=340;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=355;
 
 --
 -- AUTO_INCREMENT for table `site_visitors`
 --
 ALTER TABLE `site_visitors`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=82;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=92;
 
 --
 -- AUTO_INCREMENT for table `tentative_booking_log`
@@ -3332,6 +3486,24 @@ ALTER TABLE `user_permissions`
 ALTER TABLE `welcome`
   MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
+-- --------------------------------------------------------
+
+--
+-- Structure for view `v_media_by_page`
+--
+DROP TABLE IF EXISTS `v_media_by_page`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`p601229`@`localhost` SQL SECURITY DEFINER VIEW `v_media_by_page`  AS SELECT `c`.`id` AS `id`, `c`.`title` AS `title`, `c`.`description` AS `description`, `c`.`media_type` AS `media_type`, `c`.`source_type` AS `source_type`, `c`.`media_url` AS `media_url`, `c`.`mime_type` AS `mime_type`, `c`.`alt_text` AS `alt_text`, `c`.`caption` AS `caption`, `c`.`placement_key` AS `placement_key`, `c`.`page_slug` AS `page_slug`, `c`.`section_key` AS `section_key`, `c`.`entity_type` AS `entity_type`, `c`.`entity_id` AS `entity_id`, `c`.`is_active` AS `is_active`, `c`.`display_order` AS `display_order`, `c`.`legacy_source` AS `legacy_source`, `c`.`legacy_id` AS `legacy_id`, `c`.`created_by` AS `created_by`, `c`.`created_at` AS `created_at`, `c`.`updated_at` AS `updated_at`, group_concat(concat(`l`.`source_table`,'.',`l`.`source_column`) separator ', ') AS `source_columns` FROM (`managed_media_catalog` `c` left join `managed_media_links` `l` on((`l`.`media_catalog_id` = `c`.`id`))) WHERE (`c`.`is_active` = 1) GROUP BY `c`.`id` ORDER BY `c`.`page_slug` ASC, `c`.`section_key` ASC, `c`.`display_order` ASC ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `v_room_media`
+--
+DROP TABLE IF EXISTS `v_room_media`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`p601229`@`localhost` SQL SECURITY DEFINER VIEW `v_room_media`  AS SELECT `c`.`id` AS `id`, `c`.`title` AS `title`, `c`.`description` AS `description`, `c`.`media_type` AS `media_type`, `c`.`source_type` AS `source_type`, `c`.`media_url` AS `media_url`, `c`.`mime_type` AS `mime_type`, `c`.`alt_text` AS `alt_text`, `c`.`caption` AS `caption`, `c`.`placement_key` AS `placement_key`, `c`.`page_slug` AS `page_slug`, `c`.`section_key` AS `section_key`, `c`.`entity_type` AS `entity_type`, `c`.`entity_id` AS `entity_id`, `c`.`is_active` AS `is_active`, `c`.`display_order` AS `display_order`, `c`.`legacy_source` AS `legacy_source`, `c`.`legacy_id` AS `legacy_id`, `c`.`created_by` AS `created_by`, `c`.`created_at` AS `created_at`, `c`.`updated_at` AS `updated_at`, `l`.`source_record_id` AS `room_id` FROM (`managed_media_catalog` `c` join `managed_media_links` `l` on((`l`.`media_catalog_id` = `c`.`id`))) WHERE ((`l`.`source_table` = 'rooms') AND (`c`.`is_active` = 1)) ORDER BY `c`.`display_order` ASC ;
+
 --
 -- Constraints for dumped tables
 --
@@ -3347,6 +3519,12 @@ ALTER TABLE `booking_payments`
 --
 ALTER TABLE `booking_timeline_logs`
   ADD CONSTRAINT `booking_timeline_logs_ibfk_1` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `cancellation_log`
+--
+ALTER TABLE `cancellation_log`
+  ADD CONSTRAINT `fk_cancellation_log_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `managed_media_links`

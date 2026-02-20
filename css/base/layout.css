@@ -392,7 +392,8 @@ main {
 /* Single-item centered presentation for editorial grids */
 :is(
     .editorial-events-grid,
-    .editorial-conference-grid
+    .editorial-conference-grid,
+    .editorial-experience-grid
 ) > *:only-child {
     max-width: min(600px, 100%);
     margin-inline: auto;
@@ -402,11 +403,13 @@ main {
 /* Two-item balanced layout for editorial grids */
 :is(
     .editorial-events-grid,
-    .editorial-conference-grid
+    .editorial-conference-grid,
+    .editorial-experience-grid
 ) > *:nth-last-child(2):first-child,
 :is(
     .editorial-events-grid,
-    .editorial-conference-grid
+    .editorial-conference-grid,
+    .editorial-experience-grid
 ) > *:nth-last-child(2):first-child ~ * {
     max-width: min(520px, 100%);
     margin-inline: auto;
@@ -415,11 +418,13 @@ main {
 @media (min-width: 992px) {
     :is(
         .editorial-events-grid,
-        .editorial-conference-grid
+        .editorial-conference-grid,
+        .editorial-experience-grid
     ) > *:nth-last-child(2):first-child,
     :is(
         .editorial-events-grid,
-        .editorial-conference-grid
+        .editorial-conference-grid,
+        .editorial-experience-grid
     ) > *:nth-last-child(2):first-child ~ * {
         max-width: none;
         margin-inline: 0;
