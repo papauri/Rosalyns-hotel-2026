@@ -1216,6 +1216,14 @@ try {
                     });
                 });
             });
+
+            // Add booking type change listeners
+            const bookingTypeRadios = document.querySelectorAll('input[name="booking_type"]');
+            bookingTypeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    selectBookingType(this.value);
+                });
+            });
         });
         
         // Update price displays when occupancy type changes

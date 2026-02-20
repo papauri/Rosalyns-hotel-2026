@@ -17,7 +17,7 @@ if (function_exists('getPageLoader') && $page_slug) {
 }
 ?>
 <!-- Elegant Page Loader -->
-<div id="page-loader" class="loader">
+<div id="page-loader" class="loader loader--active">
     <div class="loader__content">
         <div class="loader__spinner">
             <div class="spinner-ring"></div>
@@ -40,10 +40,10 @@ if (function_exists('getPageLoader') && $page_slug) {
         const loader = document.getElementById('page-loader');
         if (loader) {
             loader.classList.remove('loader--active');
+            loader.classList.add('loader--hiding');
             setTimeout(function() {
-                loader.style.display = 'none';
-                loader.style.visibility = 'hidden';
-                loader.style.opacity = '0';
+                loader.classList.remove('loader--hiding');
+                loader.classList.add('loader--hidden');
             }, 500);
         }
     }

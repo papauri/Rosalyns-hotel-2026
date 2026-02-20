@@ -69,6 +69,33 @@
     align-items: stretch;
 }
 
+/* Single-item centered presentation */
+.events-showcase__grid > *:only-child,
+.conference-showcase__grid > *:only-child {
+    max-width: min(600px, 100%);
+    margin-inline: auto;
+    grid-column: 1 / -1;
+}
+
+/* Two-item balanced layout */
+.events-showcase__grid > *:nth-last-child(2):first-child,
+.events-showcase__grid > *:nth-last-child(2):first-child ~ *,
+.conference-showcase__grid > *:nth-last-child(2):first-child,
+.conference-showcase__grid > *:nth-last-child(2):first-child ~ * {
+    max-width: min(520px, 100%);
+    margin-inline: auto;
+}
+
+@media (min-width: 992px) {
+    .events-showcase__grid > *:nth-last-child(2):first-child,
+    .events-showcase__grid > *:nth-last-child(2):first-child ~ *,
+    .conference-showcase__grid > *:nth-last-child(2):first-child,
+    .conference-showcase__grid > *:nth-last-child(2):first-child ~ * {
+        max-width: none;
+        margin-inline: 0;
+    }
+}
+
 /* ============================================
    PREMIUM CARD SHELL
    ============================================ */

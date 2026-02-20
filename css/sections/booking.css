@@ -889,6 +889,330 @@
     }
 }
 
+/* ============================================
+   BOOKING CONFIRMATION PAGE
+   ============================================ */
+
+.confirmation-page {
+    background: linear-gradient(180deg, #FAF8F5 0%, #FFFFFF 100%);
+    min-height: 100vh;
+}
+
+.confirmation-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--spacing-lg, 24px);
+}
+
+.success-icon {
+    text-align: center;
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+.success-icon i {
+    font-size: 80px;
+    color: var(--color-success, #28A745);
+    animation: successPop 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.success-icon.tentative i {
+    color: var(--color-warning, #FFC107);
+}
+
+@keyframes successPop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.confirmation-card {
+    background: var(--color-surface, #FFFFFF);
+    border-radius: var(--radius-xl, 16px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    padding: var(--spacing-xl, 32px);
+    text-align: center;
+}
+
+.confirmation-card h1 {
+    font-family: var(--font-serif, 'Cormorant Garamond', serif);
+    font-size: var(--text-3xl, 1.875rem);
+    font-weight: 600;
+    color: var(--color-text-primary, #1A1A1A);
+    margin-bottom: var(--space-2, 0.5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3, 0.75rem);
+    flex-wrap: wrap;
+}
+
+.confirmation-card .subtitle {
+    font-size: var(--text-lg, 1.125rem);
+    color: var(--color-text-secondary, #6B5740);
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+/* Booking Type Indicator */
+.booking-type-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.booking-type-indicator.standard {
+    background: linear-gradient(135deg, #28A745, #34CE57);
+    color: white;
+}
+
+.booking-type-indicator.tentative {
+    background: linear-gradient(135deg, #FFC107, #FFD54F);
+    color: #5D4E37;
+}
+
+/* Tentative Badge */
+.tentative-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #FFF3CD, #FFE69C);
+    color: #856404;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: var(--spacing-lg, 24px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.tentative-badge i {
+    font-size: 1.2rem;
+}
+
+/* Booking Reference Box */
+.booking-reference-box {
+    background: linear-gradient(135deg, var(--color-primary, #8B7355), #6f5b43);
+    color: white;
+    padding: var(--spacing-lg, 24px);
+    border-radius: var(--radius-lg, 12px);
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+.booking-reference-box label {
+    display: block;
+    font-size: var(--text-sm, 0.875rem);
+    opacity: 0.9;
+    margin-bottom: var(--space-2, 0.5rem);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.reference-number {
+    font-family: var(--font-serif, 'Cormorant Garamond', serif);
+    font-size: var(--text-3xl, 1.875rem);
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+/* Booking Details Grid */
+.booking-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--spacing-md, 16px);
+    text-align: left;
+    padding: var(--spacing-lg, 24px);
+    background: #FAF8F5;
+    border-radius: var(--radius-lg, 12px);
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+.detail-item {
+    padding: var(--space-3, 0.75rem);
+}
+
+.detail-item.full-width {
+    grid-column: 1 / -1;
+    background: white;
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+    text-align: center;
+}
+
+.detail-item label {
+    display: block;
+    font-size: var(--text-xs, 0.75rem);
+    font-weight: 600;
+    color: var(--color-text-secondary, #6B5740);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-1, 0.25rem);
+}
+
+.detail-item .value {
+    font-size: var(--text-base, 1rem);
+    font-weight: 500;
+    color: var(--color-text-primary, #1A1A1A);
+}
+
+.detail-item.full-width .value {
+    font-size: var(--text-lg, 1.125rem);
+}
+
+/* Tentative Info Box */
+.tentative-info-box {
+    background: linear-gradient(135deg, #FFF8E1, #FFECB3);
+    border: 2px solid #FFD54F;
+    border-radius: var(--radius-lg, 12px);
+    padding: var(--spacing-lg, 24px);
+    margin-bottom: var(--spacing-lg, 24px);
+    text-align: left;
+}
+
+.tentative-info-box h3 {
+    font-family: var(--font-serif, 'Cormorant Garamond', serif);
+    font-size: var(--text-xl, 1.25rem);
+    color: #856404;
+    margin: 0 0 var(--space-3, 0.75rem) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 0.5rem);
+}
+
+.tentative-info-box p {
+    color: #6D5A00;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.6;
+    margin: 0 0 var(--space-3, 0.75rem) 0;
+}
+
+.tentative-info-box .expires-at {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #856404;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: var(--text-sm, 0.875rem);
+}
+
+/* Payment Info */
+.payment-info {
+    background: #E8F4FD;
+    border-radius: var(--radius-lg, 12px);
+    padding: var(--spacing-lg, 24px);
+    margin-bottom: var(--spacing-lg, 24px);
+    text-align: left;
+}
+
+.payment-info h3 {
+    font-family: var(--font-serif, 'Cormorant Garamond', serif);
+    font-size: var(--text-xl, 1.25rem);
+    color: #0C5460;
+    margin: 0 0 var(--space-3, 0.75rem) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 0.5rem);
+}
+
+.payment-info p {
+    color: #0A4A5C;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.8;
+    margin: 0;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3, 0.75rem);
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+.action-buttons .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: var(--radius-md, 8px);
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.action-buttons .btn-secondary {
+    background: white;
+    color: var(--color-text-primary, #1A1A1A);
+    border: 2px solid var(--color-border, #E8E4DD);
+}
+
+.action-buttons .btn-secondary:hover {
+    background: var(--color-bg-light, #F8F9FA);
+    border-color: var(--color-primary, #8B7355);
+    transform: translateY(-2px);
+}
+
+.action-buttons .btn-primary {
+    background: linear-gradient(135deg, var(--color-primary, #8B7355), #6f5b43);
+    color: white;
+    border: none;
+}
+
+.action-buttons .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 115, 85, 0.3);
+}
+
+.action-buttons .btn-whatsapp {
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: white;
+    border: none;
+}
+
+.action-buttons .btn-whatsapp:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.3);
+}
+
+/* Next Steps */
+.next-steps {
+    background: #FAF8F5;
+    border-radius: var(--radius-lg, 12px);
+    padding: var(--spacing-lg, 24px);
+    text-align: left;
+}
+
+.next-steps h3 {
+    font-family: var(--font-serif, 'Cormorant Garamond', serif);
+    font-size: var(--text-xl, 1.25rem);
+    color: var(--color-text-primary, #1A1A1A);
+    margin: 0 0 var(--spacing-md, 16px) 0;
+}
+
+.next-steps ol {
+    margin: 0;
+    padding-left: var(--spacing-lg, 24px);
+}
+
+.next-steps li {
+    color: var(--color-text-secondary, #6B5740);
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.8;
+    margin-bottom: var(--space-3, 0.75rem);
+    padding-left: var(--space-2, 0.5rem);
+}
+
+.next-steps li strong {
+    color: var(--color-text-primary, #1A1A1A);
+}
+
 @media (max-width: 480px) {
     .booking-header h1 {
         font-size: var(--text-2xl, 1.5rem);
@@ -934,5 +1258,46 @@
     .booking-type-badge {
         font-size: 0.75rem;
         padding: 5px 10px;
+    }
+    
+    /* Confirmation Page Responsive */
+    .confirmation-container {
+        padding: var(--spacing-md, 16px);
+    }
+    
+    .confirmation-card {
+        padding: var(--spacing-lg, 24px);
+    }
+    
+    .confirmation-card h1 {
+        font-size: var(--text-2xl, 1.5rem);
+    }
+    
+    .success-icon i {
+        font-size: 60px;
+    }
+    
+    .booking-details-grid {
+        grid-template-columns: 1fr 1fr;
+        padding: var(--spacing-md, 16px);
+    }
+    
+    .reference-number {
+        font-size: var(--text-2xl, 1.5rem);
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .action-buttons .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 360px) {
+    .booking-details-grid {
+        grid-template-columns: 1fr;
     }
 }

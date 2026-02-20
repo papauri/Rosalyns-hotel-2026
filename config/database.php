@@ -3104,7 +3104,7 @@ function assignIndividualRoomToBooking($bookingId, $individualRoomId) {
         $pdo->beginTransaction();
         
         // Verify booking exists
-        $bookingStmt = $pdo->prepare("SELECT id, room_id, check_in_date, check_out_date, number_of_nights, number_of_guests, child_guests, occupancy_type, total_amount FROM bookings WHERE id = ?");
+        $bookingStmt = $pdo->prepare("SELECT id, room_id, check_in_date, check_out_date, number_of_nights, number_of_guests, child_guests, occupancy_type, total_amount, status FROM bookings WHERE id = ?");
         $bookingStmt->execute([$bookingId]);
         $booking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
         
@@ -3164,6 +3164,16 @@ function assignIndividualRoomToBooking($bookingId, $individualRoomId) {
         // Update booking with individual room and refreshed child pricing totals
         $updateStmt = $pdo->prepare("UPDATE bookings SET individual_room_id = ?, child_price_multiplier = ?, child_supplement_total = ?, total_amount = ? WHERE id = ?");
         $updateStmt->execute([$individualRoomId, $childMultiplier, $childSupplement, $newTotal, $bookingId]);
+        
+        // Update individual room status if booking is confirmed or checked-in
+        if (in_array($booking['status'], ['confirmed', 'checked-in'])) {
+            updateIndividualRoomStatus(
+                $individualRoomId,
+                'occupied',
+                'Assigned to ' . $booking['status'] . ' booking: ' . $bookingId,
+                null
+            );
+        }
         
         $pdo->commit();
         

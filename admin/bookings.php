@@ -1,9 +1,11 @@
 <?php
 // Include admin initialization (PHP-only, no HTML output)
 require_once 'admin-init.php';
+require_once '../config/base-url.php';
 
 require_once '../includes/modal.php';
 require_once '../includes/alert.php';
+require_once '../includes/booking-timeline.php';
 $message = '';
 $error = '';
 
@@ -111,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Get tentative duration setting
             $tentative_hours = (int)getSetting('tentative_duration_hours', 48);
             $expires_at = date('Y-m-d H:i:s', strtotime("+$tentative_hours hours"));
+            $note = $_POST['note'] ?? '';
             
             // Convert to tentative status
             $update_stmt = $pdo->prepare("
@@ -125,12 +128,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Log the action
             $log_stmt = $pdo->prepare("
                 INSERT INTO tentative_booking_log (
-                    booking_id, action, new_expires_at, performed_by, created_at
-                ) VALUES (?, 'created', ?, ?, NOW())
+                    booking_id, action, new_expires_at, action_reason, performed_by, created_at
+                ) VALUES (?, 'created', ?, ?, ?, NOW())
             ");
             $log_stmt->execute([
                 $booking_id,
                 $expires_at,
+                $note,
                 $user['id']
             ]);
             
@@ -232,6 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Get tentative duration setting
             $tentative_hours = (int)getSetting('tentative_duration_hours', 48);
             $expires_at = date('Y-m-d H:i:s', strtotime("+$tentative_hours hours"));
+            $note = $_POST['note'] ?? '';
             
             // Convert to tentative status
             $update_stmt = $pdo->prepare("
@@ -247,11 +252,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $log_stmt = $pdo->prepare("
                 INSERT INTO tentative_booking_log (
                     booking_id, action, new_expires_at, action_reason, performed_by, created_at
-                ) VALUES (?, 'created', ?, 'Converted from confirmed to tentative by admin', ?, NOW())
+                ) VALUES (?, 'created', ?, ?, ?, NOW())
             ");
             $log_stmt->execute([
                 $booking_id,
                 $expires_at,
+                $note ?: 'Converted from confirmed to tentative by admin',
                 $user['id']
             ]);
             
@@ -345,11 +351,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            if ($bookingToAssign['status'] === 'checked-in') {
+            if ($bookingToAssign['status'] === 'checked-in' || $bookingToAssign['status'] === 'confirmed') {
                 updateIndividualRoomStatus(
                     $individual_room_id,
                     'occupied',
-                    'Assigned to checked-in booking: ' . $bookingToAssign['booking_reference'],
+                    'Assigned to ' . $bookingToAssign['status'] . ' booking: ' . $bookingToAssign['booking_reference'],
                     $user['id'] ?? null
                 );
             }
@@ -370,16 +376,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // - Check-in only allowed when confirmed AND paid
             // - Cancel check-in (undo) allowed only when currently checked-in
             if ($new_status === 'checked-in') {
-                $stmt = $pdo->prepare("UPDATE bookings SET status = 'checked-in' WHERE id = ? AND status = 'confirmed' AND payment_status = 'paid'");
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'checked-in' WHERE id = ? AND status = 'confirmed' AND payment_status = 'paid' AND individual_room_id IS NOT NULL");
                 $stmt->execute([$booking_id]);
                 if ($stmt->rowCount() === 0) {
-                    $check = $pdo->prepare("SELECT status, payment_status FROM bookings WHERE id = ?");
+                    $check = $pdo->prepare("SELECT status, payment_status, individual_room_id FROM bookings WHERE id = ?");
                     $check->execute([$booking_id]);
                     $row = $check->fetch(PDO::FETCH_ASSOC);
                     if (!$row) {
                         throw new Exception('Booking not found');
                     }
-                    throw new Exception("Cannot check in unless booking is CONFIRMED and PAID (current: status={$row['status']}, payment={$row['payment_status']})");
+                    if ($row['status'] !== 'confirmed' || $row['payment_status'] !== 'paid') {
+                        throw new Exception("Cannot check in unless booking is CONFIRMED and PAID (current: status={$row['status']}, payment={$row['payment_status']})");
+                    }
+                    if (empty($row['individual_room_id'])) {
+                        throw new Exception("Cannot check in unless a room has been assigned. Please assign a room first.");
+                    }
+                    throw new Exception("Cannot check in due to unknown reason.");
                 }
 
                 $irStmt = $pdo->prepare("SELECT individual_room_id, booking_reference FROM bookings WHERE id = ?");
@@ -692,6 +704,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'Only confirmed bookings can be marked as no-show.';
                 }
             }
+        } elseif ($action === 'get_booking_details') {
+            if (!isAjaxRequest()) {
+                throw new Exception('Invalid request');
+            }
+
+            $booking_id = (int)($_POST['booking_id'] ?? 0);
+            if ($booking_id <= 0) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Missing booking ID'
+                ]);
+                exit;
+            }
+
+            // Fetch booking details with room and individual room info
+            $stmt = $pdo->prepare("
+                SELECT b.*,
+                    r.name as room_name,
+                    COALESCE(p.payment_status, b.payment_status) as actual_payment_status,
+                    p.payment_reference,
+                    ir.room_number as individual_room_number,
+                    ir.room_name as individual_room_name,
+                    ir.floor as individual_room_floor,
+                    ir.status as individual_room_status
+                FROM bookings b
+                LEFT JOIN rooms r ON b.room_id = r.id
+                LEFT JOIN payments p ON b.id = p.booking_id AND p.booking_type = 'room' AND p.status = 'completed'
+                LEFT JOIN individual_rooms ir ON b.individual_room_id = ir.id
+                WHERE b.id = ?
+            ");
+            $stmt->execute([$booking_id]);
+            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$booking) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Booking not found'
+                ]);
+                exit;
+            }
+
+            // Format dates and amounts
+            $booking['check_in_date_formatted'] = date('M j, Y', strtotime($booking['check_in_date']));
+            $booking['check_out_date_formatted'] = date('M j, Y', strtotime($booking['check_out_date']));
+            $booking['created_at_formatted'] = date('M j, Y H:i', strtotime($booking['created_at']));
+            $booking['total_formatted'] = number_format($booking['total_amount'], 2);
+            $booking['status_label'] = ucfirst($booking['status']);
+            $booking['payment_status_label'] = ucfirst($booking['actual_payment_status'] ?? $booking['payment_status']);
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $booking
+            ]);
+            exit;
         }
 
     } catch (Throwable $e) {
@@ -875,7 +944,8 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="css/admin-styles.css">
-    <link rel="stylesheet" href="css/admin-components.css"></head>
+    <link rel="stylesheet" href="css/admin-components.css">
+</head>
 <body>
 
     <?php require_once 'includes/admin-header.php'; ?>
@@ -1053,7 +1123,7 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
 
             <?php if (!empty($bookings)): ?>
                 <div class="table-responsive">
-                    <table class="booking-table">
+                    <table class="booking-table bookings-table">
                     <thead>
                         <tr>
                             <th style="width: 120px;">Ref</th>
@@ -1067,7 +1137,7 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                             <th style="width: 120px;">Status</th>
                             <th style="width: 120px;">Payment</th>
                             <th style="width: 150px;">Created</th>
-                            <th style="width: 400px;">Actions</th>
+                            <th style="width: 350px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1161,18 +1231,18 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                                     </small>
                                 </td>
                                 <td>
-                                    <a href="booking-details.php?id=<?php echo $booking['id']; ?>" class="quick-action" style="background: #6f42c1; color: white; text-decoration: none;">
+                                    <button class="quick-action view" onclick="openViewBookingModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')">
                                         <i class="fas fa-eye"></i> View
-                                    </a>
-                                    <button class="quick-action" style="background: #007bff; color: white;" onclick="openResendEmailModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['status']); ?>')">
+                                    </button>
+                                    <button class="quick-action email" onclick="openResendEmailModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['status']); ?>')">
                                         <i class="fas fa-envelope"></i> Email
                                     </button>
                                     <?php if (!$booking['individual_room_id'] && in_array($booking['status'], ['confirmed', 'pending', 'checked-in'])): ?>
-                                        <button class="quick-action" style="background: var(--gold); color: var(--deep-navy);" onclick="openQuickRoomAssignModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['check_in_date']); ?>', '<?php echo htmlspecialchars($booking['check_out_date']); ?>', <?php echo $booking['room_id']; ?>)">
+                                        <button class="quick-action assign" data-action="assign-room" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-check-in="<?php echo htmlspecialchars($booking['check_in_date']); ?>" data-check-out="<?php echo htmlspecialchars($booking['check_out_date']); ?>" data-room-id="<?php echo $booking['room_id']; ?>">
                                             <i class="fas fa-door-open"></i> Assign Room
                                         </button>
                                     <?php elseif ($booking['individual_room_id']): ?>
-                                        <button class="quick-action" style="background: #28a745; color: white;" onclick="openQuickRoomAssignModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['check_in_date']); ?>', '<?php echo htmlspecialchars($booking['check_out_date']); ?>', <?php echo $booking['room_id']; ?>)">
+                                        <button class="quick-action assign" style="background: #28a745; color: white;" data-action="assign-room" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-check-in="<?php echo htmlspecialchars($booking['check_in_date']); ?>" data-check-out="<?php echo htmlspecialchars($booking['check_out_date']); ?>" data-room-id="<?php echo $booking['room_id']; ?>">
                                             <i class="fas fa-edit"></i> Change Room
                                         </button>
                                     <?php endif; ?>
@@ -1180,27 +1250,42 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                                         <button class="quick-action confirm" onclick="convertTentativeBooking(<?php echo $booking['id']; ?>)">
                                             <i class="fas fa-check"></i> Convert
                                         </button>
-                                        <button class="quick-action cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')">
+                                        <button class="quick-action cancel" onclick="openCancelBookingModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['guest_name'], ENT_QUOTES); ?>')">
                                             <i class="fas fa-times"></i> Cancel
                                         </button>
                                     <?php elseif ($booking['status'] === 'pending'): ?>
                                         <button class="quick-action confirm" onclick="updateStatus(<?php echo $booking['id']; ?>, 'confirmed')">
                                             <i class="fas fa-check"></i> Confirm
                                         </button>
-                                        <button class="quick-action" style="background: linear-gradient(135deg, var(--gold) 0%, #c49b2e 100%); color: var(--deep-navy);" onclick="makeTentative(<?php echo $booking['id']; ?>)">
+                                        <button class="quick-action tentative" data-action="make-tentative" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-tentative-type="make_tentative">
                                             <i class="fas fa-clock"></i> Make Tentative
                                         </button>
-                                        <button class="quick-action cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')">
+                                        <button class="quick-action cancel" onclick="openCancelBookingModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['guest_name'], ENT_QUOTES); ?>')">
                                             <i class="fas fa-times"></i> Cancel
                                         </button>
                                     <?php endif; ?>
                                     <?php if ($booking['status'] === 'confirmed'): ?>
-                                        <?php $can_checkin = ($booking['payment_status'] === 'paid'); ?>
-                                        <button class="quick-action" style="background: linear-gradient(135deg, var(--gold) 0%, #c49b2e 100%); color: var(--deep-navy);" onclick="convertToTentative(<?php echo $booking['id']; ?>)">
+                                        <?php
+                                        $is_paid = ($booking['payment_status'] === 'paid');
+                                        $room_assigned = !empty($booking['individual_room_id']);
+                                        $can_checkin = $is_paid && $room_assigned;
+                                        $checkin_error = '';
+                                        if (!$is_paid) {
+                                            $checkin_error = 'Cannot check in: booking must be PAID first.';
+                                        } elseif (!$room_assigned) {
+                                            $checkin_error = 'Cannot check in: a room must be assigned first.';
+                                        }
+                                        // Parameters for modal
+                                        $guest_name = htmlspecialchars($booking['guest_name'], ENT_QUOTES);
+                                        $check_in_date = htmlspecialchars($booking['check_in_date'], ENT_QUOTES);
+                                        $payment_status = $booking['payment_status']; // 'paid', 'unpaid', etc
+                                        $room_assigned_bool = $room_assigned ? 'true' : 'false';
+                                        $booking_status = $booking['status'];
+                                        ?>
+                                        <button class="quick-action tentative" data-action="make-tentative" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-tentative-type="convert_to_tentative">
                                             <i class="fas fa-clock"></i> Make Tentative
                                         </button>
-                                        <button class="quick-action check-in <?php echo $can_checkin ? '' : 'disabled'; ?>"
-                                                onclick="<?php echo $can_checkin ? "updateStatus({$booking['id']}, 'checked-in')" : "Alert.show('Cannot check in: booking must be PAID first.', 'error')"; ?>">
+                                        <button class="quick-action checkin <?php echo $can_checkin ? '' : 'disabled'; ?>" data-action="check-in" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-guest-name="<?php echo $guest_name; ?>" data-check-in-date="<?php echo $check_in_date; ?>" data-payment-status="<?php echo $payment_status; ?>" data-room-assigned="<?php echo $room_assigned_bool; ?>" data-booking-status="<?php echo $booking_status; ?>">
                                             <i class="fas fa-sign-in-alt"></i> Check In
                                         </button>
                                         <?php
@@ -1213,7 +1298,7 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                                             <i class="fas fa-user-slash"></i> No-Show
                                         </button>
                                         <?php endif; ?>
-                                        <button class="quick-action cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')">
+                                        <button class="quick-action cancel" onclick="openCancelBookingModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['guest_name'], ENT_QUOTES); ?>')">
                                             <i class="fas fa-times"></i> Cancel
                                         </button>
                                     <?php endif; ?>
@@ -1302,6 +1387,116 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
     </div>
 
     <script>
+        // Ensure Alert is defined (fallback for early script execution)
+        if (typeof Alert === 'undefined') {
+            window.Alert = {
+                show: function(message, type) {
+                    console.log('Alert (fallback):', message, type);
+                }
+            };
+        }
+        // ============================================
+        // LOADING STATE MANAGEMENT FOR BUTTONS
+        // ============================================
+        
+        /**
+         * Set loading state on a button to prevent double-clicks
+         * @param {HTMLElement} button - The button element
+         * @param {boolean} isLoading - Whether to show loading state
+         * @param {string} originalContent - Original button content (optional)
+         */
+        function setButtonLoading(button, isLoading, originalContent = null) {
+            if (!button) return;
+            
+            if (isLoading) {
+                // Store original content if not already stored
+                if (!button.dataset.originalContent) {
+                    button.dataset.originalContent = originalContent || button.innerHTML;
+                }
+                
+                // Disable button and show loading spinner
+                button.disabled = true;
+                button.classList.add('btn-loading');
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                button.style.pointerEvents = 'none';
+                button.style.opacity = '0.7';
+            } else {
+                // Restore original state
+                button.disabled = false;
+                button.classList.remove('btn-loading');
+                button.innerHTML = button.dataset.originalContent || originalContent;
+                button.style.pointerEvents = '';
+                button.style.opacity = '';
+                delete button.dataset.originalContent;
+            }
+        }
+        
+        /**
+         * Set loading state on all quick-action buttons in a container
+         * @param {HTMLElement} container - Container element
+         * @param {boolean} isLoading - Loading state
+         * @param {HTMLElement} excludeButton - Button to exclude (the one clicked)
+         */
+        function setAllButtonsLoading(container, isLoading, excludeButton = null) {
+            const buttons = container.querySelectorAll('.quick-action, .btn');
+            buttons.forEach(btn => {
+                if (btn !== excludeButton) {
+                    if (isLoading) {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.5';
+                        btn.style.pointerEvents = 'none';
+                    } else {
+                        btn.disabled = false;
+                        btn.style.opacity = '';
+                        btn.style.pointerEvents = '';
+                    }
+                }
+            });
+        }
+        
+        /**
+         * Show global loading overlay
+         */
+        function showLoadingOverlay(message = 'Processing...') {
+            let overlay = document.getElementById('globalLoadingOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'globalLoadingOverlay';
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 99999;
+                `;
+                overlay.innerHTML = `
+                    <div style="background: white; padding: 30px 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: var(--gold, #8B7355); margin-bottom: 16px; display: block;"></i>
+                        <div id="loadingMessage" style="font-size: 16px; color: var(--navy, #1A1A1A); font-weight: 500;">${message}</div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            } else {
+                overlay.style.display = 'flex';
+                document.getElementById('loadingMessage').textContent = message;
+            }
+        }
+        
+        /**
+         * Hide global loading overlay
+         */
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('globalLoadingOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+        }
+
         // Tab switching functionality
         let currentTab = 'all';
 
@@ -1356,7 +1551,7 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                 
                 if (!statusBadge || !paymentBadge) return;
                 
-                const status = statusBadge.textContent.trim().toLowerCase().replace(' ', '-');
+                const status = statusBadge.textContent.trim().toLowerCase().replace(/ /g, '-');
                 const payment = paymentBadge.textContent.trim().toLowerCase();
                 
                 // Parse dates from table cells
@@ -1535,10 +1730,14 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
             switchTab('all');
         });
 
-        function makeTentative(id) {
+        function makeTentative(id, button) {
             if (!confirm('Convert this pending booking to a tentative reservation? This will hold the room for 48 hours and send a confirmation email to the guest.')) {
                 return;
             }
+            
+            // Show loading state
+            if (button) setButtonLoading(button, true);
+            showLoadingOverlay('Converting to tentative...');
             
             const formData = new FormData();
             formData.append('action', 'make_tentative');
@@ -1552,11 +1751,15 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                 if (response.ok) {
                     window.location.reload();
                 } else {
+                    hideLoadingOverlay();
+                    if (button) setButtonLoading(button, false);
                     Alert.show('Error converting booking to tentative', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
+                hideLoadingOverlay();
+                if (button) setButtonLoading(button, false);
                 Alert.show('Error converting booking to tentative', 'error');
             });
         }
@@ -1814,7 +2017,276 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                 <button type="button" class="btn btn-primary" onclick="submitQuickRoomAssign()"><i class="fas fa-check"></i> Assign Room</button>
             </div>
         </div>
-    </div><script>
+    </div>
+    
+    <!-- Make Tentative Modal -->
+    <div id="makeTentativeModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-clock"></i> Make Tentative</h3>
+                <button class="close-modal" onclick="closeMakeTentativeModal()">&times;</button>
+            </div>
+            <form id="makeTentativeForm" method="POST" action="">
+                <input type="hidden" name="action" id="make_tentative_action" value="">
+                <input type="hidden" name="id" id="make_tentative_booking_id" value="">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label><i class="fas fa-hashtag"></i> Booking Reference:</label>
+                        <input type="text" id="make_tentative_ref" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label for="tentative_note"><i class="fas fa-sticky-note"></i> Optional Note:</label>
+                        <textarea name="note" id="tentative_note" class="form-control" rows="3" placeholder="Add a note about why this booking is being made tentative..."></textarea>
+                        <small style="color: #666;">This note will be recorded in the booking log.</small>
+                    </div>
+                    <div class="form-group" style="background: #fff8e1; padding: 12px; border-radius: 8px;">
+                        <p style="margin: 0; color: #8B7355; font-size: 13px;">
+                            <i class="fas fa-info-circle"></i>
+                            This will convert the booking to a tentative reservation, holding the room for
+                            <strong id="tentative_duration_display">48</strong> hours. A confirmation email will be sent to the guest.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeMakeTentativeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Make Tentative</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Check In Modal -->
+    <div id="checkInModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-sign-in-alt"></i> Check In Guest</h3>
+                <button class="close-modal" onclick="closeCheckInModal()">&times;</button>
+            </div>
+            <form id="checkInForm" method="POST" action="">
+                <input type="hidden" name="action" value="update_status">
+                <input type="hidden" name="status" value="checked-in">
+                <input type="hidden" name="id" id="checkin_booking_id" value="">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label><i class="fas fa-hashtag"></i> Booking Reference:</label>
+                        <input type="text" id="checkin_booking_ref" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Guest Name:</label>
+                        <input type="text" id="checkin_guest_name" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-calendar"></i> Check-in Date:</label>
+                        <input type="text" id="checkin_date" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label for="checkin_note"><i class="fas fa-sticky-note"></i> Optional Note:</label>
+                        <textarea name="checkin_note" id="checkin_note" class="form-control" rows="2" placeholder="Add any check-in notes..."></textarea>
+                    </div>
+                    <div class="prerequisites" id="checkin_prerequisites" style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                        <h4 style="margin-top: 0; color: var(--navy); font-size: 14px;"><i class="fas fa-list-check"></i> Prerequisites</h4>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+                            <li id="prereq_payment"><i class="fas fa-times-circle" style="color: #dc3545;"></i> Payment must be marked as PAID</li>
+                            <li id="prereq_room"><i class="fas fa-times-circle" style="color: #dc3545;"></i> A room must be assigned</li>
+                            <li id="prereq_status"><i class="fas fa-times-circle" style="color: #dc3545;"></i> Booking must be CONFIRMED</li>
+                        </ul>
+                        <p id="checkin_error_message" style="color: #dc3545; font-size: 12px; margin: 8px 0 0 0; display: none;"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCheckInModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Check In</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Cancel Booking Modal -->
+    <div id="cancelBookingModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-times-circle"></i> Cancel Booking</h3>
+                <button class="close-modal" onclick="closeCancelBookingModal()">&times;</button>
+            </div>
+            <form id="cancelBookingForm" method="POST" action="">
+                <input type="hidden" name="action" value="update_status">
+                <input type="hidden" name="status" value="cancelled">
+                <input type="hidden" name="id" id="cancel_booking_id" value="">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label><i class="fas fa-hashtag"></i> Booking Reference:</label>
+                        <input type="text" id="cancel_booking_ref" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Guest Name:</label>
+                        <input type="text" id="cancel_guest_name" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label for="cancellation_reason"><i class="fas fa-comment"></i> Cancellation Reason (Optional):</label>
+                        <textarea name="cancellation_reason" id="cancellation_reason" class="form-control" rows="3" placeholder="Reason for cancellation..."></textarea>
+                        <small style="color: #666;">This reason will be included in the cancellation email and logs.</small>
+                    </div>
+                    <div class="form-group" style="background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                        <p style="margin: 0; color: #666; font-size: 13px;">
+                            <i class="fas fa-info-circle"></i>
+                            Cancelling this booking will restore room availability and send a cancellation email to the guest.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCancelBookingModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-times"></i> Cancel Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- View Booking Details Modal -->
+    <div id="viewBookingModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-eye"></i> Booking Details</h3>
+                <button class="close-modal" onclick="closeViewBookingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="details-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                    <div class="detail-item">
+                        <label>Booking Reference:</label>
+                        <div id="view_booking_ref" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Guest Name:</label>
+                        <div id="view_guest_name" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Email:</label>
+                        <div id="view_guest_email" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Phone:</label>
+                        <div id="view_guest_phone" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Room:</label>
+                        <div id="view_room_name" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Individual Room:</label>
+                        <div id="view_individual_room" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Check-in:</label>
+                        <div id="view_check_in" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Check-out:</label>
+                        <div id="view_check_out" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Nights:</label>
+                        <div id="view_nights" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Guests:</label>
+                        <div id="view_guests" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Total Amount:</label>
+                        <div id="view_total" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Status:</label>
+                        <div id="view_status" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Payment Status:</label>
+                        <div id="view_payment" class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <label>Created At:</label>
+                        <div id="view_created" class="detail-value"></div>
+                    </div>
+                </div>
+                <div class="detail-item" style="grid-column: span 2;">
+                    <label>Special Requests:</label>
+                    <div id="view_special_requests" class="detail-value" style="background: #f5f5f5; padding: 8px; border-radius: 6px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeViewBookingModal()">Close</button>
+                <a id="view_full_details_link" href="#" class="btn btn-primary" target="_blank"><i class="fas fa-external-link-alt"></i> Full Details</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function openViewBookingModal(bookingId, bookingReference) {
+            document.getElementById('viewBookingModal').style.display = 'flex';
+            // Set full details link
+            const fullDetailsLink = document.getElementById('view_full_details_link');
+            fullDetailsLink.href = `booking-details.php?id=${bookingId}`;
+
+            // Show loading state
+            document.querySelectorAll('#viewBookingModal .detail-value').forEach(el => {
+                el.innerHTML = '<span class="loading">...</span>';
+            });
+
+            // Fetch booking details via AJAX
+            const formData = new FormData();
+            formData.append('action', 'get_booking_details');
+            formData.append('booking_id', bookingId);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        const booking = data.data;
+                        // Populate fields
+                        document.getElementById('view_booking_ref').textContent = booking.booking_reference || '';
+                        document.getElementById('view_guest_name').textContent = booking.guest_name || '';
+                        document.getElementById('view_guest_email').textContent = booking.guest_email || '';
+                        document.getElementById('view_guest_phone').textContent = booking.guest_phone || '';
+                        document.getElementById('view_room_name').textContent = booking.room_name || '';
+                        const individualRoom = booking.individual_room_name ?
+                            `${booking.individual_room_name} (${booking.individual_room_number})` :
+                            (booking.individual_room_number ? `Room ${booking.individual_room_number}` : 'Not assigned');
+                        document.getElementById('view_individual_room').textContent = individualRoom;
+                        document.getElementById('view_check_in').textContent = booking.check_in_date_formatted || booking.check_in_date;
+                        document.getElementById('view_check_out').textContent = booking.check_out_date_formatted || booking.check_out_date;
+                        document.getElementById('view_nights').textContent = booking.number_of_nights || '';
+                        document.getElementById('view_guests').textContent = booking.number_of_guests || '';
+                        document.getElementById('view_total').textContent = booking.total_formatted || booking.total_amount;
+                        document.getElementById('view_status').textContent = booking.status_label || booking.status;
+                        document.getElementById('view_payment').textContent = booking.payment_status_label || booking.payment_status;
+                        document.getElementById('view_created').textContent = booking.created_at_formatted || booking.created_at;
+                        document.getElementById('view_special_requests').textContent = booking.special_requests || 'None';
+                    } else {
+                        Alert.show('Failed to load booking details: ' + (data.message || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching booking details:', error);
+                    Alert.show('Error loading booking details. Please try again.', 'error');
+                });
+        }
+
+        function closeViewBookingModal() {
+            document.getElementById('viewBookingModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('viewBookingModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeViewBookingModal();
+            }
+        });
+
         function openResendEmailModal(bookingId, bookingReference, bookingStatus) {
             document.getElementById('resendEmailModal').style.display = 'flex';
             document.getElementById('modal_booking_id').value = bookingId;
@@ -1857,6 +2329,18 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
             const modal = document.getElementById('resendEmailModal');
             if (event.target === modal) {
                 closeResendEmailModal();
+            }
+            const modal2 = document.getElementById('makeTentativeModal');
+            if (event.target === modal2) {
+                closeMakeTentativeModal();
+            }
+            const modal3 = document.getElementById('checkInModal');
+            if (event.target === modal3) {
+                closeCheckInModal();
+            }
+            const modal4 = document.getElementById('cancelBookingModal');
+            if (event.target === modal4) {
+                closeCancelBookingModal();
             }
         }
         
@@ -2012,6 +2496,167 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
             });
         }
         
+        // Make Tentative Modal Functions
+        function openMakeTentativeModal(bookingId, bookingReference, actionType) {
+            document.getElementById('makeTentativeModal').style.display = 'flex';
+            document.getElementById('make_tentative_booking_id').value = bookingId;
+            document.getElementById('make_tentative_ref').value = bookingReference;
+            document.getElementById('make_tentative_action').value = actionType;
+            // Set modal title based on action
+            const title = document.querySelector('#makeTentativeModal h3');
+            if (actionType === 'make_tentative') {
+                title.innerHTML = '<i class="fas fa-clock"></i> Make Tentative';
+                document.querySelector('#makeTentativeForm button[type="submit"]').innerHTML = '<i class="fas fa-check"></i> Make Tentative';
+            } else if (actionType === 'convert_to_tentative') {
+                title.innerHTML = '<i class="fas fa-clock"></i> Convert to Tentative';
+                document.querySelector('#makeTentativeForm button[type="submit"]').innerHTML = '<i class="fas fa-check"></i> Convert to Tentative';
+            }
+            // Clear note
+            document.getElementById('tentative_note').value = '';
+        }
+        
+        function closeMakeTentativeModal() {
+            document.getElementById('makeTentativeModal').style.display = 'none';
+            document.getElementById('makeTentativeForm').reset();
+        }
+        
+        // Check In Modal Functions
+        function openCheckInModal(bookingId, bookingReference, guestName, checkInDate, paymentStatus, roomAssigned, bookingStatus) {
+            document.getElementById('checkInModal').style.display = 'flex';
+            document.getElementById('checkin_booking_id').value = bookingId;
+            document.getElementById('checkin_booking_ref').value = bookingReference;
+            document.getElementById('checkin_guest_name').value = guestName;
+            document.getElementById('checkin_date').value = checkInDate;
+            
+            // Update prerequisites UI
+            const paymentOk = paymentStatus === 'paid' || paymentStatus === 'completed';
+            const roomOk = roomAssigned === true || roomAssigned === '1';
+            const statusOk = bookingStatus === 'confirmed';
+            
+            document.getElementById('prereq_payment').innerHTML = paymentOk
+                ? '<i class="fas fa-check-circle" style="color: #28a745;"></i> Payment is PAID'
+                : '<i class="fas fa-times-circle" style="color: #dc3545;"></i> Payment must be marked as PAID';
+            document.getElementById('prereq_room').innerHTML = roomOk
+                ? '<i class="fas fa-check-circle" style="color: #28a745;"></i> Room is assigned'
+                : '<i class="fas fa-times-circle" style="color: #dc3545;"></i> A room must be assigned';
+            document.getElementById('prereq_status').innerHTML = statusOk
+                ? '<i class="fas fa-check-circle" style="color: #28a745;"></i> Booking is CONFIRMED'
+                : '<i class="fas fa-times-circle" style="color: #dc3545;"></i> Booking must be CONFIRMED';
+            
+            const canCheckIn = paymentOk && roomOk && statusOk;
+            const submitBtn = document.querySelector('#checkInForm button[type="submit"]');
+            submitBtn.disabled = !canCheckIn;
+            if (!canCheckIn) {
+                submitBtn.innerHTML = '<i class="fas fa-ban"></i> Cannot Check In';
+                submitBtn.style.background = '#6c757d';
+                let errorMsg = 'Cannot check in because: ';
+                const issues = [];
+                if (!paymentOk) issues.push('payment not paid');
+                if (!roomOk) issues.push('room not assigned');
+                if (!statusOk) issues.push('booking not confirmed');
+                errorMsg += issues.join(', ');
+                document.getElementById('checkin_error_message').textContent = errorMsg;
+                document.getElementById('checkin_error_message').style.display = 'block';
+            } else {
+                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Check In';
+                submitBtn.style.background = '';
+                document.getElementById('checkin_error_message').style.display = 'none';
+            }
+        }
+        
+        function closeCheckInModal() {
+            document.getElementById('checkInModal').style.display = 'none';
+            document.getElementById('checkInForm').reset();
+        }
+        
+        // Cancel Booking Modal Functions
+        function openCancelBookingModal(bookingId, bookingReference, guestName) {
+            document.getElementById('cancelBookingModal').style.display = 'flex';
+            document.getElementById('cancel_booking_id').value = bookingId;
+            document.getElementById('cancel_booking_ref').value = bookingReference;
+            document.getElementById('cancel_guest_name').value = guestName;
+            document.getElementById('cancellation_reason').value = '';
+        }
+        
+        function closeCancelBookingModal() {
+            document.getElementById('cancelBookingModal').style.display = 'none';
+            document.getElementById('cancelBookingForm').reset();
+        }
+        
+        // Form submission for new modals
+        document.getElementById('makeTentativeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            // Add note if provided
+            const note = document.getElementById('tentative_note').value;
+            if (note) {
+                formData.append('note', note);
+            }
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    Alert.show('Error making booking tentative', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Alert.show('Error making booking tentative', 'error');
+            });
+        });
+        
+        document.getElementById('checkInForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const note = document.getElementById('checkin_note').value;
+            if (note) {
+                formData.append('checkin_note', note);
+            }
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    Alert.show('Error checking in guest', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Alert.show('Error checking in guest', 'error');
+            });
+        });
+        
+        document.getElementById('cancelBookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const reason = document.getElementById('cancellation_reason').value;
+            if (reason) {
+                formData.append('cancellation_reason', reason);
+            }
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    Alert.show('Error cancelling booking', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Alert.show('Error cancelling booking', 'error');
+            });
+        });
+        
         // Form submission
         document.getElementById('resendEmailForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -2032,6 +2677,53 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                 Alert.show('Error sending email', 'error');
             });
         });
+        // Delegated event listeners for action buttons
+        document.addEventListener('click', function(event) {
+            const button = event.target.closest('[data-action]');
+            if (!button) return;
+
+            try {
+                const action = button.dataset.action;
+                const bookingId = button.dataset.bookingId;
+                const bookingRef = button.dataset.bookingRef;
+
+                if (!bookingId || !bookingRef) {
+                    console.warn('Missing booking ID or reference', button);
+                    return;
+                }
+
+                if (action === 'assign-room') {
+                    const checkIn = button.dataset.checkIn;
+                    const checkOut = button.dataset.checkOut;
+                    const roomId = button.dataset.roomId;
+                    if (typeof openQuickRoomAssignModal === 'function') {
+                        openQuickRoomAssignModal(bookingId, bookingRef, checkIn, checkOut, roomId);
+                    }
+                } else if (action === 'make-tentative') {
+                    const tentativeType = button.dataset.tentativeType; // 'make_tentative' or 'convert_to_tentative'
+                    if (typeof openMakeTentativeModal === 'function') {
+                        openMakeTentativeModal(bookingId, bookingRef, tentativeType);
+                    }
+                } else if (action === 'check-in') {
+                    const guestName = button.dataset.guestName;
+                    const checkInDate = button.dataset.checkInDate;
+                    const paymentStatus = button.dataset.paymentStatus;
+                    const roomAssigned = button.dataset.roomAssigned === 'true' || button.dataset.roomAssigned === '1';
+                    const bookingStatus = button.dataset.bookingStatus;
+                    if (typeof openCheckInModal === 'function') {
+                        openCheckInModal(bookingId, bookingRef, guestName, checkInDate, paymentStatus, roomAssigned, bookingStatus);
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling action button click:', error, button);
+                // Ensure other event listeners are not affected
+                // Optionally show a user-friendly alert
+                if (typeof Alert !== 'undefined' && Alert.show) {
+                    Alert.show('An error occurred while opening the modal. Please try again.', 'error');
+                }
+            }
+        });
+
     </script>
     <script src="js/admin-components.js"></script>
 

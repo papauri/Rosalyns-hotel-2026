@@ -262,7 +262,9 @@ sort($categories);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="css/admin-styles.css">
-    <link rel="stylesheet" href="css/admin-components.css"></head>
+    <link rel="stylesheet" href="css/admin-components.css">
+    <link rel="stylesheet" href="css/gallery-management.css">
+</head>
 <body>
     <?php require_once 'includes/admin-header.php'; ?>
     

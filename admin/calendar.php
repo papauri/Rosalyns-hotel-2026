@@ -71,16 +71,19 @@ try {
     $error = "Error fetching blocked dates: " . $e->getMessage();
 }
 
-// Get bookings for the current month
+// Get bookings for the current month with individual room info
 $bookingsByDate = [];
 try {
     $startDate = sprintf('%04d-%02d-01', $currentYear, $currentMonth);
     $endDate = sprintf('%04d-%02d-31', $currentYear, $currentMonth);
     
     $stmt = $pdo->prepare("
-        SELECT b.*, r.name as room_name, r.id as room_id, r.price_per_night
+        SELECT b.*, r.name as room_name, r.id as room_id, r.price_per_night,
+               ir.room_number as individual_room_number, ir.room_name as individual_room_name,
+               ir.floor as individual_room_floor, ir.status as individual_room_status
         FROM bookings b
         INNER JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN individual_rooms ir ON b.individual_room_id = ir.id
         WHERE b.status != 'cancelled'
         AND b.status != 'checked-out'
         AND (
@@ -261,21 +264,31 @@ $today = date('Y-m-d');
                                                     $guests = $booking['number_of_guests'];
                                                     $checkIn = date('M j', strtotime($booking['check_in_date']));
                                                     $checkOut = date('M j', strtotime($booking['check_out_date']));
-                                                    $individualRoom = '';
+                                                    
+                                                    // Build individual room display
+                                                    $individualRoomDisplay = '';
+                                                    $individualRoomBadge = '';
                                                     if (!empty($booking['individual_room_id'])) {
-                                                        $irStmt = $pdo->prepare("SELECT room_number, room_name FROM individual_rooms WHERE id = ?");
-                                                        $irStmt->execute([$booking['individual_room_id']]);
-                                                        $ir = $irStmt->fetch(PDO::FETCH_ASSOC);
-                                                        if ($ir) {
-                                                            $individualRoom = ' | Room: ' . htmlspecialchars($ir['room_number']);
+                                                        $roomNum = htmlspecialchars($booking['individual_room_number']);
+                                                        $roomNm = htmlspecialchars($booking['individual_room_name'] ?? '');
+                                                        $floor = htmlspecialchars($booking['individual_room_floor'] ?? '');
+                                                        
+                                                        $individualRoomDisplay = ' | Room: ' . $roomNum;
+                                                        if ($floor) {
+                                                            $individualRoomDisplay .= ' (Floor ' . $floor . ')';
                                                         }
+                                                        
+                                                        // Create a small badge for the room number
+                                                        $individualRoomBadge = '<span class="room-badge">' . $roomNum . '</span>';
                                                     }
-                                                    $tooltip = "$guestName ($ref)\nCheck-in: $checkIn\nCheck-out: $checkOut\nNights: $nights\nGuests: $guests" . $individualRoom;
+                                                    
+                                                    $tooltip = "$guestName ($ref)\nCheck-in: $checkIn\nCheck-out: $checkOut\nNights: $nights\nGuests: $guests" . $individualRoomDisplay;
                                             ?>
-                                                <div class="booking-indicator <?php echo $statusClass; ?>"
+                                                <div class="booking-indicator <?php echo $statusClass; ?> <?php echo !empty($booking['individual_room_id']) ? 'has-room' : ''; ?>"
                                                      data-tooltip="<?php echo htmlspecialchars($tooltip); ?>"
                                                      onclick="window.location.href='booking-details.php?id=<?php echo $booking['id']; ?>'">
-                                                    <?php echo substr($guestName, 0, 12); ?>
+                                                    <?php echo $individualRoomBadge; ?>
+                                                    <?php echo substr($guestName, 0, 10); ?>
                                                 </div>
                                             <?php
                                                 }

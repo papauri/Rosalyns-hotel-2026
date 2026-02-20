@@ -611,13 +611,9 @@ $currency = htmlspecialchars(getSetting('currency_symbol', 'MWK'));
                         <?php echo htmlspecialchars($room['name']); ?>
                     </div>
                     <div class="room-card-desc"><?php echo htmlspecialchars($room['short_description'] ?? $room['description'] ?? ''); ?></div>
-                    
-                    <div class="room-card-price">
-                        <?php echo $currency; ?> <?php echo number_format($room['price_per_night'], 0); ?>
-                        <small>/ night</small>
-                    </div>
 
                     <div class="room-card-details">
+                        <div class="detail-item detail-item-price"><i class="fas fa-tag"></i> <?php echo $currency; ?> <?php echo number_format($room['price_per_night'], 0); ?>/night</div>
                         <div class="detail-item"><i class="fas fa-expand-arrows-alt"></i> <?php echo $room['size_sqm'] ?? 0; ?> sqm</div>
                         <div class="detail-item"><i class="fas fa-users"></i> Max <?php echo $room['max_guests'] ?? 2; ?> guests</div>
                         <div class="detail-item"><i class="fas fa-bed"></i> <?php echo htmlspecialchars($room['bed_type'] ?? 'N/A'); ?></div>

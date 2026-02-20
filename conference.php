@@ -52,6 +52,7 @@ try {
 // Handle inquiry submission
 $inquiry_success = false;
 $inquiry_error = '';
+$inquiry_email_warning = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -290,6 +291,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log("Conference admin notification sent successfully");
         }
         
+        // Check if both emails failed - add warning to success message
+        $email_warning = '';
+        if (!$customer_result['success'] && !$admin_result['success']) {
+            $email_warning = ' Please note: We had trouble sending confirmation emails. Your enquiry has been saved and our team will contact you shortly.';
+        } elseif (!$customer_result['success']) {
+            $email_warning = ' Please note: We had trouble sending your confirmation email. Your enquiry has been saved and our team will contact you shortly.';
+        } elseif (!$admin_result['success']) {
+            $email_warning = ' Please note: We had trouble sending internal notification. Your enquiry has been saved and our team will contact you shortly.';
+        }
+        
+        // Store email warning for display in result modal
+        if (!empty($email_warning)) {
+            $inquiry_email_warning = $email_warning;
+        }
+        
         error_log("Conference enquiry submitted successfully from: " . $sanitized_data['email'] . " with reference: " . $inquiry_reference);
 
     } catch (Exception $e) {
@@ -511,6 +527,13 @@ function resolveConferenceImage(?string $imagePath): string
     <?php
     $resultModalContent = '';
     if ($inquiry_success) {
+        $email_warning_html = '';
+        if (!empty($inquiry_email_warning)) {
+            $email_warning_html = '<div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; border-radius: 5px; margin: 20px 0;">
+                <p style="color: #856404; margin: 0; font-size: 14px;"><i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>' . htmlspecialchars($inquiry_email_warning) . '</p>
+            </div>';
+        }
+        
         $resultModalContent = '<div style="text-align: center; padding: 20px;">
             <i class="fas fa-check-circle" style="font-size: 64px; color: #28a745;"></i>
             <h2 style="color: var(--navy); margin: 20px 0 15px 0; font-size: 28px; font-weight: 700;">Conference Enquiry Submitted Successfully!</h2>
@@ -519,6 +542,7 @@ function resolveConferenceImage(?string $imagePath): string
                 <p style="color: var(--navy); margin: 0; font-size: 14px; font-weight: 600;">Your Reference Number:</p>
                 <p style="color: var(--navy); margin: 8px 0 0 0; font-size: 24px; font-weight: 700; letter-spacing: 1px;">' . htmlspecialchars($success_reference) . '</p>
             </div>
+            ' . $email_warning_html . '
             <p style="color: #666; margin: 20px 0 0 0; font-size: 14px; line-height: 1.6;">
                 <i class="fas fa-envelope" style="color: var(--gold);"></i> A confirmation email has been sent to your email address.<br>
                 <i class="fas fa-info-circle" style="color: var(--gold);"></i> Please save this reference number for your records.

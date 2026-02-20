@@ -14,11 +14,73 @@
     }
 
     function init() {
+        initMobileNavToggle();
         enhanceMobileTables();
         addTableDataLabels();
         detectOverflowingTables();
         addTouchGestures();
         optimizeQuickActions();
+    }
+
+    /**
+     * Initialize mobile navigation toggle
+     */
+    function initMobileNavToggle() {
+        const navToggle = document.querySelector('.admin-nav-toggle');
+        const adminNav = document.querySelector('.admin-nav');
+        
+        if (!navToggle || !adminNav) return;
+
+        navToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            adminNav.classList.toggle('nav-open');
+            
+            // Update aria-expanded
+            const isExpanded = adminNav.classList.contains('nav-open');
+            navToggle.setAttribute('aria-expanded', isExpanded);
+            
+            // Update icon
+            const icon = navToggle.querySelector('i');
+            if (icon) {
+                if (isExpanded) {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
+                } else {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            }
+        });
+
+        // Close nav when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.admin-nav') && !e.target.closest('.admin-nav-toggle')) {
+                adminNav.classList.remove('nav-open');
+                navToggle.setAttribute('aria-expanded', 'false');
+                
+                const icon = navToggle.querySelector('i');
+                if (icon) {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            }
+        });
+
+        // Close nav when window is resized to desktop
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                adminNav.classList.remove('nav-open');
+                navToggle.setAttribute('aria-expanded', 'false');
+                
+                const icon = navToggle.querySelector('i');
+                if (icon) {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            }
+        });
     }
 
     /**

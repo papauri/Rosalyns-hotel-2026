@@ -236,6 +236,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $message = count($room_ids) . ' rooms updated successfully!';
                 }
             }
+        } elseif ($action === 'get_assignable_bookings') {
+            if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
+                throw new Exception('Invalid request');
+            }
+
+            $room_type_id = (int)($_POST['room_type_id'] ?? 0);
+            $individual_room_id = (int)($_POST['individual_room_id'] ?? 0);
+
+            if ($room_type_id <= 0) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid room type']);
+                exit;
+            }
+
+            // Fetch bookings that are eligible for assignment
+            $stmt = $pdo->prepare("
+                SELECT
+                    b.id,
+                    b.booking_reference,
+                    b.guest_name,
+                    b.check_in_date,
+                    b.check_out_date,
+                    b.status,
+                    b.individual_room_id,
+                    r.name as room_name
+                FROM bookings b
+                JOIN rooms r ON b.room_id = r.id
+                WHERE b.room_id = ?
+                AND b.status IN ('pending', 'confirmed', 'checked-in')
+                AND (b.individual_room_id IS NULL OR b.individual_room_id = ?)
+                AND b.check_out_date >= CURDATE()
+                ORDER BY b.check_in_date ASC
+            ");
+            $stmt->execute([$room_type_id, $individual_room_id]);
+            $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Normalize for JSON
+            $normalized = array_map(function ($booking) {
+                return [
+                    'id' => (int)$booking['id'],
+                    'reference' => $booking['booking_reference'],
+                    'guest_name' => $booking['guest_name'],
+                    'check_in' => $booking['check_in_date'],
+                    'check_out' => $booking['check_out_date'],
+                    'status' => $booking['status'],
+                    'room_name' => $booking['room_name'],
+                    'already_assigned' => !empty($booking['individual_room_id'])
+                ];
+            }, $bookings);
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Bookings loaded',
+                'data' => $normalized
+            ]);
+            exit;
         }
         
     } catch (PDOException $e) {
@@ -526,6 +583,9 @@ $currency = htmlspecialchars(getSetting('currency_symbol', 'MWK'));
                                             <button class="btn btn-info btn-sm" type="button" onclick='openEditModal(<?php echo htmlspecialchars(json_encode($room), ENT_QUOTES, "UTF-8"); ?>, <?php echo htmlspecialchars(json_encode($roomAmenitiesMap[$room['id']] ?? []), ENT_QUOTES, "UTF-8"); ?>, <?php echo htmlspecialchars(json_encode($roomPhotosMap[$room['id']] ?? []), ENT_QUOTES, "UTF-8"); ?>)'>
                                                 <i class="fas fa-edit"></i> Edit
                                             </button>
+                                            <button class="btn btn-primary btn-sm" type="button" onclick="openAssignBookingModal(<?php echo $room['id']; ?>, '<?php echo htmlspecialchars($room['room_number']); ?>', <?php echo $room['room_type_id']; ?>)" title="Assign this room to a booking">
+                                                <i class="fas fa-door-open"></i> Assign Booking
+                                            </button>
                                             <button class="btn btn-success btn-sm" type="button" onclick="openStatusModal(<?php echo $room['id']; ?>, '<?php echo $room['status']; ?>', '<?php echo htmlspecialchars($room['room_number']); ?>')">
                                                 <i class="fas fa-exchange-alt"></i> Status
                                             </button>
@@ -700,6 +760,36 @@ $currency = htmlspecialchars(getSetting('currency_symbol', 'MWK'));
         </div>
     </div>
 
+    <!-- Assign Booking Modal -->
+    <div class="modal-overlay" id="assignBookingModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-door-open"></i> Assign Room to Booking</h3>
+                <button class="modal-close" onclick="closeAssignBookingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label><i class="fas fa-hashtag"></i> Room:</label>
+                    <input type="text" id="assign_room_number" class="form-control" readonly style="background: #f5f5f5;">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-calendar"></i> Available Bookings:</label>
+                    <div id="assign_booking_list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 10px;">
+                        <div style="text-align: center; padding: 20px; color: #666;">
+                            <i class="fas fa-spinner fa-spin"></i> Loading bookings...
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="assign_room_id">
+                <input type="hidden" id="assign_booking_id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAssignBookingModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitAssignBooking()"><i class="fas fa-check"></i> Assign to Selected Booking</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Form -->
     <form method="POST" id="deleteForm" style="display: none;">
         <input type="hidden" name="action" value="delete_individual_room">
@@ -808,6 +898,145 @@ $currency = htmlspecialchars(getSetting('currency_symbol', 'MWK'));
                 document.getElementById('bulkForm').appendChild(input);
                 document.getElementById('bulkForm').submit();
             }
+        }
+
+        // Assign Booking Modal Functions
+        let selectedBookingId = null;
+
+        function openAssignBookingModal(roomId, roomNumber, roomTypeId) {
+            document.getElementById('assign_room_id').value = roomId;
+            document.getElementById('assign_room_number').value = roomNumber;
+            document.getElementById('assign_booking_id').value = '';
+            selectedBookingId = null;
+            document.getElementById('assignBookingModal').classList.add('active');
+            loadAssignableBookings(roomId, roomTypeId);
+        }
+
+        function closeAssignBookingModal() {
+            document.getElementById('assignBookingModal').classList.remove('active');
+            document.getElementById('assign_booking_list').innerHTML = '';
+            selectedBookingId = null;
+        }
+
+        function loadAssignableBookings(roomId, roomTypeId) {
+            const bookingList = document.getElementById('assign_booking_list');
+            bookingList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><i class="fas fa-spinner fa-spin"></i> Loading bookings...</div>';
+
+            const formData = new FormData();
+            formData.append('action', 'get_assignable_bookings');
+            formData.append('room_type_id', roomTypeId);
+            formData.append('individual_room_id', roomId);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        bookingList.innerHTML = '';
+                        data.data.forEach(booking => {
+                            const bookingCard = document.createElement('div');
+                            bookingCard.className = 'booking-assign-card';
+                            bookingCard.dataset.bookingId = booking.id;
+                            bookingCard.style.cssText = `
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                padding: 12px;
+                                margin-bottom: 8px;
+                                border: 2px solid ${booking.already_assigned ? '#ffc107' : '#28a745'};
+                                border-radius: 8px;
+                                cursor: pointer;
+                                background: #fff;
+                                transition: all 0.2s;
+                            `;
+                            
+                            const bookingInfo = `
+                                <div>
+                                    <div style="font-weight: 600; color: var(--navy);">
+                                        <i class="fas fa-calendar-check" style="color: var(--gold);"></i>
+                                        ${booking.reference}
+                                    </div>
+                                    <small style="color: #666;">${booking.guest_name} • ${booking.room_name}</small><br>
+                                    <small style="color: #666;">${booking.check_in} → ${booking.check_out} (${booking.status})</small>
+                                </div>
+                                <div>
+                                    ${booking.already_assigned
+                                        ? `<span class="badge" style="background: #fff3cd; color: #856404; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Already Assigned</span>`
+                                        : `<span class="badge" style="background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Available</span>`
+                                    }
+                                </div>
+                            `;
+                            bookingCard.innerHTML = bookingInfo;
+                            bookingCard.onclick = () => selectBookingForAssignment(booking.id, bookingCard);
+                            bookingList.appendChild(bookingCard);
+                        });
+                    } else {
+                        bookingList.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> No assignable bookings found.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading bookings:', error);
+                    bookingList.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;"><i class="fas fa-exclamation-circle"></i> Error loading bookings.</div>';
+                });
+        }
+
+        function selectBookingForAssignment(bookingId, cardElement) {
+            selectedBookingId = bookingId;
+            document.getElementById('assign_booking_id').value = bookingId;
+            
+            // Remove previous selection
+            document.querySelectorAll('.booking-assign-card').forEach(card => {
+                card.style.background = '#fff';
+                card.style.borderColor = card.dataset.alreadyAssigned === 'true' ? '#ffc107' : '#28a745';
+            });
+            
+            // Highlight selected card
+            cardElement.style.background = '#fff8e1';
+            cardElement.style.borderColor = 'var(--gold)';
+        }
+
+        function submitAssignBooking() {
+            if (!selectedBookingId) {
+                alert('Please select a booking to assign.');
+                return;
+            }
+            
+            const roomId = document.getElementById('assign_room_id').value;
+            const bookingId = selectedBookingId;
+
+            const formData = new FormData();
+            formData.append('action', 'assign_individual_room');
+            formData.append('booking_id', bookingId);
+            formData.append('individual_room_id', roomId);
+
+            fetch('bookings.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Room assigned successfully!');
+                        closeAssignBookingModal();
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        alert(data.message || 'Failed to assign room.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error assigning room.');
+                });
         }
 
         // Close modals on outside click

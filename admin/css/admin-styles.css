@@ -62,8 +62,15 @@ footer {
 .admin-header h1 {
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-size: 24px;
-    color: var(--gold);
+    color: var(--gold, #d4a843);
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-header h1 i {
+    color: var(--gold, #d4a843);
 }
 
 .admin-header .user-info {
@@ -101,6 +108,63 @@ footer {
 .btn-logout:hover {
     background: rgba(255, 255, 255, 0.2);
     transform: translateY(-1px);
+}
+
+/* Admin Navigation Toggle Button (Mobile) */
+.admin-nav-toggle {
+    display: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.admin-nav-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.admin-nav-toggle i {
+    color: white;
+}
+
+/* Mobile Nav Open State */
+.admin-nav.nav-open {
+    display: block !important;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 998;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.admin-nav.nav-open ul {
+    flex-direction: column;
+    padding: 16px;
+    gap: 0;
+}
+
+.admin-nav.nav-open li {
+    width: 100%;
+}
+
+.admin-nav.nav-open a {
+    padding: 14px 16px !important;
+    border-bottom: 1px solid var(--border-color, #dee2e6) !important;
+    border-radius: 0;
+}
+
+.admin-nav.nav-open a:hover,
+.admin-nav.nav-open a.active {
+    background: #f8f9fb;
+    border-bottom-color: var(--gold, #8B7355) !important;
 }
 
 /* ============================================
@@ -604,6 +668,26 @@ footer {
 .booking-indicator.checked-in { background: #d4edda; color: #155724; }
 .blocked-indicator { background: #f8d7da; color: #721c24; font-weight: 700; }
 
+/* Room badge for individual room assignments in calendar */
+.booking-indicator.has-room {
+    border-left: 3px solid var(--gold, #8B7355);
+    padding-left: 4px;
+}
+
+.booking-indicator .room-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--gold, #8B7355) 0%, #6f5b43 100%);
+    color: #fff;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-right: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+}
+
 /* Professional toolbar/buttons used heavily on bookings/rooms */
 .bookings-toolbar {
     background: var(--admin-surface) !important;
@@ -647,6 +731,14 @@ footer {
     background: #fafbfd;
 }
 
+@media (max-width: 768px) {
+    .tabs-header {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 16px;
+    }
+}
+
 .tab-button {
     border: 1px solid var(--admin-surface-border);
     background: #fff;
@@ -655,12 +747,24 @@ footer {
     padding: 8px 14px;
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+    background: #f8f9fa;
+    border-color: var(--admin-accent);
 }
 
 .tab-button.active {
     border-color: var(--admin-accent);
-    color: var(--navy, #1A1A1A);
+    background: var(--admin-accent);
+    color: white;
     box-shadow: 0 0 0 2px rgba(139, 115, 85, 0.15);
+}
+
+.tab-button.active .tab-count {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
 }
 
 .tab-count {
@@ -1059,19 +1163,36 @@ select.form-control {
         padding: 12px 20px;
         flex-wrap: wrap;
         gap: 12px;
+        position: relative;
     }
     
+    /* Show hamburger menu on mobile */
+    .admin-nav-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        order: 3;
+    }
+    
+    /* Hide nav by default on mobile, show when toggled */
     .admin-nav {
-        padding: 0 12px;
+        display: none !important;
+        padding: 0 !important;
+    }
+    
+    .admin-nav.nav-open {
+        display: block !important;
     }
     
     .admin-nav ul {
-        gap: 12px;
+        gap: 0;
+        flex-direction: column;
     }
     
     .admin-nav a {
-        font-size: 12px;
-        padding: 14px 6px;
+        font-size: 14px;
+        padding: 14px 20px !important;
+        border-bottom: 1px solid var(--border-color, #dee2e6) !important;
     }
     
     .page-header {
@@ -1740,4 +1861,87 @@ select.form-control {
         border-radius: 0;
         max-height: 100vh;
     }
+}
+
+/* ============================================
+   BOOKINGS TABLE MINIMALIST IMPROVEMENTS
+   ============================================ */
+.bookings-table {
+    font-size: 13px;
+}
+.bookings-table th,
+.bookings-table td {
+    padding: 10px 12px;
+}
+.bookings-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-muted);
+    background: #f8f9fb;
+}
+.bookings-table tbody tr:hover {
+    background-color: #fafbfd;
+}
+.bookings-table .badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+.bookings-table .quick-action {
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    margin: 2px;
+    border: 1px solid transparent;
+    background: #f0f0f0;
+    color: #333;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+.bookings-table .quick-action:hover {
+    background: #e0e0e0;
+    transform: translateY(-1px);
+}
+.bookings-table .quick-action i {
+    font-size: 11px;
+}
+/* Color variants */
+.bookings-table .quick-action.view {
+    background: #6f42c1;
+    color: white;
+}
+.bookings-table .quick-action.email {
+    background: #007bff;
+    color: white;
+}
+.bookings-table .quick-action.assign {
+    background: var(--gold);
+    color: var(--deep-navy);
+}
+.bookings-table .quick-action.tentative {
+    background: linear-gradient(135deg, var(--gold) 0%, #c49b2e 100%);
+    color: var(--deep-navy);
+}
+.bookings-table .quick-action.checkin {
+    background: #28a745;
+    color: white;
+}
+.bookings-table .quick-action.cancel {
+    background: #dc3545;
+    color: white;
+}
+.bookings-table .quick-action.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+/* Compact actions wrapper */
+.booking-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
 }

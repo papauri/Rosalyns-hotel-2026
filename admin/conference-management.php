@@ -1,5 +1,8 @@
 <?php
-// Include admin initialization (PHP-only, no HTML output)
+/**
+ * Conference Rooms Management - Admin Panel
+ * Card-based layout with modal editing, matching room-management.php style
+ */
 require_once 'admin-init.php';
 
 require_once '../config/email.php';
@@ -33,7 +36,6 @@ function syncConferenceRoomManagedMedia(array $room): void
     ]);
 }
 
-// Note: $user and $current_page are already set in admin-init.php
 $message = '';
 $error = '';
 
@@ -63,6 +65,8 @@ function uploadConferenceImage(array $fileInput): ?string
 
     return null;
 }
+
+$is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -100,6 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $message = 'Conference room added successfully!';
+            if ($is_ajax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => $message]);
+                exit;
+            }
         }
 
         if ($action === 'update') {
@@ -153,18 +162,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $message = 'Conference room updated successfully!';
+            if ($is_ajax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => $message]);
+                exit;
+            }
         }
 
         if ($action === 'delete') {
             $stmt = $pdo->prepare("DELETE FROM conference_rooms WHERE id = ?");
             $stmt->execute([$_POST['id']]);
             $message = 'Conference room deleted successfully!';
+            if ($is_ajax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true]);
+                exit;
+            }
+        }
+
+        if ($action === 'toggle_active') {
+            $stmt = $pdo->prepare("UPDATE conference_rooms SET is_active = NOT is_active WHERE id = ?");
+            $stmt->execute([$_POST['id']]);
+            $message = 'Status updated!';
+            if ($is_ajax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true]);
+                exit;
+            }
         }
     } catch (PDOException $e) {
         $error = 'Error: ' . $e->getMessage();
+        if ($is_ajax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $error]);
+            exit;
+        }
     }
 }
 
+// Fetch conference rooms
 try {
     $stmt = $pdo->query("SELECT * FROM conference_rooms ORDER BY display_order ASC, name ASC");
     $conference_rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -186,7 +222,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enquiry_action'])) {
         $enquiry_id = $_POST['enquiry_id'] ?? 0;
         $action = $_POST['enquiry_action'];
         
-        // Fetch enquiry data for email functions
         $stmt = $pdo->prepare("SELECT * FROM conference_inquiries WHERE id = ?");
         $stmt->execute([$enquiry_id]);
         $enquiry = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -195,7 +230,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enquiry_action'])) {
             $stmt = $pdo->prepare("UPDATE conference_inquiries SET status = 'confirmed' WHERE id = ?");
             $stmt->execute([$enquiry_id]);
             
-            // Send confirmation email
             if ($enquiry) {
                 $email_result = sendConferenceConfirmedEmail($enquiry);
                 if ($email_result['success']) {
@@ -210,11 +244,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enquiry_action'])) {
             $stmt = $pdo->prepare("UPDATE conference_inquiries SET status = 'cancelled' WHERE id = ?");
             $stmt->execute([$enquiry_id]);
             
-            // Send cancellation email
             if ($enquiry) {
                 $email_result = sendConferenceCancelledEmail($enquiry);
                 
-                // Log cancellation to database
                 $email_sent = $email_result['success'];
                 $email_status = $email_result['message'];
                 logCancellationToDatabase(
@@ -228,7 +260,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enquiry_action'])) {
                     $email_status
                 );
                 
-                // Log cancellation to file
                 logCancellationToFile(
                     $enquiry['inquiry_reference'],
                     'conference',
@@ -252,22 +283,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enquiry_action'])) {
             $stmt->execute([$enquiry_id]);
             $message = 'Conference marked as completed!';
         } elseif ($action === 'send_invoice') {
-            // Mark conference as paid and send invoice
             if ($enquiry) {
                 try {
-                    // Get VAT settings
                     $vatEnabled = getSetting('vat_enabled') === '1';
                     $vatRate = $vatEnabled ? (float)getSetting('vat_rate') : 0;
                     
-                    // Calculate amounts
                     $totalAmount = (float)$enquiry['total_amount'];
                     $vatAmount = $vatEnabled ? ($totalAmount * ($vatRate / 100)) : 0;
                     $totalWithVat = $totalAmount + $vatAmount;
                     
-                    // Generate payment reference
                     $payment_reference = 'PAY-' . date('Y') . '-' . str_pad($enquiry_id, 6, '0', STR_PAD_LEFT);
                     
-                    // Insert into payments table
                     $insert_payment = $pdo->prepare("
                         INSERT INTO payments (
                             payment_reference, booking_type, booking_id, booking_reference,
@@ -287,7 +313,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enquiry_action'])) {
                         $user['id']
                     ]);
                     
-                    // Update conference enquiry payment tracking columns
                     $update_amounts = $pdo->prepare("
                         UPDATE conference_inquiries
                         SET amount_paid = ?, amount_due = 0, vat_rate = ?, vat_amount = ?,
@@ -296,7 +321,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enquiry_action'])) {
                     ");
                     $update_amounts->execute([$totalWithVat, $vatRate, $vatAmount, $totalWithVat, $enquiry_id]);
                     
-                    // Send invoice email
                     $invoice_result = sendConferenceInvoiceEmail($enquiry_id);
                     if ($invoice_result['success']) {
                         $message = 'Payment recorded successfully! Invoice sent to ' . htmlspecialchars($enquiry['email']);
@@ -339,8 +363,9 @@ try {
     $conference_enquiries = $enquiries_stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $conference_enquiries = [];
-    $error = 'Error fetching conference enquiries: ' . $e->getMessage();
 }
+
+$currency = htmlspecialchars(getSetting('currency_symbol', 'MWK'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -355,12 +380,22 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="css/admin-styles.css">
-    <link rel="stylesheet" href="css/admin-components.css"></head>
+    <link rel="stylesheet" href="css/admin-components.css">
+    <link rel="stylesheet" href="css/conference-management.css">
+</head>
 <body>
-
     <?php require_once 'includes/admin-header.php'; ?>
     
     <div class="content">
+        <div class="page-header-row">
+            <h2 class="page-title"><i class="fas fa-users"></i> Conference Rooms Management</h2>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn-action" type="button" style="background:var(--gold,#8B7355); color:var(--deep-navy,#111111); padding:12px 24px; font-size:14px; border-radius:8px;" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Add New Room
+                </button>
+            </div>
+        </div>
+
         <?php if ($message): ?>
             <?php showAlert($message, 'success'); ?>
         <?php endif; ?>
@@ -368,54 +403,77 @@ try {
             <?php showAlert($error, 'error'); ?>
         <?php endif; ?>
 
-        <div class="card">
-            <h2>Add New Conference Room</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="add">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Name *</label>
-                        <input type="text" name="name" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Capacity *</label>
-                        <input type="number" name="capacity" min="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Size (sqm)</label>
-                        <input type="number" step="0.01" name="size_sqm">
-                    </div>
-                    <div class="form-group">
-                        <label>Full Day Rate *</label>
-                        <input type="number" step="0.01" name="daily_rate" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Display Order</label>
-                        <input type="number" name="display_order" value="0">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Description *</label>
-                    <textarea name="description" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Amenities (comma separated)</label>
-                    <textarea name="amenities"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Featured Image</label>
-                    <input type="file" name="image" accept="image/*">
-                </div>
-                <div class="checkbox-row">
-                    <input type="checkbox" name="is_active" id="is_active_add" checked>
-                    <label for="is_active_add">Active</label>
-                </div>
-                <button type="submit" class="btn">Add Conference Room</button>
-            </form>
-        </div>
+        <!-- Conference Rooms Cards -->
+        <?php if (!empty($conference_rooms)): ?>
+        <div class="conference-cards-grid" id="conferenceGrid">
+            <?php foreach ($conference_rooms as $room): ?>
+            <div class="conference-card" data-id="<?php echo $room['id']; ?>">
+                <?php if ($room['display_order'] > 0): ?>
+                    <span class="order-badge">#<?php echo $room['display_order']; ?></span>
+                <?php endif; ?>
 
-        <div class="card">
-            <h2>Conference Enquiries Management</h2>
+                <?php if (!empty($room['image_path'])): ?>
+                    <?php $imgSrc = preg_match('#^https?://#i', $room['image_path']) ? $room['image_path'] : '../' . $room['image_path']; ?>
+                    <img src="<?php echo htmlspecialchars($imgSrc); ?>" 
+                         alt="<?php echo htmlspecialchars($room['name']); ?>" 
+                         class="conference-card-image"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="no-image-placeholder" style="display:none;"><i class="fas fa-users"></i><span>No Image</span></div>
+                <?php else: ?>
+                    <div class="no-image-placeholder"><i class="fas fa-users"></i><span>No Image</span></div>
+                <?php endif; ?>
+
+                <div class="conference-card-body">
+                    <div class="conference-card-title">
+                        <?php echo htmlspecialchars($room['name']); ?>
+                    </div>
+                    <div class="conference-card-desc"><?php echo htmlspecialchars($room['description'] ?? ''); ?></div>
+
+                    <div class="conference-card-details">
+                        <div class="detail-item detail-item-price"><i class="fas fa-tag"></i> <?php echo $currency; ?> <?php echo number_format($room['daily_rate'], 0); ?>/day</div>
+                        <div class="detail-item"><i class="fas fa-users"></i> <?php echo $room['capacity']; ?> guests</div>
+                        <div class="detail-item"><i class="fas fa-expand-arrows-alt"></i> <?php echo number_format($room['size_sqm'] ?? 0, 0); ?> sqm</div>
+                    </div>
+
+                    <?php if (!empty($room['amenities'])): ?>
+                    <div style="font-size:11px; color:#888; margin-bottom:10px;">
+                        <i class="fas fa-concierge-bell"></i> <?php echo htmlspecialchars(substr($room['amenities'], 0, 60)); ?><?php echo strlen($room['amenities']) > 60 ? '...' : ''; ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <div class="conference-card-meta">
+                        <?php if ($room['is_active']): ?>
+                            <span class="conference-badge active"><i class="fas fa-check"></i> Active</span>
+                        <?php else: ?>
+                            <span class="conference-badge inactive"><i class="fas fa-times"></i> Inactive</span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="conference-card-actions">
+                        <button class="btn-action btn-edit" type="button" onclick='openEditModal(<?php echo htmlspecialchars(json_encode($room), ENT_QUOTES, "UTF-8"); ?>)'>
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn-action btn-toggle-active" type="button" onclick="toggleActive(<?php echo $room['id']; ?>)" title="Toggle Active">
+                            <i class="fas fa-power-off"></i>
+                        </button>
+                        <button class="btn-action btn-delete" type="button" onclick="if(confirm('Delete this conference room permanently?')) deleteRoom(<?php echo $room['id']; ?>)" title="Delete Room">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <div class="empty-state">
+            <i class="fas fa-users"></i>
+            <p>No conference rooms found. Click "Add New Room" to get started.</p>
+        </div>
+        <?php endif; ?>
+
+        <!-- Conference Enquiries Section -->
+        <div class="card" style="margin-top: 24px;">
+            <h2><i class="fas fa-calendar-check"></i> Conference Enquiries</h2>
             <div class="table-container">
                 <table class="table">
                     <thead>
@@ -435,9 +493,9 @@ try {
                     <tbody>
                         <?php if (empty($conference_enquiries)): ?>
                         <tr>
-                            <td colspan="10" class="empty-state">
-                                <i class="fas fa-inbox"></i>
-                                <p>No conference enquiries found</p>
+                            <td colspan="10" style="text-align:center; padding:40px; color:#999;">
+                                <i class="fas fa-inbox" style="font-size:32px; display:block; margin-bottom:8px;"></i>
+                                No conference enquiries found
                             </td>
                         </tr>
                         <?php else: ?>
@@ -464,7 +522,7 @@ try {
                             </td>
                             <td>
                                 <?php if ($enquiry['total_amount']): ?>
-                                    K <?php echo number_format($enquiry['total_amount'], 0); ?>
+                                    <?php echo $currency; ?> <?php echo number_format($enquiry['total_amount'], 0); ?>
                                 <?php else: ?>
                                     <em>Pending</em>
                                 <?php endif; ?>
@@ -517,217 +575,348 @@ try {
                 </table>
             </div>
         </div>
+    </div>
 
-        <div class="card">
-            <h2>Manage Conference Rooms</h2>
-            <div class="room-list">
-                <?php foreach ($conference_rooms as $room): ?>
-                    <div class="room-item">
-                        <div class="room-header">
-                            <h3><?php echo htmlspecialchars($room['name']); ?></h3>
-                            <span class="badge <?php echo $room['is_active'] ? 'badge-active' : 'badge-inactive'; ?>">
-                                <?php echo $room['is_active'] ? '<i class="fas fa-check-circle"></i> Active' : '<i class="fas fa-times-circle"></i> Inactive'; ?>
-                            </span>
-                        </div>
-                        
-                        <!-- Image Display -->
-                        <div class="room-image-container">
-                            <?php if (!empty($room['image_path'])): ?>
-                                <img src="../<?php echo htmlspecialchars($room['image_path']); ?>"
-                                     alt="<?php echo htmlspecialchars($room['name']); ?>"
-                                     class="room-image-preview">
-                            <?php else: ?>
-                                <div class="room-image-placeholder">
-                                    <i class="fas fa-image"></i>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="room-meta">
-                            <span><i class="fas fa-users"></i> <?php echo (int) $room['capacity']; ?> Guests</span>
-                            <span><i class="fas fa-expand-arrows-alt"></i> <?php echo number_format($room['size_sqm'] ?? 0, 0); ?> sqm</span>
-                            <span><i class="fas fa-calendar-day"></i> K <?php echo number_format($room['daily_rate'], 0); ?>/day</span>
-                        </div>
-
-                        <form method="POST" enctype="multipart/form-data">
-                            <input type="hidden" name="action" value="update">
-                            <input type="hidden" name="id" value="<?php echo (int) $room['id']; ?>">
-                            <div class="room-form-section">
-                                <div class="form-grid">
-                                    <div class="form-group">
-                                        <label>Name *</label>
-                                        <input type="text" name="name" value="<?php echo htmlspecialchars($room['name']); ?>" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Capacity *</label>
-                                        <input type="number" name="capacity" min="1" value="<?php echo htmlspecialchars($room['capacity']); ?>" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Size (sqm)</label>
-                                        <input type="number" step="0.01" name="size_sqm" value="<?php echo htmlspecialchars($room['size_sqm']); ?>">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Full Day Rate *</label>
-                                        <input type="number" step="0.01" name="daily_rate" value="<?php echo htmlspecialchars($room['daily_rate']); ?>" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Display Order</label>
-                                        <input type="number" name="display_order" value="<?php echo htmlspecialchars($room['display_order']); ?>">
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Description *</label>
-                                    <textarea name="description" required><?php echo htmlspecialchars($room['description']); ?></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <label>Amenities (comma separated)</label>
-                                    <textarea name="amenities"><?php echo htmlspecialchars($room['amenities']); ?></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <label>Replace Image</label>
-                                    <input type="file" name="image" accept="image/*">
-                                </div>
-                                <div class="checkbox-row">
-                                    <input type="checkbox" name="is_active" id="is_active_<?php echo (int) $room['id']; ?>" <?php echo $room['is_active'] ? 'checked' : ''; ?>>
-                                    <label for="is_active_<?php echo (int) $room['id']; ?>">Active</label>
-                                </div>
-                            </div>
-                            <div class="room-actions">
-                                <button type="submit" class="btn"><i class="fas fa-save"></i> Save Changes</button>
-                                <button type="submit" name="action" value="delete" class="btn btn-secondary" onclick="return confirm('Delete this conference room?');">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                <?php endforeach; ?>
+    <!-- Add Conference Room Modal -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus-circle"></i> Add New Conference Room</h3>
+                <button class="modal-close" type="button" onclick="closeAddModal()">&times;</button>
             </div>
+            <form method="POST" enctype="multipart/form-data" id="addForm">
+                <input type="hidden" name="action" value="add">
+                
+                <div class="modal-body">
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="fas fa-info-circle"></i> Room Information</div>
+                        <div class="form-group">
+                            <label>Name *</label>
+                            <input type="text" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Description *</label>
+                            <textarea name="description" rows="3" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Featured Image</label>
+                            <input type="file" name="image" accept="image/*">
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="fas fa-cog"></i> Room Details</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Capacity *</label>
+                                <input type="number" name="capacity" min="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Size (sqm)</label>
+                                <input type="number" step="0.01" name="size_sqm">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Full Day Rate *</label>
+                                <input type="number" step="0.01" name="daily_rate" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Display Order</label>
+                                <input type="number" name="display_order" value="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Amenities (comma separated)</label>
+                            <textarea name="amenities" rows="2" placeholder="Projector, Whiteboard, WiFi, Catering"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-section" style="border-bottom:none;">
+                        <div class="form-section-title"><i class="fas fa-toggle-on"></i> Status</div>
+                        <div class="checkbox-row">
+                            <label>
+                                <input type="checkbox" name="is_active" value="1" checked> Active
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeAddModal()" style="padding:10px 24px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer;">Cancel</button>
+                    <button type="submit" style="padding:10px 24px; border:none; border-radius:6px; background:var(--gold,#8B7355); color:var(--deep-navy,#111111); font-weight:600; cursor:pointer;">
+                        <i class="fas fa-plus"></i> Add Room
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Conference Room Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="editModalTitle"><i class="fas fa-edit"></i> Edit Conference Room</h3>
+                <button class="modal-close" type="button" onclick="closeEditModal()">&times;</button>
+            </div>
+            <form method="POST" enctype="multipart/form-data" id="editForm">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="id" id="editId">
+                
+                <div class="modal-body">
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="fas fa-info-circle"></i> Room Information</div>
+                        <div class="form-group">
+                            <label>Name *</label>
+                            <input type="text" name="name" id="editName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Description *</label>
+                            <textarea name="description" id="editDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Replace Image</label>
+                            <input type="file" name="image" accept="image/*">
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="fas fa-cog"></i> Room Details</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Capacity *</label>
+                                <input type="number" name="capacity" id="editCapacity" min="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Size (sqm)</label>
+                                <input type="number" step="0.01" name="size_sqm" id="editSize">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Full Day Rate *</label>
+                                <input type="number" step="0.01" name="daily_rate" id="editRate" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Display Order</label>
+                                <input type="number" name="display_order" id="editOrder" value="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Amenities (comma separated)</label>
+                            <textarea name="amenities" id="editAmenities" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-section" style="border-bottom:none;">
+                        <div class="form-section-title"><i class="fas fa-toggle-on"></i> Status</div>
+                        <div class="checkbox-row">
+                            <label>
+                                <input type="checkbox" name="is_active" id="editIsActive" value="1"> Active
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditModal()" style="padding:10px 24px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer;">Cancel</button>
+                    <button type="submit" style="padding:10px 24px; border:none; border-radius:6px; background:var(--gold,#8B7355); color:var(--deep-navy,#111111); font-weight:600; cursor:pointer;">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Enquiry Details Modal -->
-    <div id="enquiryModal" class="modal" style="display:none;">
+    <div id="enquiryModal" class="modal-overlay" style="display:none;">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
-                <h3>Conference Enquiry Details</h3>
-                <span class="close" onclick="closeEnquiryModal()">&times;</span>
+                <h3><i class="fas fa-calendar-alt"></i> Conference Enquiry Details</h3>
+                <button class="modal-close" type="button" onclick="closeEnquiryModal()">&times;</button>
             </div>
             <div class="modal-body" id="enquiryModalBody">
-                <!-- Content will be loaded dynamically -->
             </div>
         </div>
     </div>
 
     <script>
-        function showEnquiryDetails(enquiry) {
-            const modal = document.getElementById('enquiryModal');
-            const body = document.getElementById('enquiryModalBody');
-            
-            body.innerHTML = `
-                <div class="enquiry-details">
-                    <div class="detail-row">
-                        <strong>Reference:</strong>
-                        <span>${enquiry.inquiry_reference}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Company:</strong>
-                        <span>${enquiry.company_name}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Contact Person:</strong>
-                        <span>${enquiry.contact_person}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Email:</strong>
-                        <span>${enquiry.email}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Phone:</strong>
-                        <span>${enquiry.phone}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Event Date:</strong>
-                        <span>${new Date(enquiry.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Time:</strong>
-                        <span>${new Date('1970-01-01T' + enquiry.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} -
-                              ${new Date('1970-01-01T' + enquiry.end_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Conference Room:</strong>
-                        <span>${enquiry.room_name || 'N/A'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Number of Attendees:</strong>
-                        <span>${enquiry.number_of_attendees}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Event Type:</strong>
-                        <span>${enquiry.event_type || 'N/A'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Status:</strong>
-                        <span class="badge badge-${enquiry.status}">${enquiry.status.charAt(0).toUpperCase() + enquiry.status.slice(1)}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Catering Required:</strong>
-                        <span>${enquiry.catering_required ? 'Yes' : 'No'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>AV Equipment:</strong>
-                        <span>${enquiry.av_equipment || 'None'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Special Requirements:</strong>
-                        <span>${enquiry.special_requirements || 'None'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Total Amount:</strong>
-                        <span>${enquiry.total_amount ? 'K ' + Number(enquiry.total_amount).toLocaleString() : 'Pending'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <strong>Notes:</strong>
-                        <span>${enquiry.notes || 'None'}</span>
-                    </div>
-                    
-                    <div class="modal-actions">
-                        <form method="POST" style="display:inline;">
-                            <input type="hidden" name="enquiry_action" value="update_amount">
-                            <input type="hidden" name="enquiry_id" value="${enquiry.id}">
-                            <div class="form-group" style="margin-bottom: 10px;">
-                                <label>Update Total Amount (<?php echo getSetting('currency_symbol', 'MWK'); ?>):</label>
-                                <input type="number" name="total_amount" step="0.01" value="${enquiry.total_amount || ''}" style="width: 150px;">
-                            </div>
-                            <button type="submit" class="btn">Update Amount</button>
-                        </form>
-                        <form method="POST" style="display:inline;">
-                            <input type="hidden" name="enquiry_action" value="update_notes">
-                            <input type="hidden" name="enquiry_id" value="${enquiry.id}">
-                            <div class="form-group" style="margin-bottom: 10px;">
-                                <label>Update Notes:</label>
-                                <textarea name="notes" rows="3" style="width: 100%; max-width: 400px;">${enquiry.notes || ''}</textarea>
-                            </div>
-                            <button type="submit" class="btn">Update Notes</button>
-                        </form>
-                    </div>
+    // ===== ADD MODAL =====
+    function openAddModal() {
+        document.getElementById('addModal').style.display = 'flex';
+    }
+    function closeAddModal() {
+        document.getElementById('addModal').style.display = 'none';
+    }
+
+    // ===== EDIT MODAL =====
+    function openEditModal(room) {
+        document.getElementById('editModalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit: ' + escapeHtml(room.name);
+        document.getElementById('editId').value = room.id;
+        document.getElementById('editName').value = room.name || '';
+        document.getElementById('editDescription').value = room.description || '';
+        document.getElementById('editCapacity').value = room.capacity || '';
+        document.getElementById('editSize').value = room.size_sqm || '';
+        document.getElementById('editRate').value = room.daily_rate || '';
+        document.getElementById('editOrder').value = room.display_order || 0;
+        document.getElementById('editAmenities').value = room.amenities || '';
+        document.getElementById('editIsActive').checked = room.is_active == 1;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    // ===== TOGGLE & DELETE =====
+    function toggleActive(id) {
+        var fd = new FormData();
+        fd.append('action', 'toggle_active');
+        fd.append('id', id);
+        fetch(window.location.href, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function(r) { if (r.ok) window.location.reload(); else alert('Error'); })
+            .catch(function() { alert('Error'); });
+    }
+
+    function deleteRoom(id) {
+        var fd = new FormData();
+        fd.append('action', 'delete');
+        fd.append('id', id);
+        fetch(window.location.href, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function(r) { if (r.ok) window.location.reload(); else alert('Error'); })
+            .catch(function() { alert('Error'); });
+    }
+
+    // ===== ENQUIRY MODAL =====
+    function showEnquiryDetails(enquiry) {
+        const modal = document.getElementById('enquiryModal');
+        const body = document.getElementById('enquiryModalBody');
+        
+        body.innerHTML = `
+            <div class="enquiry-details">
+                <div class="detail-row">
+                    <strong>Reference:</strong>
+                    <span>${escapeHtml(enquiry.inquiry_reference)}</span>
                 </div>
-            `;
-            
-            modal.style.display = 'block';
-        }
+                <div class="detail-row">
+                    <strong>Company:</strong>
+                    <span>${escapeHtml(enquiry.company_name)}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Contact Person:</strong>
+                    <span>${escapeHtml(enquiry.contact_person)}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Email:</strong>
+                    <span>${escapeHtml(enquiry.email)}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Phone:</strong>
+                    <span>${escapeHtml(enquiry.phone)}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Event Date:</strong>
+                    <span>${new Date(enquiry.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Time:</strong>
+                    <span>${enquiry.start_time} - ${enquiry.end_time}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Conference Room:</strong>
+                    <span>${escapeHtml(enquiry.room_name || 'N/A')}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Number of Attendees:</strong>
+                    <span>${enquiry.number_of_attendees}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Event Type:</strong>
+                    <span>${escapeHtml(enquiry.event_type || 'N/A')}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Status:</strong>
+                    <span class="badge badge-${enquiry.status}">${enquiry.status.charAt(0).toUpperCase() + enquiry.status.slice(1)}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Catering Required:</strong>
+                    <span>${enquiry.catering_required ? 'Yes' : 'No'}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>AV Equipment:</strong>
+                    <span>${escapeHtml(enquiry.av_equipment || 'None')}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Special Requirements:</strong>
+                    <span>${escapeHtml(enquiry.special_requirements || 'None')}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Total Amount:</strong>
+                    <span>${enquiry.total_amount ? '<?php echo $currency; ?> ' + Number(enquiry.total_amount).toLocaleString() : 'Pending'}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Notes:</strong>
+                    <span>${escapeHtml(enquiry.notes || 'None')}</span>
+                </div>
+                
+                <div class="modal-actions">
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="enquiry_action" value="update_amount">
+                        <input type="hidden" name="enquiry_id" value="${enquiry.id}">
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label>Update Total Amount (<?php echo $currency; ?>):</label>
+                            <input type="number" name="total_amount" step="0.01" value="${enquiry.total_amount || ''}" style="width: 150px;">
+                        </div>
+                        <button type="submit" class="btn">Update Amount</button>
+                    </form>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="enquiry_action" value="update_notes">
+                        <input type="hidden" name="enquiry_id" value="${enquiry.id}">
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label>Update Notes:</label>
+                            <textarea name="notes" rows="3" style="width: 100%; max-width: 400px;">${escapeHtml(enquiry.notes || '')}</textarea>
+                        </div>
+                        <button type="submit" class="btn">Update Notes</button>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        modal.style.display = 'flex';
+    }
 
-        function closeEnquiryModal() {
-            document.getElementById('enquiryModal').style.display = 'none';
-        }
+    function closeEnquiryModal() {
+        document.getElementById('enquiryModal').style.display = 'none';
+    }
 
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('enquiryModal');
-            if (event.target == modal) {
-                closeEnquiryModal();
+    // ===== CLOSE MODALS ON OUTSIDE CLICK =====
+    document.querySelectorAll('.modal-overlay').forEach(function(modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
             }
-        }
-    </script><script src="js/admin-components.js"></script>
+        });
+    });
+
+    // Helper
+    function escapeHtml(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    </script>
 
     <?php require_once 'includes/admin-footer.php'; ?>
+</body>
+</html>
