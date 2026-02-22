@@ -2,9 +2,9 @@
 /**
  * Admin Initialization
  * PHP-only initialization for admin pages (no HTML output)
- * 
+ *
  * This file MUST be included BEFORE any HTML output
- * 
+ *
  * Features:
  * - Secure session management
  * - CSRF token generation
@@ -12,6 +12,9 @@
  * - Database connection
  * - User data setup
  */
+
+// Include base URL configuration for proper redirects
+require_once __DIR__ . '/../config/base-url.php';
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -23,7 +26,7 @@ define('ADMIN_ACCESS', true);
 
 // Check authentication
 if (!isset($_SESSION['admin_user_id'])) {
-    header('Location: login.php');
+    header('Location: ' . BASE_URL . 'admin/login.php');
     exit;
 }
 
@@ -47,7 +50,7 @@ require_once __DIR__ . '/includes/permissions.php';
 $_required_permission = getPermissionForPage($current_page);
 if ($_required_permission !== null && !hasPermission($user['id'], $_required_permission)) {
     // User doesn't have access to this page
-    header('Location: dashboard.php?error=access_denied');
+    header('Location: ' . BASE_URL . 'admin/dashboard.php?error=access_denied');
     exit;
 }
 

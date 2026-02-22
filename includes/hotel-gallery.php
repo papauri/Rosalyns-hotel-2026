@@ -79,11 +79,11 @@ if (!function_exists('resolveImageUrl')) {
         <div class="editorial-gallery">
             <?php require_once __DIR__ . '/video-display.php'; ?>
             
-            <?php 
-            // Limit to 4 images for the editorial layout or use loop
-            $display_images = array_slice($gallery_images, 0, 4); 
+            <?php
+            // Display all gallery images - grid now expands dynamically
+            $display_images = $gallery_images;
             
-            foreach ($display_images as $index => $image): 
+            foreach ($display_images as $index => $image):
             ?>
             <div class="editorial-gallery-item scroll-reveal">
                 <?php if (!empty($image['video_path'])): ?>

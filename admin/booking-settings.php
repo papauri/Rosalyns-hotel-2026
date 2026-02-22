@@ -16,7 +16,7 @@ $template_preview = null;
 // Handle enable/disable via GET parameter
 if (isset($_GET['enable'])) {
     updateSetting('booking_system_enabled', '1');
-    header('Location: booking-settings.php');
+    header('Location: ' . BASE_URL . 'admin/booking-settings.php');
     exit;
 }
 

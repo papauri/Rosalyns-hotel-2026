@@ -4,11 +4,14 @@
  * Sends a password reset link via email to the admin user
  */
 
+// Include base URL configuration for proper redirects
+require_once __DIR__ . '/../config/base-url.php';
+
 session_start();
 
 // If already logged in, redirect to dashboard
 if (isset($_SESSION['admin_user_id'])) {
-    header('Location: dashboard.php');
+    header('Location: ' . BASE_URL . 'admin/dashboard.php');
     exit;
 }
 
@@ -110,17 +113,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 
                 if ($result['success']) {
-                    header('Location: login.php?reset=sent');
+                    header('Location: ' . BASE_URL . 'admin/login.php?reset=sent');
                     exit;
                 } else {
                     error_log("Password reset email failed: " . $result['message']);
                     // Still show success to prevent email enumeration
-                    header('Location: login.php?reset=sent');
+                    header('Location: ' . BASE_URL . 'admin/login.php?reset=sent');
                     exit;
                 }
             } else {
                 // Don't reveal if email exists - always show success
-                header('Location: login.php?reset=sent');
+                header('Location: ' . BASE_URL . 'admin/login.php?reset=sent');
                 exit;
             }
         } catch (PDOException $e) {

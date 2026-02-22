@@ -12,6 +12,9 @@
 // Start session first
 session_start();
 
+// Include base URL configuration for proper redirects
+require_once 'config/base-url.php';
+
 // Include database configuration
 require_once 'config/database.php';
 
@@ -234,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
             
             // Redirect to confirmation page
-            header('Location: review-confirmation.php');
+            header('Location: ' . BASE_URL . 'review-confirmation.php');
             exit;
             
         } catch (PDOException $e) {

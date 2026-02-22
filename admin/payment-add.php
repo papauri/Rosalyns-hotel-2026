@@ -32,7 +32,7 @@ if ($editId) {
     
     if (!$payment) {
         $_SESSION['alert'] = ['type' => 'info', 'message' => 'Payment not found. It may have been deleted or does not exist.'];
-        header('Location: payments.php');
+        header('Location: ' . BASE_URL . 'admin/payments.php');
         exit;
     }
 }
@@ -193,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->commit();
                 
                 $_SESSION['alert'] = ['type' => 'success', 'message' => 'Payment updated successfully'];
-                header('Location: payment-details.php?id=' . $editId);
+                header('Location: ' . BASE_URL . 'admin/payment-details.php?id=' . $editId);
                 exit;
                 
             } else {
@@ -365,7 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 $_SESSION['alert'] = ['type' => 'success', 'message' => 'Payment recorded successfully'];
-                header('Location: payment-details.php?id=' . $newPaymentId);
+                header('Location: ' . BASE_URL . 'admin/payment-details.php?id=' . $newPaymentId);
                 exit;
             }
             

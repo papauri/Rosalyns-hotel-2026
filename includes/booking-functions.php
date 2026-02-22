@@ -1,13 +1,18 @@
 <?php
 /**
  * Booking System Functions
- * 
+ *
  * Modular booking functions that can be easily migrated to any website.
  * All booking logic is centralized here for easy maintenance and portability.
- * 
+ *
  * @package BookingSystem
  * @version 1.0.0
  */
+
+// Include base URL configuration for proper redirects
+if (file_exists(__DIR__ . '/../config/base-url.php')) {
+    require_once __DIR__ . '/../config/base-url.php';
+}
 
 // Prevent direct access
 if (!defined('BOOKING_SYSTEM_LOADED')) {
@@ -196,7 +201,7 @@ function requireBookingEnabled(): void {
         // Redirect based on action
         $action = getBookingDisabledAction();
         if ($action === 'redirect') {
-            $redirectUrl = getSetting('booking_disabled_redirect_url', '/');
+            $redirectUrl = getSetting('booking_disabled_redirect_url', defined('BASE_URL') ? BASE_URL : '/');
             header('Location: ' . $redirectUrl);
         } else {
             // Show message page
@@ -220,7 +225,7 @@ function requireConferenceEnabled(): void {
     if (!isConferenceEnabled()) {
         error_log('Conference page accessed while conference system disabled');
         http_response_code(503);
-        header('Location: /');
+        header('Location: ' . (defined('BASE_URL') ? BASE_URL : '/'));
         exit;
     }
 }
@@ -229,7 +234,7 @@ function requireGymEnabled(): void {
     if (!isGymEnabled()) {
         error_log('Gym page accessed while gym system disabled');
         http_response_code(503);
-        header('Location: /');
+        header('Location: ' . (defined('BASE_URL') ? BASE_URL : '/'));
         exit;
     }
 }
@@ -238,7 +243,7 @@ function requireRestaurantEnabled(): void {
     if (!isRestaurantEnabled()) {
         error_log('Restaurant page accessed while restaurant system disabled');
         http_response_code(503);
-        header('Location: /');
+        header('Location: ' . (defined('BASE_URL') ? BASE_URL : '/'));
         exit;
     }
 }

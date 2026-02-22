@@ -9,7 +9,7 @@ require_once 'includes/booking-functions.php';
 
 $room_slug = isset($_GET['room']) ? trim($_GET['room']) : null;
 if (!$room_slug && !defined('API_REQUEST')) {
-    header('Location: /');
+    header('Location: ' . BASE_URL);
     exit;
 }
 
@@ -78,7 +78,7 @@ try {
     }
 
     if (!$room) {
-        header('Location: /');
+        header('Location: ' . BASE_URL);
         exit;
     }
 

@@ -6,13 +6,14 @@
 
 // Start session
 session_start();
+require_once 'config/base-url.php';
 require_once 'config/database.php';
 
 // Get booking reference from URL
 $booking_reference = $_GET['ref'] ?? null;
 
 if (!$booking_reference) {
-    header('Location: booking.php');
+    header('Location: ' . BASE_URL . 'booking.php');
     exit;
 }
 

@@ -30,7 +30,9 @@ try {
 
     // If explicitly disabled, redirect to home
     if (!(int)$_pg_row['is_enabled']) {
-        if (function_exists('siteUrl')) {
+        if (defined('BASE_URL')) {
+            header('Location: ' . BASE_URL);
+        } elseif (function_exists('siteUrl')) {
             header('Location: ' . siteUrl('/'));
         } else {
             header('Location: /');

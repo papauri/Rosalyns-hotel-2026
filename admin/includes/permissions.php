@@ -788,12 +788,12 @@ function logActivity($user_id, $action, $details = '') {
  */
 function requirePermission($permission_key) {
     if (!isset($_SESSION['admin_user_id'])) {
-        header('Location: login.php');
+        header('Location: ' . (defined('BASE_URL') ? BASE_URL : '') . 'admin/login.php');
         exit;
     }
     
     if (!hasPermission($_SESSION['admin_user_id'], $permission_key)) {
-        header('Location: dashboard.php?error=access_denied');
+        header('Location: ' . (defined('BASE_URL') ? BASE_URL : '') . 'admin/dashboard.php?error=access_denied');
         exit;
     }
 }

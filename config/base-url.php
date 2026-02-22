@@ -1,6 +1,6 @@
 <?php
 /**
- * Base URL Configuration
+ * Base URL Confeditorial-galleryiguration
  * Automatically detects the complete base URL including:
  * - Protocol (http or https)
  * - Host/domain name
@@ -135,7 +135,7 @@ function getBasePath() {
 if (!defined('BASE_URL')) {
     // Check for manual override first
     if (defined('BASE_URL_OVERRIDE')) {
-        define('BASE_URL', BASE_URL_OVERRIDE);
+        define('BASE_URL', constant('BASE_URL_OVERRIDE'));
     } else {
         // Auto-detect the base URL
         define('BASE_URL', detectBaseUrl());

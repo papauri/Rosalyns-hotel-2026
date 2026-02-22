@@ -4,12 +4,15 @@
  * Simple session-based authentication
  */
 
+// Include base URL configuration for proper redirects
+require_once __DIR__ . '/../config/base-url.php';
+
 // Start session
 session_start();
 
 // Check if already logged in
 if (isset($_SESSION['admin_user_id'])) {
-    header('Location: dashboard.php');
+    header('Location: ' . BASE_URL . 'admin/dashboard.php');
     exit;
 }
 

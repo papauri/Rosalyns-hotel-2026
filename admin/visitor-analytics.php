@@ -7,7 +7,7 @@
 require_once 'admin-init.php';
 
 if (!hasPermission($user['id'], 'reports')) {
-    header('Location: dashboard.php?error=access_denied');
+    header('Location: ' . BASE_URL . 'admin/dashboard.php?error=access_denied');
     exit;
 }
 

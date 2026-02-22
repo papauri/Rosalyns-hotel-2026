@@ -1,4 +1,7 @@
 <?php
+// Include base URL configuration for proper redirects
+require_once __DIR__ . '/../config/base-url.php';
+
 session_start();
 
 // Log the logout before destroying session
@@ -21,5 +24,5 @@ unset($_SESSION['admin_username']);
 unset($_SESSION['admin_role']);
 unset($_SESSION['admin_full_name']);
 session_destroy();
-header('Location: login.php');
+header('Location: ' . BASE_URL . 'admin/login.php');
 exit;

@@ -10,7 +10,7 @@ require_once '../includes/alert.php';
 require_once 'includes/admin-modal.php';
 
 if (!hasPermission($user['id'], 'pages')) {
-    header('Location: dashboard.php?error=access_denied');
+    header('Location: ' . BASE_URL . 'admin/dashboard.php?error=access_denied');
     exit;
 }
 

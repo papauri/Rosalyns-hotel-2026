@@ -188,7 +188,7 @@
 
 .editorial-gallery {
     display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
     gap: clamp(1rem, 1.8vw, 1.8rem);
 }
 
@@ -499,7 +499,7 @@
 }
 
 .landing-main .editorial-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: clamp(1.15rem, 2vw, 2rem);
 }
 
@@ -512,14 +512,14 @@
     box-shadow: var(--premium-shadow-elevated, var(--landing-card-shadow-hover, 0 20px 42px rgba(46, 40, 33, 0.12)));
 }
 
+/* First item gets special treatment - spans 2 rows and portrait aspect ratio */
 .landing-main .editorial-gallery-item:nth-child(1) {
     grid-row: span 2;
     aspect-ratio: 4 / 5;
 }
 
-.landing-main .editorial-gallery-item:nth-child(2),
-.landing-main .editorial-gallery-item:nth-child(3),
-.landing-main .editorial-gallery-item:nth-child(4) {
+/* All other items use landscape aspect ratio */
+.landing-main .editorial-gallery-item:not(:nth-child(1)) {
     aspect-ratio: 16 / 10;
 }
 
@@ -1240,10 +1240,8 @@
         grid-template-columns: 1fr;
     }
 
-    .editorial-gallery-item:nth-child(1),
-    .editorial-gallery-item:nth-child(2),
-    .editorial-gallery-item:nth-child(3),
-    .editorial-gallery-item:nth-child(4) {
+    /* On mobile, all items use standard landscape ratio */
+    .editorial-gallery-item {
         grid-row: auto;
         aspect-ratio: 16 / 10;
     }
@@ -1258,6 +1256,12 @@
 
     .landing-main .editorial-gallery {
         grid-template-columns: 1fr;
+    }
+
+    /* On mobile, reset first item special treatment */
+    .landing-main .editorial-gallery-item:nth-child(1) {
+        grid-row: auto;
+        aspect-ratio: 16 / 10;
     }
 
     .editorial-rooms-row {
