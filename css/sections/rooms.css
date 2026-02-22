@@ -414,6 +414,10 @@
 
 /* Navigation Buttons */
 .room-gallery-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
     width: 48px;
     height: 48px;
     background: rgba(255, 255, 255, 0.95);
@@ -833,7 +837,7 @@
     border: 1px solid rgba(139, 115, 85, 0.5);
     border-radius: var(--radius-full, 999px);
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.15em;
     color: #c4a47c;

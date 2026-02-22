@@ -1225,23 +1225,33 @@
     background: var(--booking-status-checkedin-bg);
 }
 
-.legend-color.blocked {
-    background: var(--booking-status-blocked-bg);
+.legend-color.booked {
+    background: #ff9800;
 }
 
-.legend-color.unavailable {
-    background: var(--booking-status-pending-bg);
+.legend-color.blocked {
+    background: var(--booking-status-blocked-bg);
 }
 
 .legend-color.selected {
     background: var(--booking-status-confirmed-bg);
 }
 
+/* Blocked dates - manually blocked from admin (red/pink) */
 .flatpickr-day.blocked-date,
 .flatpickr-day.flatpickr-disabled.blocked-date {
     background: var(--booking-status-blocked-bg) !important;
     border-color: #e7b5bb !important;
     color: var(--booking-status-blocked-text) !important;
+    opacity: 1 !important;
+}
+
+/* Booked dates - fully booked from availability check (orange) */
+.flatpickr-day.booked-date,
+.flatpickr-day.flatpickr-disabled.booked-date {
+    background: #ff9800 !important;
+    border-color: #f57c00 !important;
+    color: #fff !important;
     opacity: 1 !important;
 }
 
@@ -1265,6 +1275,16 @@
     height: 6px;
     border-radius: 50%;
     background: var(--booking-status-blocked-text);
+}
+
+.booked-indicator {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
 }
 
 #secondRoomSuggestion {

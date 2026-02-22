@@ -311,6 +311,8 @@ function checkAvailability(int $roomId, string $checkIn, string $checkOut): arra
         }
         
         // Check for overlapping bookings
+        // Note: 'tentative' bookings do NOT block availability (can be overwritten)
+        // Note: 'cancelled' bookings do NOT block availability (free up the room)
         $bookingsStmt = $pdo->prepare("
             SELECT COUNT(*) FROM bookings
             WHERE room_id = ?

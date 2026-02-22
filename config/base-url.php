@@ -87,13 +87,13 @@ function detectPort() {
 function detectBasePath() {
     // Get the script name
     $scriptName = $_SERVER['SCRIPT_NAME'];
-    
+
     // Define known subdirectories that should NOT be part of the base path
     $knownSubdirs = ['admin', 'api', 'includes', 'css', 'js', 'images', 'data'];
-    
+
     // Split the path into segments
     $segments = explode('/', trim($scriptName, '/'));
-    
+
     // Remove known subdirectories from the end
     while (!empty($segments)) {
         $lastSegment = end($segments);
@@ -103,15 +103,32 @@ function detectBasePath() {
             break;
         }
     }
-    
+
+    // Remove PHP file segments (e.g., index.php, booking.php)
+    // This ensures we only keep actual directory segments
+    while (!empty($segments)) {
+        $lastSegment = end($segments);
+        // Remove .php files OR explicitly index.php if it appears (though it should end in .php)
+        if (stripos($lastSegment, '.php') !== false) {
+            array_pop($segments);
+        } else {
+            break;
+        }
+    }
+
+    // Double check that we don't have index.php as the last segment (common issue)
+    if (!empty($segments) && end($segments) === 'index.php') {
+        array_pop($segments);
+    }
+
     // If no segments left, we're in root
     if (empty($segments)) {
         return '';
     }
-    
+
     // Reconstruct the base path
     $basePath = '/' . implode('/', $segments);
-    
+
     // Remove trailing slash if present
     return rtrim($basePath, '/');
 }

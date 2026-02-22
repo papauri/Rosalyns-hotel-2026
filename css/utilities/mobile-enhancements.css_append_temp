@@ -1,0 +1,45 @@
+
+/* ============================================
+   HERO FULLSCREEN FIX (Mobile)
+   ============================================ */
+
+@media (max-width: 1023px) {
+    /* Ensure hero fills viewport exactly */
+    .hero,
+    .rooms-hero {
+        width: 100vw;
+        max-width: 100%;
+        min-height: 100svh !important;
+        min-height: 100dvh !important;
+        /* Force height to cover header area if needed */
+        margin-top: -70px !important;
+        padding-top: 70px;
+    }
+
+    /* Ensure backgrounds cover completely */
+    .hero--image,
+    .rooms-hero__image,
+    .hero__image,
+    .hero__media,
+    .hero__media img,
+    .hero__media video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        background-size: cover !important;
+        background-position: center center !important;
+        background-repeat: no-repeat !important;
+    }
+    
+    /* Ensure no overflow causing horizontal scroll */
+    .hero,
+    .rooms-hero {
+        overflow: hidden;
+    }
+    
+    /* Reset main padding context if needed */
+    main > .hero:first-child,
+    main > .rooms-hero:first-child {
+        margin-top: -70px !important;
+    }
+}

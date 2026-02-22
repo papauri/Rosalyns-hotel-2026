@@ -742,6 +742,24 @@ foreach ($blocked_dates_by_room as $roomId => $datesMap) {
     $blocked_dates_by_room[$roomId] = array_keys($datesMap);
 }
 
+// Get booked dates for all rooms (including tentative bookings)
+// This ensures the calendar shows unavailable dates on page load
+$booked_dates_by_room = [];
+try {
+    // Get all active rooms
+    $roomsStmt = $pdo->query("SELECT id FROM rooms WHERE is_active = 1");
+    $activeRooms = $roomsStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($activeRooms as $room) {
+        $roomId = (int)$room['id'];
+        $bookedDates = getBookedDatesForRoom($roomId, $calendar_start_date, $calendar_end_date);
+        $booked_dates_by_room[$roomId] = $bookedDates;
+    }
+} catch (PDOException $e) {
+    error_log("Error getting booked dates: " . $e->getMessage());
+    $booked_dates_by_room = [];
+}
+
 // Get payment policy
 $payment_policy = getSetting('payment_policy');
 
@@ -797,18 +815,18 @@ try {
             <?php if (!$preselected_room): ?>
             <div class="form-section form-section--room">
                 <h3 class="form-section-title"><i class="fas fa-bed"></i> Select Your Room</h3>
+                <!-- Room Category Filter Tabs -->
+                <div class="rooms-filter" id="roomsFilterTabs">
+                    <?php foreach ($room_badges as $badge): ?>
+                    <span class="chip <?php echo $badge === 'All' ? 'active' : ''; ?>"
+                          data-filter="<?php echo htmlspecialchars(strtolower(str_replace(' ', '-', $badge))); ?>"
+                          data-badge-filter="<?php echo htmlspecialchars($badge); ?>">
+                        <?php echo htmlspecialchars($badge); ?>
+                        <small class="chip-count">(<?php echo isset($badge_counts[$badge]) ? $badge_counts[$badge] : 0; ?>)</small>
+                    </span>
+                    <?php endforeach; ?>
+                </div>
                 <div class="room-selection">
-                    <!-- Room Category Filter Tabs -->
-                    <div class="rooms-filter" id="roomsFilterTabs">
-                        <?php foreach ($room_badges as $badge): ?>
-                        <span class="chip <?php echo $badge === 'All' ? 'active' : ''; ?>"
-                              data-filter="<?php echo htmlspecialchars(strtolower(str_replace(' ', '-', $badge))); ?>"
-                              data-badge-filter="<?php echo htmlspecialchars($badge); ?>">
-                            <?php echo htmlspecialchars($badge); ?>
-                            <small class="chip-count">(<?php echo isset($badge_counts[$badge]) ? $badge_counts[$badge] : 0; ?>)</small>
-                        </span>
-                        <?php endforeach; ?>
-                    </div>
                     <!-- Availability message container -->
                     <div id="roomAvailabilityMessage" class="availability-message" style="display: none;"></div>
                     <?php foreach ($available_rooms as $room): ?>
@@ -967,12 +985,12 @@ try {
                         <span>Available</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color blocked"></div>
-                        <span>Blocked</span>
+                        <div class="legend-color booked"></div>
+                        <span>Fully Booked</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color unavailable"></div>
-                        <span>Unavailable</span>
+                        <div class="legend-color blocked"></div>
+                        <span>Blocked</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color selected"></div>
@@ -1154,23 +1172,53 @@ try {
         let selectedRoomPrice = preselectedRoomPrice;
         let selectedRoomName = preselectedRoomName;
         let selectedRoomMaxGuests = preselectedRoomMaxGuests;
+        
+        // Track booked dates per room (dates that are fully booked/unavailable)
+        // Pre-loaded with booked dates from database (includes tentative bookings)
+        const bookedDatesByRoom = <?php echo json_encode($booked_dates_by_room); ?>;
+        // Track the date range that was checked for availability
+        let lastCheckedDateRange = { checkIn: null, checkOut: null, roomId: null };
 
         function getBlockedDatesForRoom(roomId) {
             const roomKey = roomId !== null && roomId !== undefined ? String(roomId) : null;
             const roomDates = roomKey && blockedDatesByRoom[roomKey] ? blockedDatesByRoom[roomKey] : [];
             return Array.from(new Set([...(globalBlockedDates || []), ...(roomDates || [])]));
         }
+        
+        function getBookedDatesForRoom(roomId) {
+            const roomKey = roomId !== null && roomId !== undefined ? String(roomId) : null;
+            return roomKey && bookedDatesByRoom[roomKey] ? bookedDatesByRoom[roomKey] : [];
+        }
+        
+        function getAllUnavailableDatesForRoom(roomId) {
+            const blockedDates = getBlockedDatesForRoom(roomId);
+            const bookedDates = getBookedDatesForRoom(roomId);
+            return Array.from(new Set([...blockedDates, ...bookedDates]));
+        }
 
         function applyBlockedDatesToCalendars(roomId) {
-            const roomBlockedDates = getBlockedDatesForRoom(roomId);
+            const allUnavailableDates = getAllUnavailableDatesForRoom(roomId);
 
             if (checkInCalendar) {
-                checkInCalendar.set('disable', roomBlockedDates);
+                checkInCalendar.set('disable', allUnavailableDates);
             }
 
             if (checkOutCalendar) {
-                checkOutCalendar.set('disable', roomBlockedDates);
+                checkOutCalendar.set('disable', allUnavailableDates);
             }
+        }
+        
+        // Generate date range between two dates
+        function getDateRange(startDate, endDate) {
+            const dates = [];
+            let currentDate = new Date(startDate);
+            const end = new Date(endDate);
+            
+            while (currentDate < end) {
+                dates.push(currentDate.toISOString().split('T')[0]);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            return dates;
         }
         
         // Initialize calendars
@@ -1184,14 +1232,22 @@ try {
                 minDate: 'today',
                 maxDate: maxDate,
                 dateFormat: 'Y-m-d',
-                disable: getBlockedDatesForRoom(selectedRoomId),
+                disable: getAllUnavailableDatesForRoom(selectedRoomId),
                 onDayCreate: function(dObj, dStr, fp, dayElem) {
-                    // Add custom class for blocked dates
+                    // Add custom class for blocked and booked dates
                     const dateStr = fp.formatDate(dayElem.dateObj, 'Y-m-d');
                     const roomBlockedDates = getBlockedDatesForRoom(selectedRoomId);
+                    const roomBookedDates = getBookedDatesForRoom(selectedRoomId);
+                    
+                    // Check if date is blocked (manually blocked from admin)
                     if (roomBlockedDates.includes(dateStr)) {
                         dayElem.classList.add('blocked-date');
                         dayElem.innerHTML += '<span class="blocked-indicator"></span>';
+                    }
+                    // Check if date is booked (fully booked from availability check)
+                    else if (roomBookedDates.includes(dateStr)) {
+                        dayElem.classList.add('booked-date');
+                        dayElem.innerHTML += '<span class="booked-indicator"></span>';
                     }
                 },
                 onChange: function(selectedDates, dateStr, instance) {
@@ -1219,14 +1275,22 @@ try {
                 minDate: 'today',
                 maxDate: maxDate,
                 dateFormat: 'Y-m-d',
-                disable: getBlockedDatesForRoom(selectedRoomId),
+                disable: getAllUnavailableDatesForRoom(selectedRoomId),
                 onDayCreate: function(dObj, dStr, fp, dayElem) {
-                    // Add custom class for blocked dates
+                    // Add custom class for blocked and booked dates
                     const dateStr = fp.formatDate(dayElem.dateObj, 'Y-m-d');
                     const roomBlockedDates = getBlockedDatesForRoom(selectedRoomId);
+                    const roomBookedDates = getBookedDatesForRoom(selectedRoomId);
+                    
+                    // Check if date is blocked (manually blocked from admin)
                     if (roomBlockedDates.includes(dateStr)) {
                         dayElem.classList.add('blocked-date');
                         dayElem.innerHTML += '<span class="blocked-indicator"></span>';
+                    }
+                    // Check if date is booked (fully booked from availability check)
+                    else if (roomBookedDates.includes(dateStr)) {
+                        dayElem.classList.add('booked-date');
+                        dayElem.innerHTML += '<span class="booked-indicator"></span>';
                     }
                 },
                 onChange: function() {
@@ -1322,20 +1386,28 @@ try {
                     // Call selectRoom to ensure all room-specific settings are applied
                     selectRoom(preselectedRoomOption);
                 } else {
-                    // Fallback if room option not found (shouldn't happen with proper data)
+                    // Fallback if room option not found (room is pre-selected via URL)
+                    // This happens when room_id is passed in URL, so room options are not rendered
                     selectedRoomId = preselectedRoomId;
                     selectedRoomPrice = preselectedRoomPrice;
                     selectedRoomName = preselectedRoomName;
                     selectedRoomMaxGuests = preselectedRoomMaxGuests;
-                    updateGuestOptions(preselectedRoomMaxGuests);
+                    
+                    // Update occupancy prices first (doesn't depend on guest selection)
                     updateOccupancyPrices(preselectedRoomId);
+                    
+                    // Update price based on max guests BEFORE updating guest options
+                    // (updateGuestOptions resets the value, so we need to calculate price first)
+                    updatePriceBasedOnGuestCount();
+                    
+                    // Now update guest options (this will reset the value)
+                    updateGuestOptions(preselectedRoomMaxGuests);
                     
                     // Set number of guests to max capacity for pre-selected room
                     const guestSelect = document.getElementById('number_of_guests');
-                    guestSelect.value = preselectedRoomMaxGuests;
-                    
-                    // Update price based on guest count (occupancy is auto-determined)
-                    updatePriceBasedOnGuestCount();
+                    if (guestSelect) {
+                        guestSelect.value = preselectedRoomMaxGuests;
+                    }
                     
                     // Apply blocked dates for pre-selected room
                     applyBlockedDatesToCalendars(preselectedRoomId);
@@ -1811,29 +1883,9 @@ try {
             }
         }
 
-        document.getElementById('check_in_date').addEventListener('change', function() {
-            const checkIn = new Date(this.value);
-            const nextDay = new Date(checkIn);
-            nextDay.setDate(checkIn.getDate() + 1);
-            document.getElementById('check_out_date').min = nextDay.toISOString().split('T')[0];
-            updateSummary();
-            validateFormForSubmit();
-        });
-
-        document.getElementById('check_out_date').addEventListener('change', function() {
-            updateSummary();
-            validateFormForSubmit();
-        });
+        // Event listeners will be added inside DOMContentLoaded
+        // These are defined here but attached after DOM is ready
         
-        // Add guest count change listener - occupancy is auto-determined
-        document.getElementById('number_of_guests').addEventListener('change', function() {
-            checkGuestCapacity();
-            enforceChildGuestRules();
-            updatePriceBasedOnGuestCount();
-            updateSummary();
-            validateFormForSubmit();
-        });
-
         function enforceChildGuestRules() {
             const totalGuests = parseInt(document.getElementById('number_of_guests').value || '0', 10);
             const childInput = document.getElementById('child_guests');
@@ -1884,11 +1936,7 @@ try {
             }
         }
 
-        document.getElementById('child_guests').addEventListener('input', function() {
-            enforceChildGuestRules();
-            updateSummary();
-            validateFormForSubmit();
-        });
+        // Event listener for child_guests will be added inside DOMContentLoaded
         
         // Booking type selection function
         function selectBookingType(type) {
@@ -1969,6 +2017,64 @@ try {
             validateFormForSubmit();
             initInstantValidation();
             initAvailabilityValidation();
+            
+            // Add event listeners for date inputs (must be after DOM is ready)
+            const checkInInput = document.getElementById('check_in_date');
+            const checkOutInput = document.getElementById('check_out_date');
+            const guestsInput = document.getElementById('number_of_guests');
+            const childGuestsInput = document.getElementById('child_guests');
+            
+            if (checkInInput) {
+                checkInInput.addEventListener('change', function() {
+                    const checkIn = new Date(this.value);
+                    const nextDay = new Date(checkIn);
+                    nextDay.setDate(checkIn.getDate() + 1);
+                    if (checkOutInput) {
+                        checkOutInput.min = nextDay.toISOString().split('T')[0];
+                    }
+                    updateSummary();
+                    validateFormForSubmit();
+                });
+                
+                // Also trigger availability check on check-in date change
+                checkInInput.addEventListener('input', function() {
+                    updateSummary();
+                    validateFormForSubmit();
+                });
+            }
+            
+            if (checkOutInput) {
+                checkOutInput.addEventListener('change', function() {
+                    updateSummary();
+                    validateFormForSubmit();
+                });
+                
+                // Also trigger availability check on check-out date change
+                checkOutInput.addEventListener('input', function() {
+                    updateSummary();
+                    validateFormForSubmit();
+                });
+            }
+            
+            // Add guest count change listener - occupancy is auto-determined
+            if (guestsInput) {
+                guestsInput.addEventListener('change', function() {
+                    checkGuestCapacity();
+                    enforceChildGuestRules();
+                    updatePriceBasedOnGuestCount();
+                    updateSummary();
+                    validateFormForSubmit();
+                });
+            }
+            
+            // Add child guests input listener
+            if (childGuestsInput) {
+                childGuestsInput.addEventListener('input', function() {
+                    enforceChildGuestRules();
+                    updateSummary();
+                    validateFormForSubmit();
+                });
+            }
         });
 
         // Availability state tracking
@@ -1983,19 +2089,36 @@ try {
             const guestsInput = document.getElementById('number_of_guests');
             const bookingForm = document.getElementById('bookingForm');
 
+            // Trigger availability check immediately when both dates are entered
+            const triggerImmediateAvailabilityCheck = () => {
+                const checkIn = checkInInput ? checkInInput.value : '';
+                const checkOut = checkOutInput ? checkOutInput.value : '';
+                
+                // If both dates are entered, trigger availability check immediately
+                if (checkIn && checkOut) {
+                    clearTimeout(availabilityCheckTimer);
+                    availabilityCheckTimer = setTimeout(() => {
+                        performAvailabilityCheck();
+                    }, 100); // Minimal delay to ensure UI updates first
+                }
+            };
+
             // Debounced availability check on date/guest changes
             const scheduleAvailabilityCheck = () => {
                 clearTimeout(availabilityCheckTimer);
                 availabilityCheckTimer = setTimeout(() => {
                     performAvailabilityCheck();
-                }, 500); // 500ms debounce
+                }, 300); // Reduced from 500ms to 300ms for faster response
             };
 
             // Add event listeners for immediate validation
+            // Use 'input' event for immediate response when user selects dates
             if (checkInInput) {
+                checkInInput.addEventListener('input', triggerImmediateAvailabilityCheck);
                 checkInInput.addEventListener('change', scheduleAvailabilityCheck);
             }
             if (checkOutInput) {
+                checkOutInput.addEventListener('input', triggerImmediateAvailabilityCheck);
                 checkOutInput.addEventListener('change', scheduleAvailabilityCheck);
             }
             if (guestsInput) {
@@ -2079,6 +2202,25 @@ try {
                     } else {
                         // Room is unavailable - disable the option
                         disableRoomOption(roomOption, result.message);
+                        
+                        // Track booked dates for this room and update calendar
+                        const roomKey = String(roomId);
+                        if (!bookedDatesByRoom[roomKey]) {
+                            bookedDatesByRoom[roomKey] = [];
+                        }
+                        
+                        // Add the checked date range to booked dates
+                        const dateRange = getDateRange(checkIn, checkOut);
+                        dateRange.forEach(date => {
+                            if (!bookedDatesByRoom[roomKey].includes(date)) {
+                                bookedDatesByRoom[roomKey].push(date);
+                            }
+                        });
+                        
+                        // Update calendars to reflect the new booked dates
+                        if (selectedRoomId === roomId || selectedRoomId === null) {
+                            applyBlockedDatesToCalendars(selectedRoomId);
+                        }
                         
                         // If this was the selected room, clear selection
                         if (selectedRoomId === roomId) {
@@ -2439,16 +2581,6 @@ try {
             const adultsInt = totalGuestsInt - childGuests;
             const childValid = childGuests >= 0 && childGuests < totalGuestsInt;
 
-            // Check instant validation fields - only validate if user has interacted
-            const nameInput = document.getElementById('guest_name');
-            const emailInput = document.getElementById('guest_email');
-            const phoneInput = document.getElementById('guest_phone');
-            
-            // Consider field valid if it has is-valid class OR if it's empty and not touched yet
-            const nameValid = !nameInput || (nameInput.value.trim() === '' && !nameInput.classList.contains('is-invalid')) || nameInput.classList.contains('is-valid');
-            const emailValid = !emailInput || (emailInput.value.trim() === '' && !emailInput.classList.contains('is-invalid')) || emailInput.classList.contains('is-valid');
-            const phoneValid = !phoneInput || (phoneInput.value.trim() === '' && !phoneInput.classList.contains('is-invalid')) || phoneInput.classList.contains('is-valid');
-
             // Check availability status for selected room
             let availabilityValid = true;
             if (selectedRoomId && checkIn && checkOut) {
@@ -2467,23 +2599,10 @@ try {
                 btnText = '<i class="fas fa-ban"></i> Room Unavailable';
                 btnDisabled = true;
             } else if (selectedRoomId && checkIn && checkOut && numGuests && childValid && adultsInt >= 1) {
-                // Required fields are filled - check contact fields
-                const hasContactInfo = nameInput.value.trim() !== '' || emailInput.value.trim() !== '' || phoneInput.value.trim() !== '';
-                
-                if (hasContactInfo) {
-                    // User has started filling contact info - validate it
-                    if (nameValid && emailValid && phoneValid) {
-                        btnText = '<i class="fas fa-check-circle"></i> Confirm Booking';
-                        btnDisabled = false;
-                    } else {
-                        btnText = '<i class="fas fa-exclamation-circle"></i> Please Fix Contact Details';
-                        btnDisabled = true;
-                    }
-                } else {
-                    // Contact fields are still empty - allow submission (browser validation will handle required fields)
-                    btnText = '<i class="fas fa-check-circle"></i> Confirm Booking';
-                    btnDisabled = false;
-                }
+                // All required fields are filled - allow submission
+                // Browser validation will handle required contact fields
+                btnText = '<i class="fas fa-check-circle"></i> Confirm Booking';
+                btnDisabled = false;
             }
             
             submitBtn.disabled = btnDisabled;

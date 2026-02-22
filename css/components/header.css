@@ -17,18 +17,21 @@
     --header-shadow: 0 12px 34px rgba(24, 21, 18, 0.08);
     --header-glow: linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(187, 145, 90, 0.28), rgba(0, 0, 0, 0));
 
-    /* Light colors for transparent header over dark hero */
+    /* Light colors for transparent header - improved with text shadow for readability */
     --header-nav-color: var(--color-white, #FFFFFF);
     --header-nav-color-secondary: color-mix(in srgb, var(--color-white, #FFFFFF) 85%, rgba(255, 255, 255, 0.7) 15%);
-    --header-nav-hover: var(--color-lux-gold, #B18247);
+    --header-nav-hover: #D4AF37; /* Brighter gold for better visibility */
     --header-nav-hover-bg: color-mix(in srgb, var(--color-lux-gold, #B18247) 18%, rgba(255, 255, 255, 0.08) 82%);
+    --header-nav-active-bg: color-mix(in srgb, #D4AF37 28%, rgba(212, 175, 55, 0.15) 72%); /* Stronger active background */
     --header-focus: color-mix(in srgb, var(--color-lux-gold, #B18247) 70%, #ffffff 30%);
+    --header-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 12px rgba(0, 0, 0, 0.35); /* Strong text shadow for readability */
     
     /* Dark colors for scrolled header with light background */
     --header-nav-color-scrolled: var(--color-lux-ink, #231F1C);
     --header-nav-color-secondary-scrolled: color-mix(in srgb, var(--color-lux-ink, #231F1C) 65%, #ffffff 35%);
-    --header-nav-hover-scrolled: var(--color-lux-gold, #B18247);
-    --header-nav-hover-bg-scrolled: color-mix(in srgb, var(--color-lux-gold, #B18247) 12%, transparent 88%);
+    --header-nav-hover-scrolled: #C9A060; /* Brighter gold for better contrast on light bg */
+    --header-nav-hover-bg-scrolled: color-mix(in srgb, #C9A060 18%, transparent 82%);
+    --header-nav-active-bg-scrolled: color-mix(in srgb, #C9A060 22%, transparent 78%);
 }
 
 /* ============================================
@@ -65,9 +68,9 @@
     right: 0;
     width: 100%;
     height: var(--header-height-mobile);
-    background: transparent;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    background: color-mix(in srgb, rgba(24, 21, 18, 0.35) 45%, transparent 55%); /* Semi-transparent dark overlay for better text contrast */
+    backdrop-filter: blur(8px) saturate(110%);
+    -webkit-backdrop-filter: blur(8px) saturate(110%);
     border-bottom: 1px solid transparent;
     box-shadow: none;
     z-index: var(--header-z-index);
@@ -138,6 +141,7 @@
     gap: clamp(0.45rem, 1vw, 0.75rem);
     color: var(--header-nav-color);
     text-decoration: none;
+    text-shadow: var(--header-text-shadow);
     transition: color var(--header-transition-fast);
     flex-shrink: 0;
     min-width: 0;
@@ -191,6 +195,7 @@
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--header-nav-color) 65%, #ffffff 35%);
+    text-shadow: var(--header-text-shadow);
 }
 
 .header__logo-text {
@@ -228,9 +233,10 @@
     font-weight: var(--font-medium, 500);
     color: var(--header-nav-color);
     text-decoration: none;
+    text-shadow: var(--header-text-shadow);
     padding: 0.68rem 0.88rem;
     border-radius: var(--radius-full);
-    transition: color var(--header-transition-fast), background var(--header-transition-fast), transform var(--header-transition-fast);
+    transition: color var(--header-transition-fast), background var(--header-transition-fast), transform var(--header-transition-fast), text-shadow var(--header-transition-fast);
     position: relative;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -240,6 +246,7 @@
 .header__menu-link:hover {
     color: var(--header-nav-hover);
     background: var(--header-nav-hover-bg);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .header__menu-link:focus-visible {
@@ -248,8 +255,10 @@
 }
 
 .header__menu-link--active {
-    color: var(--header-nav-hover);
-    background: color-mix(in srgb, var(--header-nav-hover) 16%, transparent 84%);
+    color: #FFD700; /* Bright gold for active state */
+    background: var(--header-nav-active-bg);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    font-weight: var(--font-semibold, 600);
 }
 
 .header__actions {
@@ -310,18 +319,18 @@
     position: relative;
     width: 46px;
     height: 46px;
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.25);
     background-image:
-        radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 58%),
-        linear-gradient(155deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.25);
+        radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 58%),
+        linear-gradient(155deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
     cursor: pointer;
     padding: 0;
     border-radius: 14px;
     color: var(--header-nav-color);
     box-shadow:
-        0 8px 24px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        0 8px 24px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
     transition:
         background var(--header-transition-fast),
         transform var(--header-transition-fast),
@@ -329,8 +338,8 @@
         border-color var(--header-transition-fast),
         color var(--header-transition-fast);
     flex-shrink: 0;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
 
 .header__toggle::before {
@@ -953,6 +962,7 @@
 /* Switch to dark text colors when scrolled (light background) */
 .header.header--scrolled .header__logo {
     color: var(--header-nav-color-scrolled);
+    text-shadow: none; /* Remove shadow on light background */
 }
 
 .header.header--scrolled .header__logo:hover,
@@ -966,6 +976,7 @@
 
 .header.header--scrolled .header__menu-link {
     color: var(--header-nav-color-scrolled);
+    text-shadow: none; /* Remove shadow on light background */
 }
 
 .header.header--scrolled .header__menu-link:hover {
@@ -974,8 +985,9 @@
 }
 
 .header.header--scrolled .header__menu-link--active {
-    color: var(--header-nav-hover-scrolled);
-    background: color-mix(in srgb, var(--header-nav-hover-scrolled) 16%, transparent 84%);
+    color: #C9A060; /* Brighter gold for active state on light bg */
+    background: var(--header-nav-active-bg-scrolled);
+    font-weight: var(--font-semibold, 600);
 }
 
 .header.header--scrolled .header__toggle {

@@ -727,7 +727,8 @@ section {
     }
     
     /* Social links centering */
-    .footer__social {
+    .footer__social,
+    .footer__share {
         justify-content: center;
     }
 }

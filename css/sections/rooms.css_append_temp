@@ -1,0 +1,103 @@
+
+/* ============================================
+   ROOMS HERO (Fix for room.php)
+   ============================================ */
+
+.rooms-hero {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-top: -80px; /* Overlap fixed header */
+    padding-top: 80px; /* Compensate for content */
+}
+
+.rooms-hero__image,
+.rooms-hero__video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background-size: cover;
+    background-position: center;
+    z-index: 1;
+}
+
+.rooms-hero__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(26, 26, 26, 0.4);
+    z-index: 2;
+}
+
+.rooms-hero__grid {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+}
+
+.rooms-hero__content {
+    text-align: center;
+    color: white;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--spacing-xl, 32px);
+}
+
+.rooms-hero__content h1 {
+    font-family: var(--font-serif, 'Cormorant Garamond', Georgia, serif);
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    font-weight: 300;
+    margin-bottom: var(--spacing-md, 16px);
+    color: white;
+}
+
+.rooms-hero__content p {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    color: rgba(255, 255, 255, 0.9);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.rooms-hero__content .pill {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+/* Mobile Adjustments */
+@media (max-width: 1023px) {
+    .rooms-hero {
+        margin-top: -70px;
+        padding-top: 70px;
+    }
+}
+
+@media (max-width: 768px) {
+    .rooms-hero__content {
+        padding: var(--spacing-lg, 24px);
+        text-align: left;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    }
+    
+    .rooms-hero__content h1 {
+        font-size: 2.5rem;
+    }
+}

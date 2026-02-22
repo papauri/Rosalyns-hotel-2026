@@ -19,6 +19,10 @@ $site_logo = getSetting('site_logo');
 $currency_symbol = getSetting('currency_symbol');
 $email_reservations = getSetting('email_reservations');
 $phone_main = getSetting('phone_main');
+$booking_notification_email = getSetting('booking_notification_email');
+if (empty($booking_notification_email)) {
+    $booking_notification_email = $email_reservations;
+}
 
 // Define base URL for use in SEO data
 $base_url = siteUrl('');
@@ -311,12 +315,11 @@ try {
                         <div class="swiper-slide room-gallery-slide">
                             <div class="room-gallery-media">
                                 <img 
-                                    data-src="<?php echo htmlspecialchars(proxyImageUrl(resolveImageUrl($img['image_url']))); ?>" 
+                                    src="<?php echo htmlspecialchars(proxyImageUrl(resolveImageUrl($img['image_url']))); ?>" 
                                     alt="<?php echo htmlspecialchars($img['title']); ?>" 
-                                    class="swiper-lazy"
+                                    loading="lazy"
                                     decoding="async"
                                 >
-                                <div class="swiper-lazy-preloader swiper-lazy-preloader-white"></div>
                             </div>
                             <?php if (!empty($img['title'])): ?>
                             <div class="room-gallery-caption">
@@ -411,7 +414,7 @@ try {
                 <p>Pick your preferred suite and we will secure it instantly. Share your dates and guest count and our team will confirm right away.</p>
                 <div class="booking-cta__actions">
                     <a class="btn btn-primary" href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', $phone_main)); ?>"><i class="fas fa-phone"></i> Call Reservations</a>
-                    <a class="btn btn-outline" href="mailto:<?php echo htmlspecialchars($email_reservations); ?>?subject=Room%20Reservation"><i class="fas fa-envelope"></i> Email Booking</a>
+                    <a class="btn btn-outline" href="mailto:<?php echo htmlspecialchars($booking_notification_email); ?>?subject=Room%20Reservation"><i class="fas fa-envelope"></i> Email Booking</a>
                 </div>
             </div>
             <div class="booking-cta__card">
@@ -536,10 +539,6 @@ try {
             const mainSwiper = new Swiper('.room-gallery-swiper', {
                 spaceBetween: 0,
                 slidesPerView: 1,
-                lazy: {
-                    loadPrevNext: true,
-                    loadPrevNextAmount: 2
-                },
                 navigation: {
                     nextEl: '.swiper-button-next',
                     prevEl: '.swiper-button-prev'

@@ -1824,6 +1824,9 @@ function getPageLoader(string $page_slug): ?string {
  * For room type availability: includes 'pending' as they hold inventory
  * For individual room availability: only 'confirmed' and 'checked-in' as they have assigned rooms
  *
+ * NOTE: 'tentative' bookings do NOT block availability (they can be overwritten)
+ * NOTE: 'cancelled' bookings do NOT block availability (they free up the room)
+ *
  * @param bool $forIndividualRoom If true, returns stricter list for individual rooms
  * @return array List of statuses that block availability
  */
@@ -1835,6 +1838,8 @@ function getBookingStatusesThatBlockAvailability(bool $forIndividualRoom = false
     }
     // Room type availability considers pending bookings as blocking
     // (they hold a room from the inventory pool)
+    // Tentative bookings do NOT block - they can be overwritten by confirmed bookings
+    // Cancelled bookings do NOT block - they free up the room
     return ['pending', 'confirmed', 'checked-in'];
 }
 
@@ -2311,10 +2316,16 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
         $stmt->execute($params);
         $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Check if number of overlapping bookings exceeds total capacity
+        // Check availability by counting overlapping bookings
+        // The rooms_available field is a general inventory count, not specific to requested dates
+        // So we need to count actual bookings for the requested dates
         $overlapping_bookings = count($conflicts);
         
-        if ($overlapping_bookings >= $total_capacity) {
+        // Calculate remaining rooms for the requested dates
+        $remaining_rooms = $total_capacity - $overlapping_bookings;
+        
+        // Room is unavailable if no rooms remain for the requested dates
+        if ($remaining_rooms <= 0) {
             $result['available'] = false;
             $result['conflicts'] = $conflicts;
             $result['error'] = 'Room is not available for the selected dates';
@@ -2357,6 +2368,105 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
         $result['available'] = false;
         $result['error'] = 'Invalid date format';
         return $result;
+    }
+}
+
+/**
+ * Get all booked dates for a room within a date range.
+ * Returns dates that are fully booked (no remaining capacity).
+ * Uses the same blocking status logic as checkRoomAvailability.
+ *
+ * @param int $room_id Room ID
+ * @param string $start_date Start date (Y-m-d format)
+ * @param string $end_date End date (Y-m-d format)
+ * @return array Array of booked dates in Y-m-d format
+ */
+function getBookedDatesForRoom(int $room_id, string $start_date, string $end_date): array {
+    global $pdo;
+    $bookedDates = [];
+    
+    try {
+        // Get room details to check capacity
+        $stmt = $pdo->prepare("SELECT total_rooms FROM rooms WHERE id = ? AND is_active = 1");
+        $stmt->execute([$room_id]);
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$room) {
+            return [];
+        }
+        
+        $total_capacity = (int)($room['total_rooms'] ?? 1);
+        
+        if ($total_capacity <= 0) {
+            // No capacity - all dates are booked
+            $current = new DateTime($start_date);
+            $end = new DateTime($end_date);
+            while ($current < $end) {
+                $bookedDates[] = $current->format('Y-m-d');
+                $current->modify('+1 day');
+            }
+            return $bookedDates;
+        }
+        
+        // Get blocking statuses (excludes 'tentative' and 'cancelled')
+        $blockingStatuses = getBookingStatusesThatBlockAvailability(false);
+        $placeholders = str_repeat('?,', count($blockingStatuses) - 1) . '?';
+        
+        // Get all overlapping bookings for the date range
+        $sql = "
+            SELECT
+                check_in_date,
+                check_out_date
+            FROM bookings
+            WHERE room_id = ?
+            AND status IN ({$placeholders})
+            AND NOT (check_out_date <= ? OR check_in_date >= ?)
+            ORDER BY check_in_date ASC
+        ";
+        $params = array_merge([$room_id], $blockingStatuses, [$start_date, $end_date]);
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // For each date in the range, count overlapping bookings
+        $current = new DateTime($start_date);
+        $end = new DateTime($end_date);
+        
+        while ($current < $end) {
+            $dateStr = $current->format('Y-m-d');
+            $nextDay = clone $current;
+            $nextDay->modify('+1 day');
+            
+            // Count bookings that overlap with this date
+            $overlappingCount = 0;
+            foreach ($bookings as $booking) {
+                $bookingStart = new DateTime($booking['check_in_date']);
+                $bookingEnd = new DateTime($booking['check_out_date']);
+                
+                // Check if the date falls within the booking range
+                // A date is booked if: date >= check_in AND date < check_out
+                if ($current >= $bookingStart && $current < $bookingEnd) {
+                    $overlappingCount++;
+                }
+            }
+            
+            // If overlapping bookings >= capacity, the date is fully booked
+            if ($overlappingCount >= $total_capacity) {
+                $bookedDates[] = $dateStr;
+            }
+            
+            $current->modify('+1 day');
+        }
+        
+        return $bookedDates;
+        
+    } catch (PDOException $e) {
+        error_log("Error getting booked dates for room: " . $e->getMessage());
+        return [];
+    } catch (Exception $e) {
+        error_log("Error getting booked dates for room: " . $e->getMessage());
+        return [];
     }
 }
 

@@ -125,41 +125,64 @@
         ================================================================ */
 
         _setupMobileMenu() {
-            // Guard: don't double-initialise if another script already did it
+            // 1. Bind the static toggle button (only once)
             const toggleBtn = document.querySelector('[data-mobile-toggle]');
-            if (!toggleBtn || toggleBtn.dataset.navMobileInit) return;
-            toggleBtn.dataset.navMobileInit = '1';
+            if (toggleBtn && !toggleBtn.dataset.navMobileInit) {
+                toggleBtn.dataset.navMobileInit = '1';
 
-            const closeBtn  = document.querySelector('[data-mobile-close]');
-            const overlay   = document.querySelector('[data-mobile-overlay]');
-            const panel     = document.getElementById('mobile-menu');
-            if (!panel) return;
+                toggleBtn.addEventListener('click', () => {
+                    const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                    if (isExpanded) {
+                        this._closeMobileMenu();
+                    } else {
+                        this._openMobileMenu();
+                    }
+                });
 
-            const open = () => {
-                panel.classList.add('header__mobile--active');
-                overlay?.classList.add('header__overlay--active');
-                toggleBtn.setAttribute('aria-expanded', 'true');
-                document.body.style.overflow = 'hidden';
-            };
+                // Global Escape key (only once)
+                document.addEventListener('keydown', e => {
+                    if (e.key === 'Escape') this._closeMobileMenu();
+                });
+            }
 
-            const close = () => {
-                panel.classList.remove('header__mobile--active');
-                overlay?.classList.remove('header__overlay--active');
-                toggleBtn.setAttribute('aria-expanded', 'false');
-                document.body.style.overflow = '';
-            };
+            // 2. Bind dynamic elements (panel, close btn, overlay)
+            this._bindMobileMenuDynamicElements();
+        }
 
-            toggleBtn.addEventListener('click', () => {
-                const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-                if (isExpanded) {
-                    close();
-                } else {
-                    open();
-                }
-            });
-            closeBtn?.addEventListener('click', close);
-            overlay?.addEventListener('click', close);
-            document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        _bindMobileMenuDynamicElements() {
+            const closeBtn = document.querySelector('[data-mobile-close]');
+            const overlay = document.querySelector('[data-mobile-overlay]');
+            
+            // Use one-time event listeners or rely on element replacement to avoid duplicates
+            if (closeBtn) {
+                closeBtn.onclick = () => this._closeMobileMenu();
+            }
+            
+            if (overlay) {
+                overlay.onclick = () => this._closeMobileMenu();
+            }
+        }
+
+        _openMobileMenu() {
+            const panel = document.getElementById('mobile-menu');
+            const overlay = document.querySelector('[data-mobile-overlay]');
+            const toggleBtn = document.querySelector('[data-mobile-toggle]');
+            
+            if (panel) panel.classList.add('header__mobile--active');
+            if (overlay) overlay.classList.add('header__overlay--active');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
+        }
+
+        _closeMobileMenu() {
+            const panel = document.getElementById('mobile-menu');
+            const overlay = document.querySelector('[data-mobile-overlay]');
+            const toggleBtn = document.querySelector('[data-mobile-toggle]');
+            
+            if (panel) panel.classList.remove('header__mobile--active');
+            if (overlay) overlay.classList.remove('header__overlay--active');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
         }
 
         /* ================================================================
@@ -213,13 +236,7 @@
             e.stopPropagation();
 
             // Close mobile menu if open
-            const panel = document.getElementById('mobile-menu');
-            if (panel?.classList.contains('header__mobile--active')) {
-                panel.classList.remove('header__mobile--active');
-                document.querySelector('[data-mobile-overlay]')?.classList.remove('header__overlay--active');
-                document.querySelector('[data-mobile-toggle]')?.setAttribute('aria-expanded', 'false');
-                document.body.style.overflow = '';
-            }
+            this._closeMobileMenu();
 
             this._navigate(url, pageName);
         }
@@ -431,6 +448,9 @@
             window.dispatchEvent(new CustomEvent('spa:contentLoaded', {
                 detail: { page: this.currentPage }
             }));
+
+            // Re-bind mobile menu dynamic elements (panel, overlay, close btn)
+            this._bindMobileMenuDynamicElements();
 
             // Explicit re-init for known modules
             // Use try/catch to prevent any module errors from breaking SPA navigation

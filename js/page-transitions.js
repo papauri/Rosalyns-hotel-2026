@@ -31,8 +31,8 @@
         pageTransitionEasing: 'cubic-bezier(0.16, 1, 0.3, 1)',
         
         // Scroll animation settings
-        scrollThreshold: 0.15,            // Trigger when 15% visible
-        scrollRootMargin: '0px 0px -72px 0px',
+        scrollThreshold: 0.25,            // Trigger when 25% visible (increased for earlier reveal)
+        scrollRootMargin: '0px 0px -40px 0px',  // Reduced offset for earlier trigger
         staggerDelay: 72,                 // Delay between staggered animations (ms)
         mobileStaggerDelay: 36,           // Mobile stagger delay (ms)
         
@@ -352,7 +352,7 @@
             
             // Set initial styles
             element.style.opacity = '0';
-            element.style.transform = 'translateY(30px)';
+            element.style.transform = 'translateY(15px)';  // Reduced from 30px for gentler animation
             element.style.transition = `opacity ${CONFIG.pageTransitionInDuration}ms ${CONFIG.pageTransitionEasing}, transform ${CONFIG.pageTransitionInDuration}ms ${CONFIG.pageTransitionEasing}`;
         },
         

@@ -730,6 +730,7 @@
     font-size: var(--text-base, 1rem);
     font-weight: var(--font-medium, 500);
     margin: 0;
+    color: var(--color-white, #FFFFFF) !important;
 }
 
 /* ============================================

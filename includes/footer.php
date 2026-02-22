@@ -235,16 +235,16 @@
 </div>
 
 <!-- Main CSS - Loads all stylesheets in correct order -->
-<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="<?php echo assetUrl('css/main.css'); ?>">
 
 <!-- Unified Navigation — SPA routing so only content swaps, header never reloads.
      Loaded globally here so every page (including index.php) gets it.
      Singleton guard inside the script prevents double-init when a page also loads it. -->
-<script src="js/navigation-unified.js" defer></script>
-<script src="js/scroll-lazy-animations.js" defer></script>
+<script src="<?php echo assetUrl('js/navigation-unified.js'); ?>" defer></script>
+<script src="<?php echo assetUrl('js/scroll-lazy-animations.js'); ?>" defer></script>
 
 <!-- Page Transitions - Passalacqua-inspired smooth page loading and scroll animations -->
-<script src="js/page-transitions.js" defer></script>
+<script src="<?php echo assetUrl('js/page-transitions.js'); ?>" defer></script>
 
 <!-- Share Script -->
 <script>

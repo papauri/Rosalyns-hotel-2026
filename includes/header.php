@@ -82,6 +82,12 @@ if ($header_logo_kicker === '') {
                     $all_nav = $nav_stmt->fetchAll(PDO::FETCH_ASSOC);
                     
                     foreach ($all_nav as $np) {
+                        // Fix incorrect file_path values - remove 'api/' prefix if present
+                        // Files like conference.php, restaurant.php, gym.php, events.php are in root, not api/
+                        if (strpos($np['file_path'], 'api/') === 0) {
+                            $np['file_path'] = substr($np['file_path'], 4); // Remove 'api/' prefix
+                        }
+                        
                         if ($np['page_key'] === 'booking') {
                             $_nav_booking = $np;
                         } else {
