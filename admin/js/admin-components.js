@@ -261,6 +261,337 @@
     window.Alert = Alert;
 
     // ============================================
+    // CALENDAR BOOKING TOOLTIP
+    // ============================================
+    
+    const CalendarTooltip = {
+        // Initialize tooltip functionality
+        init: function() {
+            // Only proceed if calendar booking tooltips exist on the page
+            const triggers = document.querySelectorAll('.calendar-booking-tooltip-trigger');
+            if (triggers.length === 0) return;
+
+            // Generate and inject tooltip content for each booking indicator
+            triggers.forEach(trigger => {
+                this.createTooltipContent(trigger);
+            });
+
+            // Set up event delegation for dynamically added elements
+            this.setupEventDelegation();
+        },
+
+        // Create tooltip content from data attributes
+        createTooltipContent: function(trigger) {
+            // Skip if tooltip content already exists
+            if (trigger.querySelector('.calendar-tooltip-content')) return;
+
+            // Mark trigger as having JS tooltip (hides CSS-only fallback)
+            trigger.classList.add('has-js-tooltip');
+
+            // Get data from attributes
+            const data = {
+                ref: trigger.dataset.bookingRef || '',
+                guestName: trigger.dataset.guestName || '',
+                roomName: trigger.dataset.roomName || '',
+                roomNumber: trigger.dataset.roomNumber || '',
+                roomDisplay: trigger.dataset.roomDisplay || '',
+                status: trigger.dataset.status || '',
+                checkIn: trigger.dataset.checkIn || '',
+                checkOut: trigger.dataset.checkOut || '',
+                nights: trigger.dataset.nights || '0',
+                paymentStatus: trigger.dataset.paymentStatus || 'Pending',
+                amount: trigger.dataset.amount || ''
+            };
+
+            // Create tooltip content element
+            const tooltip = document.createElement('div');
+            tooltip.className = 'calendar-tooltip-content';
+            tooltip.setAttribute('aria-hidden', 'true');
+
+            // Build tooltip HTML (all content is already escaped in PHP)
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <span class="tooltip-ref">${this.escapeHtml(data.ref)}</span>
+                    <span class="tooltip-status status-${this.slugify(data.status)}">${this.escapeHtml(data.status)}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">Guest:</span>
+                    <span class="tooltip-value">${this.escapeHtml(data.guestName)}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">Room:</span>
+                    <span class="tooltip-value">${this.escapeHtml(data.roomDisplay)}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">Check-in:</span>
+                    <span class="tooltip-value">${this.escapeHtml(data.checkIn)}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">Check-out:</span>
+                    <span class="tooltip-value">${this.escapeHtml(data.checkOut)}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">Nights:</span>
+                    <span class="tooltip-value highlight">${this.escapeHtml(data.nights)}</span>
+                </div>
+                <div class="tooltip-footer">
+                    <span class="tooltip-payment ${this.slugify(data.paymentStatus)}">${this.escapeHtml(data.paymentStatus)}</span>
+                    <span class="tooltip-amount">${this.escapeHtml(data.amount)}</span>
+                </div>
+            `;
+
+            // Append tooltip to trigger
+            trigger.appendChild(tooltip);
+        },
+
+        // Escape HTML for additional safety (double-escape protection)
+        escapeHtml: function(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        // Convert string to slug for CSS classes
+        slugify: function(str) {
+            return str.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        },
+
+        // Set up event delegation for dynamic content
+        setupEventDelegation: function() {
+            // Handle keyboard navigation - show tooltip on Enter/Space
+            document.addEventListener('keydown', (e) => {
+                if ((e.key === 'Enter' || e.key === ' ') &&
+                    e.target.classList.contains('calendar-booking-tooltip-trigger')) {
+                    // Prevent default for Space to avoid page scroll
+                    if (e.key === ' ') e.preventDefault();
+                    // Tooltip is shown via CSS :focus, no action needed
+                }
+            });
+
+            // Hide tooltips when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.calendar-booking-tooltip-trigger')) {
+                    // Tooltips are hidden via CSS when focus is lost
+                    document.querySelectorAll('.calendar-booking-tooltip-trigger:focus').forEach(trigger => {
+                        trigger.blur();
+                    });
+                }
+            });
+        }
+    };
+
+    // Initialize calendar tooltips
+    CalendarTooltip.init();
+
+    // ============================================
+    // BUTTON LOADER CONTROLLER
+    // ============================================
+    
+    const ButtonLoader = {
+        // Store original button content
+        originalContent: new Map(),
+
+        /**
+         * Show loading state on a button
+         * @param {HTMLElement|string} button - Button element or selector
+         * @param {object} options - Options for the loader
+         */
+        show: function(button, options = {}) {
+            const btn = typeof button === 'string' ? document.querySelector(button) : button;
+            if (!btn) return;
+
+            const defaults = {
+                text: 'Processing...',
+                spinner: true,
+                disable: true,
+                preserveWidth: true
+            };
+            const opts = { ...defaults, ...options };
+
+            // Store original content
+            this.originalContent.set(btn, {
+                html: btn.innerHTML,
+                width: btn.offsetWidth,
+                disabled: btn.disabled,
+                classList: [...btn.classList]
+            });
+
+            // Preserve width to prevent layout shift
+            if (opts.preserveWidth) {
+                btn.style.width = btn.offsetWidth + 'px';
+            }
+
+            // Build loading content
+            let loadingHtml = '';
+            if (opts.spinner) {
+                loadingHtml = `<span class="btn-spinner"></span>`;
+            }
+            loadingHtml += `<span class="btn-loading-text">${this.escapeHtml(opts.text)}</span>`;
+
+            // Update button
+            btn.innerHTML = loadingHtml;
+            btn.classList.add('btn-loading');
+            if (opts.disable) {
+                btn.disabled = true;
+            }
+
+            // Dispatch custom event
+            btn.dispatchEvent(new CustomEvent('loader:show', { detail: { button: btn } }));
+        },
+
+        /**
+         * Hide loading state and restore button
+         * @param {HTMLElement|string} button - Button element or selector
+         * @param {object} options - Options for restoration
+         */
+        hide: function(button, options = {}) {
+            const btn = typeof button === 'string' ? document.querySelector(button) : button;
+            if (!btn) return;
+
+            const defaults = {
+                restoreContent: true,
+                enable: true
+            };
+            const opts = { ...defaults, ...options };
+
+            // Get stored original content
+            const original = this.originalContent.get(btn);
+            
+            if (opts.restoreContent && original) {
+                btn.innerHTML = original.html;
+                btn.style.width = '';
+                if (opts.enable) {
+                    btn.disabled = original.disabled;
+                }
+            } else {
+                // Just remove loading state
+                btn.style.width = '';
+                if (opts.enable) {
+                    btn.disabled = false;
+                }
+            }
+
+            btn.classList.remove('btn-loading');
+            this.originalContent.delete(btn);
+
+            // Dispatch custom event
+            btn.dispatchEvent(new CustomEvent('loader:hide', { detail: { button: btn } }));
+        },
+
+        /**
+         * Show success state briefly before restoring
+         * @param {HTMLElement|string} button - Button element or selector
+         * @param {string} message - Success message
+         * @param {number} duration - How long to show success (ms)
+         */
+        success: function(button, message = 'Success!', duration = 1500) {
+            const btn = typeof button === 'string' ? document.querySelector(button) : button;
+            if (!btn) return;
+
+            const original = this.originalContent.get(btn);
+            
+            btn.classList.remove('btn-loading');
+            btn.classList.add('btn-success');
+            btn.innerHTML = `<i class="fas fa-check"></i> ${this.escapeHtml(message)}`;
+
+            setTimeout(() => {
+                btn.classList.remove('btn-success');
+                if (original) {
+                    btn.innerHTML = original.html;
+                    btn.style.width = '';
+                    btn.disabled = original.disabled;
+                }
+                this.originalContent.delete(btn);
+            }, duration);
+        },
+
+        /**
+         * Show error state briefly before restoring
+         * @param {HTMLElement|string} button - Button element or selector
+         * @param {string} message - Error message
+         * @param {number} duration - How long to show error (ms)
+         */
+        error: function(button, message = 'Error!', duration = 2000) {
+            const btn = typeof button === 'string' ? document.querySelector(button) : button;
+            if (!btn) return;
+
+            const original = this.originalContent.get(btn);
+            
+            btn.classList.remove('btn-loading');
+            btn.classList.add('btn-error');
+            btn.innerHTML = `<i class="fas fa-times"></i> ${this.escapeHtml(message)}`;
+
+            setTimeout(() => {
+                btn.classList.remove('btn-error');
+                if (original) {
+                    btn.innerHTML = original.html;
+                    btn.style.width = '';
+                    btn.disabled = original.disabled;
+                }
+                this.originalContent.delete(btn);
+            }, duration);
+        },
+
+        /**
+         * Helper to escape HTML
+         */
+        escapeHtml: function(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        /**
+         * Initialize - add CSS for spinners if not present
+         */
+        init: function() {
+            // Add spinner styles if not already present
+            if (!document.getElementById('btn-loader-styles')) {
+                const style = document.createElement('style');
+                style.id = 'btn-loader-styles';
+                style.textContent = `
+                    .btn-loading {
+                        position: relative;
+                        pointer-events: none;
+                        opacity: 0.85;
+                    }
+                    .btn-spinner {
+                        display: inline-block;
+                        width: 16px;
+                        height: 16px;
+                        border: 2px solid currentColor;
+                        border-right-color: transparent;
+                        border-radius: 50%;
+                        animation: btn-spin 0.75s linear infinite;
+                        margin-right: 8px;
+                        vertical-align: middle;
+                    }
+                    .btn-loading-text {
+                        vertical-align: middle;
+                    }
+                    .btn-success {
+                        background-color: #28a745 !important;
+                        border-color: #28a745 !important;
+                        color: white !important;
+                    }
+                    .btn-error {
+                        background-color: #dc3545 !important;
+                        border-color: #dc3545 !important;
+                        color: white !important;
+                    }
+                    @keyframes btn-spin {
+                        to { transform: rotate(360deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+    };
+
+    // Expose ButtonLoader to global scope
+    window.ButtonLoader = ButtonLoader;
+
+    // ============================================
     // INITIALIZATION
     // ============================================
     
@@ -269,9 +600,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             Modal.init();
             Alert.init();
+            CalendarTooltip.init();
+            ButtonLoader.init();
         });
     } else {
         Modal.init();
         Alert.init();
+        CalendarTooltip.init();
+        ButtonLoader.init();
     }
 })();

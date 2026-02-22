@@ -5,6 +5,10 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../admin/includes/finance-schema.php';
+
+// Get dynamic conference field names for compatibility
+$conferenceFields = finance_conference_fields($pdo);
 
 // Get report type early for filename
 $report_type = $_GET['report_type'] ?? 'overview';
@@ -40,11 +44,11 @@ $date_filter = "AND payment_date >= ? AND payment_date <= ?";
 
 switch ($report_type) {
     case 'revenue':
-        exportRevenueReport($output, $start_date, $end_date, $date_filter, $currency_symbol);
+        exportRevenueReport($output, $start_date, $end_date, $date_filter, $currency_symbol, $conferenceFields);
         break;
     
     case 'outstanding':
-        exportOutstandingReport($output, $currency_symbol);
+        exportOutstandingReport($output, $currency_symbol, $conferenceFields);
         break;
     
     case 'vat':
@@ -69,7 +73,7 @@ switch ($report_type) {
 
     case 'overview':
     default:
-        exportOverviewReport($output, $start_date, $end_date, $date_filter, $currency_symbol);
+        exportOverviewReport($output, $start_date, $end_date, $date_filter, $currency_symbol, $conferenceFields);
         break;
 }
 
@@ -79,7 +83,7 @@ exit;
 /**
  * Export Overview Report
  */
-function exportOverviewReport($output, $start_date, $end_date, $date_filter, $currency_symbol) {
+function exportOverviewReport($output, $start_date, $end_date, $date_filter, $currency_symbol, $conferenceFields) {
     global $pdo;
     
     // Header
@@ -91,12 +95,12 @@ function exportOverviewReport($output, $start_date, $end_date, $date_filter, $cu
     fputcsv($output, ['SUMMARY STATISTICS']);
     
     $summaryQuery = "
-        SELECT 
+        SELECT
             COUNT(*) as total_transactions,
             SUM(total_amount) as total_revenue,
             SUM(vat_amount) as total_vat
         FROM payments
-        WHERE payment_status = 'completed'
+        WHERE payment_status IN ('completed', 'paid')
         AND deleted_at IS NULL
         $date_filter
     ";
@@ -114,13 +118,14 @@ function exportOverviewReport($output, $start_date, $end_date, $date_filter, $cu
     fputcsv($output, ['Status', 'Count', 'Total Amount']);
     
     $statusQuery = "
-        SELECT 
+        SELECT
             payment_status,
             COUNT(*) as count,
             SUM(total_amount) as total_amount
         FROM payments
         WHERE deleted_at IS NULL
         GROUP BY payment_status
+        ORDER BY payment_status
     ";
     $statusStmt = $pdo->query($statusQuery);
     
@@ -138,13 +143,13 @@ function exportOverviewReport($output, $start_date, $end_date, $date_filter, $cu
     fputcsv($output, ['Booking Type', 'Transactions', 'Revenue', 'VAT Amount']);
     
     $revenueQuery = "
-        SELECT 
+        SELECT
             booking_type,
             COUNT(*) as count,
             SUM(total_amount) as total_revenue,
             SUM(vat_amount) as total_vat
         FROM payments
-        WHERE payment_status = 'completed'
+        WHERE payment_status IN ('completed', 'paid')
         AND deleted_at IS NULL
         $date_filter
         GROUP BY booking_type
@@ -167,12 +172,12 @@ function exportOverviewReport($output, $start_date, $end_date, $date_filter, $cu
     fputcsv($output, ['Payment Method', 'Transactions', 'Total Amount']);
     
     $methodsQuery = "
-        SELECT 
+        SELECT
             payment_method,
             COUNT(*) as count,
             SUM(total_amount) as total_amount
         FROM payments
-        WHERE payment_status = 'completed'
+        WHERE payment_status IN ('completed', 'paid')
         AND deleted_at IS NULL
         $date_filter
         GROUP BY payment_method
@@ -193,7 +198,7 @@ function exportOverviewReport($output, $start_date, $end_date, $date_filter, $cu
 /**
  * Export Revenue Report
  */
-function exportRevenueReport($output, $start_date, $end_date, $date_filter, $currency_symbol) {
+function exportRevenueReport($output, $start_date, $end_date, $date_filter, $currency_symbol, $conferenceFields) {
     global $pdo;
     
     // Header
@@ -206,13 +211,13 @@ function exportRevenueReport($output, $start_date, $end_date, $date_filter, $cur
     fputcsv($output, ['Date', 'Transactions', 'Revenue', 'VAT Amount']);
     
     $dailyQuery = "
-        SELECT 
+        SELECT
             DATE(payment_date) as date,
             COUNT(*) as transaction_count,
             SUM(total_amount) as daily_revenue,
             SUM(vat_amount) as daily_vat
         FROM payments
-        WHERE payment_status = 'completed'
+        WHERE payment_status IN ('completed', 'paid')
         AND deleted_at IS NULL
         $date_filter
         GROUP BY DATE(payment_date)
@@ -236,10 +241,10 @@ function exportRevenueReport($output, $start_date, $end_date, $date_filter, $cur
     fputcsv($output, ['Client', 'Booking Type', 'Transactions', 'Total Spent']);
     
     $clientsQuery = "
-        SELECT 
-            CASE 
+        SELECT
+            CASE
                 WHEN p.booking_type = 'room' THEN b.guest_name
-                WHEN p.booking_type = 'conference' THEN ci.company_name
+                WHEN p.booking_type = 'conference' THEN ci.{$conferenceFields['company']}
             END as client_name,
             p.booking_type,
             COUNT(*) as transaction_count,
@@ -247,7 +252,7 @@ function exportRevenueReport($output, $start_date, $end_date, $date_filter, $cur
         FROM payments p
         LEFT JOIN bookings b ON p.booking_type = 'room' AND p.booking_id = b.id
         LEFT JOIN conference_inquiries ci ON p.booking_type = 'conference' AND p.booking_id = ci.id
-        WHERE p.payment_status = 'completed'
+        WHERE p.payment_status IN ('completed', 'paid')
         AND p.deleted_at IS NULL
         $date_filter
         GROUP BY client_name, p.booking_type
@@ -270,7 +275,7 @@ function exportRevenueReport($output, $start_date, $end_date, $date_filter, $cur
 /**
  * Export Outstanding Payments Report
  */
-function exportOutstandingReport($output, $currency_symbol) {
+function exportOutstandingReport($output, $currency_symbol, $conferenceFields) {
     global $pdo;
     
     // Header
@@ -292,21 +297,21 @@ function exportOutstandingReport($output, $currency_symbol) {
     ]);
     
     $query = "
-        SELECT 
+        SELECT
             p.*,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN b.booking_reference
-                WHEN p.booking_type = 'conference' THEN ci.inquiry_reference
+                WHEN p.booking_type = 'conference' THEN ci.{$conferenceFields['reference']}
             END as booking_reference,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN CONCAT(b.guest_name, ' (', b.guest_email, ')')
-                WHEN p.booking_type = 'conference' THEN CONCAT(ci.company_name, ' - ', ci.contact_person)
+                WHEN p.booking_type = 'conference' THEN CONCAT(ci.{$conferenceFields['company']}, ' - ', ci.{$conferenceFields['contact_name']})
             END as client_info,
             DATEDIFF(CURDATE(), p.payment_date) as days_overdue
         FROM payments p
         LEFT JOIN bookings b ON p.booking_type = 'room' AND p.booking_id = b.id
         LEFT JOIN conference_inquiries ci ON p.booking_type = 'conference' AND p.booking_id = ci.id
-        WHERE p.payment_status IN ('pending', 'partial', 'overdue')
+        WHERE p.payment_status IN ('pending', 'partial')
         AND p.deleted_at IS NULL
         ORDER BY p.payment_date ASC
     ";
@@ -331,11 +336,11 @@ function exportOutstandingReport($output, $currency_symbol) {
     
     // Summary
     $summaryQuery = "
-        SELECT 
+        SELECT
             COUNT(*) as total_outstanding,
             SUM(total_amount) as total_amount
         FROM payments
-        WHERE payment_status IN ('pending', 'partial', 'overdue')
+        WHERE payment_status IN ('pending', 'partial')
         AND deleted_at IS NULL
     ";
     $summaryStmt = $pdo->query($summaryQuery);
@@ -364,13 +369,13 @@ function exportVATReport($output, $start_date, $end_date, $date_filter, $currenc
     fputcsv($output, ['Date', 'Transactions', 'VAT Collected', 'Total Revenue']);
     
     $dailyQuery = "
-        SELECT 
+        SELECT
             DATE(payment_date) as date,
             COUNT(*) as transaction_count,
             SUM(vat_amount) as vat_collected,
             SUM(total_amount) as total_revenue
         FROM payments
-        WHERE payment_status = 'completed'
+        WHERE payment_status IN ('completed', 'paid')
         AND deleted_at IS NULL
         $date_filter
         GROUP BY DATE(payment_date)
@@ -405,13 +410,13 @@ function exportVATReport($output, $start_date, $end_date, $date_filter, $currenc
     fputcsv($output, ['Booking Type', 'Transactions', 'VAT Collected', 'Total Revenue']);
     
     $typeQuery = "
-        SELECT 
+        SELECT
             booking_type,
             COUNT(*) as count,
             SUM(vat_amount) as vat_collected,
             SUM(total_amount) as total_revenue
         FROM payments
-        WHERE payment_status = 'completed'
+        WHERE payment_status IN ('completed', 'paid')
         AND deleted_at IS NULL
         $date_filter
         GROUP BY booking_type

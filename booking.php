@@ -22,21 +22,39 @@ require_once 'includes/booking-timeline.php';
 function bookingResolveOccupancyPolicy(array $room): array {
     $policy = resolveOccupancyPolicy($room, null);
 
-    // Pricing null means occupancy not offered (double/triple)
-    if (!array_key_exists('price_double_occupancy', $room) || $room['price_double_occupancy'] === null || (float)$room['price_double_occupancy'] <= 0) {
-        $policy['double_enabled'] = 0;
+    // Only disable occupancy if price is explicitly set to 0 (not NULL)
+    // NULL pricing means use base price as fallback
+    if (array_key_exists('price_double_occupancy', $room)) {
+        if ($room['price_double_occupancy'] === '0' || $room['price_double_occupancy'] === 0) {
+            $policy['double_enabled'] = 0;
+        }
+        // NULL or positive value means enabled
     }
-    if (!array_key_exists('price_triple_occupancy', $room) || $room['price_triple_occupancy'] === null || (float)$room['price_triple_occupancy'] <= 0) {
-        $policy['triple_enabled'] = 0;
+    if (array_key_exists('price_triple_occupancy', $room)) {
+        if ($room['price_triple_occupancy'] === '0' || $room['price_triple_occupancy'] === 0) {
+            $policy['triple_enabled'] = 0;
+        }
+        // NULL or positive value means enabled
     }
 
     return $policy;
 }
 
 function bookingPickOccupancyByGuestCount(int $guestCount, array $policy): ?string {
+    // For exact guest count matches, return the corresponding occupancy type
     if ($guestCount === 1 && !empty($policy['single_enabled'])) return 'single';
     if ($guestCount === 2 && !empty($policy['double_enabled'])) return 'double';
     if ($guestCount === 3 && !empty($policy['triple_enabled'])) return 'triple';
+    
+    // For guest counts > 3, return the highest enabled occupancy type
+    // This allows rooms like Front Villa (max_guests=5) to be booked with 4+ guests
+    // The split booking logic will handle distributing guests across multiple bookings
+    if ($guestCount > 3) {
+        if (!empty($policy['triple_enabled'])) return 'triple';
+        if (!empty($policy['double_enabled'])) return 'double';
+        if (!empty($policy['single_enabled'])) return 'single';
+    }
+    
     return null;
 }
 
@@ -209,7 +227,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Children are not allowed for the selected room type.');
         }
 
-        // Use enhanced validation with availability check (capacity checked per split booking)
+        // Use enhanced validation with availability check
+        // First, validate against the room's actual max_guests capacity
+        $maxGuestsPerRoom = (int)($selected_room['max_guests'] ?? 1);
+        if ($maxGuestsPerRoom < 1) $maxGuestsPerRoom = 1;
+        
+        // Check if guest count exceeds room's max_guests
+        if ((int)$sanitized_data['number_of_guests'] > $maxGuestsPerRoom) {
+            throw new Exception("Room capacity is {$maxGuestsPerRoom} guests. You requested {$sanitized_data['number_of_guests']} guests.");
+        }
+        
+        // For availability check, cap at occupancy pricing tier (this is for pricing, not capacity)
         $validation_payload = $sanitized_data;
         if ((int)$validation_payload['number_of_guests'] > $maxOccupancyPerBooking) {
             $validation_payload['number_of_guests'] = $maxOccupancyPerBooking;
@@ -261,35 +289,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $room = $selected_room;
         $number_of_nights = $validation_result['availability']['nights'];
         
-        // Determine pricing based on occupancy type
-        $occupancy_type = $_POST['occupancy_type'] ?? 'double';
-        if (!in_array($occupancy_type, ['single', 'double', 'triple'], true)) {
-            $occupancy_type = 'double';
-        }
-
+        // Determine occupancy type automatically based on guest count (not user-selected)
         $occupancyPolicy = bookingResolveOccupancyPolicy($room);
-        $allowedOccupancies = [];
-        if (!empty($occupancyPolicy['single_enabled'])) $allowedOccupancies[] = 'single';
-        if (!empty($occupancyPolicy['double_enabled'])) $allowedOccupancies[] = 'double';
-        if (!empty($occupancyPolicy['triple_enabled'])) $allowedOccupancies[] = 'triple';
-
-        if (empty($allowedOccupancies) || !in_array($occupancy_type, $allowedOccupancies, true)) {
-            throw new Exception('Selected occupancy type is not available for this room.');
+        $occupancy_type = bookingPickOccupancyByGuestCount((int)$sanitized_data['number_of_guests'], $occupancyPolicy);
+        
+        if ($occupancy_type === null) {
+            // Provide detailed error message for misconfigured rooms
+            $enabledOptions = [];
+            if (!empty($occupancyPolicy['single_enabled'])) $enabledOptions[] = 'single';
+            if (!empty($occupancyPolicy['double_enabled'])) $enabledOptions[] = 'double';
+            if (!empty($occupancyPolicy['triple_enabled'])) $enabledOptions[] = 'triple';
+            $optionsList = empty($enabledOptions) ? 'none' : implode(', ', $enabledOptions);
+            throw new Exception("No valid occupancy option available for {$sanitized_data['number_of_guests']} guests. Room configuration allows: {$optionsList}. Please contact support.");
         }
 
         if (empty($occupancyPolicy['children_allowed']) && $child_guests > 0) {
             throw new Exception('Children are not allowed for the selected room type.');
         }
         
-        // Get the correct price based on occupancy
-        if ($occupancy_type === 'single' && (!empty($room['price_single_occupancy']) || !empty($room['price_per_night']))) {
-            $room_price = $room['price_single_occupancy'];
-        } elseif ($occupancy_type === 'double' && $room['price_double_occupancy'] !== null) {
-            $room_price = $room['price_double_occupancy'];
-        } elseif ($occupancy_type === 'triple' && $room['price_triple_occupancy'] !== null) {
-            $room_price = $room['price_triple_occupancy'];
+        // Get the correct price based on occupancy (fallback to base price if occupancy price is NULL)
+        if ($occupancy_type === 'single') {
+            $room_price = !empty($room['price_single_occupancy']) ? $room['price_single_occupancy'] : $room['price_per_night'];
+        } elseif ($occupancy_type === 'double') {
+            $room_price = ($room['price_double_occupancy'] !== null && $room['price_double_occupancy'] > 0) 
+                ? $room['price_double_occupancy'] 
+                : $room['price_per_night'];
+        } elseif ($occupancy_type === 'triple') {
+            $room_price = ($room['price_triple_occupancy'] !== null && $room['price_triple_occupancy'] > 0) 
+                ? $room['price_triple_occupancy'] 
+                : $room['price_per_night'];
         } else {
-            throw new Exception('Selected occupancy type has no configured price for this room type.');
+            $room_price = $room['price_per_night'];
         }
         
         $base_amount = $room_price * $number_of_nights;
@@ -341,9 +371,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tentative_expires_at = date('Y-m-d H:i:s', strtotime("+{$tentative_duration_hours} hours"));
         }
 
-        // Auto-split guests across multiple bookings if requested guests exceed single-booking occupancy
+        // Auto-split guests across multiple bookings if requested guests exceed room's max_guests capacity
+        // Use the room's actual max_guests field for capacity, not occupancy pricing tiers
+        $maxGuestsPerRoom = (int)($room['max_guests'] ?? 1);
+        if ($maxGuestsPerRoom < 1) $maxGuestsPerRoom = 1;
+        $roomsNeeded = (int)ceil($number_of_guests / $maxGuestsPerRoom);
+        // Keep $maxPerBooking for occupancy pricing selection in split booking loop
         $maxPerBooking = !empty($occupancyPolicy['triple_enabled']) ? 3 : (!empty($occupancyPolicy['double_enabled']) ? 2 : 1);
-        $roomsNeeded = (int)ceil($number_of_guests / $maxPerBooking);
 
         $conflict_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE room_id = ? AND status IN ('pending', 'confirmed', 'checked-in') AND NOT (check_out_date <= ? OR check_in_date >= ?)");
         $conflict_count_stmt->execute([$room_id, $check_in_date, $check_out_date]);
@@ -375,28 +409,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             for ($i = 0; $i < $roomsNeeded; $i++) {
                 $roomsLeft = $roomsNeeded - $i;
                 $minForOthers = max(0, $roomsLeft - 1);
-                $guestsThisBooking = min($maxPerBooking, max(1, $remainingGuests - $minForOthers));
+                // Use maxGuestsPerRoom for capacity, not occupancy pricing tiers
+                $guestsThisBooking = min($maxGuestsPerRoom, max(1, $remainingGuests - $minForOthers));
 
                 $childrenThisBooking = min($remainingChildren, max(0, $guestsThisBooking - 1));
                 $adultsThisBooking = max(1, $guestsThisBooking - $childrenThisBooking);
 
                 $occThisBooking = bookingPickOccupancyByGuestCount($guestsThisBooking, $occupancyPolicy);
                 if ($occThisBooking === null) {
-                    throw new Exception('Unable to auto-allocate guests across occupancy options. Check room occupancy pricing/policies.');
+                    // Provide detailed error message for split booking failures
+                    $enabledOptions = [];
+                    if (!empty($occupancyPolicy['single_enabled'])) $enabledOptions[] = 'single';
+                    if (!empty($occupancyPolicy['double_enabled'])) $enabledOptions[] = 'double';
+                    if (!empty($occupancyPolicy['triple_enabled'])) $enabledOptions[] = 'triple';
+                    $optionsList = empty($enabledOptions) ? 'none' : implode(', ', $enabledOptions);
+                    throw new Exception("Unable to auto-allocate {$guestsThisBooking} guests across occupancy options. Room configuration allows: {$optionsList}. Please contact support.");
                 }
 
+                // Get rate for this occupancy type (fallback to base price if occupancy price is NULL)
                 if ($occThisBooking === 'single') {
                     $rateThisBooking = !empty($room['price_single_occupancy']) ? (float)$room['price_single_occupancy'] : (float)$room['price_per_night'];
                 } elseif ($occThisBooking === 'double') {
-                    if ($room['price_double_occupancy'] === null) {
-                        throw new Exception('Double occupancy price is not configured for this room type.');
-                    }
-                    $rateThisBooking = (float)$room['price_double_occupancy'];
+                    $rateThisBooking = ($room['price_double_occupancy'] !== null && $room['price_double_occupancy'] > 0)
+                        ? (float)$room['price_double_occupancy']
+                        : (float)$room['price_per_night'];
                 } else {
-                    if ($room['price_triple_occupancy'] === null) {
-                        throw new Exception('Triple occupancy price is not configured for this room type.');
-                    }
-                    $rateThisBooking = (float)$room['price_triple_occupancy'];
+                    $rateThisBooking = ($room['price_triple_occupancy'] !== null && $room['price_triple_occupancy'] > 0)
+                        ? (float)$room['price_triple_occupancy']
+                        : (float)$room['price_per_night'];
                 }
 
                 $baseThisBooking = $rateThisBooking * $number_of_nights;
@@ -468,7 +508,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'check_in_date' => $check_in_date,
                 'check_out_date' => $check_out_date,
                 'number_of_nights' => $number_of_nights,
-                'number_of_guests' => (int)($number_of_guests > $maxPerBooking ? $maxPerBooking : $number_of_guests),
+                'number_of_guests' => (int)($number_of_guests > $maxGuestsPerRoom ? $maxGuestsPerRoom : $number_of_guests),
                 'adult_guests' => $adult_guests,
                 'child_guests' => $child_guests,
                 'child_price_multiplier' => $child_price_multiplier,
@@ -561,6 +601,7 @@ $preselected_room = null;
 $hero_check_in = '';
 $hero_check_out = '';
 $hero_guests = '';
+$hero_children = '';
 $hero_room_type = '';
 
 if (isset($_GET['check_in']) && !empty($_GET['check_in'])) {
@@ -586,8 +627,15 @@ if (isset($_GET['guests']) && !empty($_GET['guests'])) {
     }
 }
 
+if (isset($_GET['children']) && !empty($_GET['children'])) {
+    $hero_children = (int)$_GET['children'];
+    if ($hero_children < 0 || $hero_children > 19) {
+        $hero_children = '';
+    }
+}
+
 if (isset($_GET['room_type']) && !empty($_GET['room_type'])) {
-    $hero_room_type = sanitizeString($_GET['room_type'], 20);
+    $hero_room_type = sanitizeString($_GET['room_type'], 100);
     // Map room type to room_id if not already set
     if (!$preselected_room_id) {
         $room_type_mapping = [
@@ -601,8 +649,21 @@ if (isset($_GET['room_type']) && !empty($_GET['room_type'])) {
 }
 
 // Fetch available rooms for booking form with all details needed for validation
-$rooms_stmt = $pdo->query("SELECT id, name, price_per_night, price_single_occupancy, price_double_occupancy, price_triple_occupancy, child_price_multiplier, max_guests, rooms_available, total_rooms, short_description, image_url, single_occupancy_enabled, double_occupancy_enabled, triple_occupancy_enabled, children_allowed FROM rooms WHERE is_active = 1 ORDER BY display_order ASC");
+$rooms_stmt = $pdo->query("SELECT id, name, price_per_night, price_single_occupancy, price_double_occupancy, price_triple_occupancy, child_price_multiplier, max_guests, rooms_available, total_rooms, short_description, image_url, single_occupancy_enabled, double_occupancy_enabled, triple_occupancy_enabled, children_allowed, badge FROM rooms WHERE is_active = 1 ORDER BY display_order ASC");
 $available_rooms = $rooms_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Extract unique badges for room category filters
+$room_badges = ['All'];
+$badge_counts = ['All' => count($available_rooms)];
+foreach ($available_rooms as $room) {
+    if (!empty($room['badge'])) {
+        $badge_key = $room['badge'];
+        if (!in_array($badge_key, $room_badges)) {
+            $room_badges[] = $badge_key;
+        }
+        $badge_counts[$badge_key] = isset($badge_counts[$badge_key]) ? $badge_counts[$badge_key] + 1 : 1;
+    }
+}
 
 // Build rooms data for JavaScript with occupancy pricing
 $rooms_data = [];
@@ -737,13 +798,36 @@ try {
             <div class="form-section form-section--room">
                 <h3 class="form-section-title"><i class="fas fa-bed"></i> Select Your Room</h3>
                 <div class="room-selection">
+                    <!-- Room Category Filter Tabs -->
+                    <div class="rooms-filter" id="roomsFilterTabs">
+                        <?php foreach ($room_badges as $badge): ?>
+                        <span class="chip <?php echo $badge === 'All' ? 'active' : ''; ?>"
+                              data-filter="<?php echo htmlspecialchars(strtolower(str_replace(' ', '-', $badge))); ?>"
+                              data-badge-filter="<?php echo htmlspecialchars($badge); ?>">
+                            <?php echo htmlspecialchars($badge); ?>
+                            <small class="chip-count">(<?php echo isset($badge_counts[$badge]) ? $badge_counts[$badge] : 0; ?>)</small>
+                        </span>
+                        <?php endforeach; ?>
+                    </div>
+                    <!-- Availability message container -->
+                    <div id="roomAvailabilityMessage" class="availability-message" style="display: none;"></div>
                     <?php foreach ($available_rooms as $room): ?>
-                    <label class="room-option" onclick="selectRoom(this)" data-room-id="<?php echo $room['id']; ?>" data-room-name="<?php echo htmlspecialchars($room['name']); ?>" data-room-price="<?php echo $room['price_per_night']; ?>" data-max-guests="<?php echo $room['max_guests']; ?>" data-rooms-available="<?php echo $room['rooms_available']; ?>">
+                    <?php
+                        $room_badge_value = !empty($room['badge']) ? strtolower(str_replace(' ', '-', $room['badge'])) : 'all';
+                    ?>
+                    <label class="room-option" onclick="selectRoom(this)"
+                           data-room-id="<?php echo $room['id']; ?>"
+                           data-room-name="<?php echo htmlspecialchars($room['name']); ?>"
+                           data-room-price="<?php echo $room['price_per_night']; ?>"
+                           data-max-guests="<?php echo $room['max_guests']; ?>"
+                           data-rooms-available="<?php echo $room['rooms_available']; ?>"
+                           data-filter="all <?php echo htmlspecialchars($room_badge_value); ?>"
+                           data-badge="<?php echo htmlspecialchars($room['badge'] ?? ''); ?>">
                         <input type="radio" name="room_id" value="<?php echo $room['id']; ?>" required>
                         <div class="room-info">
                             <h4><?php echo htmlspecialchars($room['name']); ?></h4>
                             <p><?php echo htmlspecialchars($room['short_description']); ?></p>
-                            <p><i class="fas fa-users"></i> Max <?php echo $room['max_guests']; ?> guests <?php echo $room['rooms_available'] > 1 ? "({$room['rooms_available']} rooms available)" : ''; ?></p>
+                            <p><i class="fas fa-users"></i> Max <?php echo $room['max_guests']; ?> guests (<?php echo $room['rooms_available']; ?> room<?php echo $room['rooms_available'] == 1 ? '' : 's'; ?> available)</p>
                         </div>
                         <div class="room-price">
                             <div class="room-price-amount"><?php echo $currency_symbol; ?><?php echo number_format($room['price_per_night'], 0); ?></div>
@@ -810,7 +894,7 @@ try {
                         <div class="room-info">
                             <h4><?php echo htmlspecialchars($preselected_room['name']); ?></h4>
                             <p><?php echo htmlspecialchars($preselected_room['short_description']); ?></p>
-                            <p><i class="fas fa-users"></i> Max <?php echo $preselected_room['max_guests']; ?> guests <?php echo $preselected_room['rooms_available'] > 1 ? "({$preselected_room['rooms_available']} rooms available)" : ''; ?></p>
+                            <p><i class="fas fa-users"></i> Max <?php echo $preselected_room['max_guests']; ?> guests (<?php echo $preselected_room['rooms_available']; ?> room<?php echo $preselected_room['rooms_available'] == 1 ? '' : 's'; ?> available)</p>
                         </div>
                         <div class="room-price">
                             <div class="room-price-amount"><?php echo $currency_symbol; ?><?php echo number_format($preselected_room['price_per_night'], 0); ?></div>
@@ -917,31 +1001,28 @@ try {
                         <small id="childGuestHint" class="form-hint">At least 1 adult is required.</small>
                     </div>
                     
-                    <!-- Occupancy Type Selection -->
+                    <!-- Occupancy Type Guide (Informational Only) -->
                     <div class="form-group">
-                        <label class="required">Occupancy Type</label>
-                        <div class="occupancy-type-group" id="occupancyTypeGroup">
-                            <label class="occupancy-type-label" id="singleOccupancyLabel">
-                                <input type="radio" name="occupancy_type" value="single">
+                        <label>Occupancy Pricing Guide</label>
+                        <div class="occupancy-type-group occupancy-guide" id="occupancyTypeGroup">
+                            <div class="occupancy-type-label" id="singleOccupancyLabel">
                                 <strong>Single</strong>
                                 <span>1 Guest</span>
                                 <span id="singlePriceDisplay" class="price-display">-</span>
-                            </label>
-                            <label class="occupancy-type-label selected" id="doubleOccupancyLabel">
-                                <input type="radio" name="occupancy_type" value="double" checked>
+                            </div>
+                            <div class="occupancy-type-label selected" id="doubleOccupancyLabel">
                                 <strong>Double</strong>
                                 <span>2 Guests</span>
                                 <span id="doublePriceDisplay" class="price-display">-</span>
-                            </label>
-                            <label class="occupancy-type-label" id="tripleOccupancyLabel">
-                                <input type="radio" name="occupancy_type" value="triple">
+                            </div>
+                            <div class="occupancy-type-label" id="tripleOccupancyLabel">
                                 <strong>Triple</strong>
                                 <span>3 Guests</span>
                                 <span id="triplePriceDisplay" class="price-display">-</span>
-                            </label>
+                            </div>
                         </div>
                         <small class="form-hint" id="occupancyHint">
-                            <i class="fas fa-info-circle"></i> Prices vary based on occupancy type
+                            <i class="fas fa-info-circle"></i> Occupancy type is automatically determined based on your guest count
                         </small>
                     </div>
                     
@@ -1005,7 +1086,6 @@ try {
             </p>
         </form>
     </div>
-    </div>
     </main>
 
     <?php include 'includes/footer.php'; ?>
@@ -1031,6 +1111,7 @@ try {
         const heroCheckIn = <?php echo $hero_check_in ? '"' . $hero_check_in . '"' : 'null'; ?>;
         const heroCheckOut = <?php echo $hero_check_out ? '"' . $hero_check_out . '"' : 'null'; ?>;
         const heroGuests = <?php echo $hero_guests ? $hero_guests : 'null'; ?>;
+        const heroChildren = <?php echo $hero_children ? $hero_children : 'null'; ?>;
         const heroRoomType = <?php echo $hero_room_type ? '"' . $hero_room_type . '"' : 'null'; ?>;
         
         // Rooms data for dynamic validation
@@ -1172,8 +1253,33 @@ try {
                         } else {
                             guestSelect.value = maxGuests;
                         }
+                        
+                        // Handle children from hero widget
+                        if (heroChildren) {
+                            const childInput = document.getElementById('child_guests');
+                            if (childInput) {
+                                const maxChildren = Math.max(0, heroGuests - 1);
+                                const childCount = Math.min(heroChildren, maxChildren);
+                                childInput.value = childCount;
+                            }
+                        }
+                        
+                        enforceChildGuestRules();
                         updateSummary();
                     }, 100);
+                }
+            }
+            
+            // Handle room type from hero widget - match by room name
+            if (heroRoomType && !preselectedRoomId) {
+                // Find room by exact name match from roomsData
+                const matchingRoom = roomsData.find(room => room.name === heroRoomType);
+                if (matchingRoom) {
+                    // Select the matching room
+                    const roomOption = document.querySelector(`.room-option[data-room-id="${matchingRoom.id}"]`);
+                    if (roomOption) {
+                        selectRoom(roomOption);
+                    }
                 }
             }
             
@@ -1190,33 +1296,10 @@ try {
                 const guestSelect = document.getElementById('number_of_guests');
                 guestSelect.value = preselectedRoomMaxGuests;
                 
-                // Update price based on current occupancy selection
-                updatePriceBasedOnOccupancy();
+                // Update price based on guest count (occupancy is auto-determined)
+                updatePriceBasedOnGuestCount();
             }
             
-            // Add occupancy type change listeners
-            const occupancyRadios = document.querySelectorAll('input[name="occupancy_type"]');
-            occupancyRadios.forEach(radio => {
-                radio.addEventListener('change', function() {
-                    // Update number of guests based on occupancy type
-                    const guestSelect = document.getElementById('number_of_guests');
-                    const occupancyType = this.value;
-                    const guestCount = occupancyType === 'single' ? 1 : (occupancyType === 'double' ? 2 : 3);
-                    guestSelect.value = guestCount;
-                    
-                    updatePriceBasedOnOccupancy();
-                    updateSummary();
-                    
-                    // Update visual styling for selected occupancy
-                    ['single', 'double', 'triple'].forEach(type => {
-                        const label = document.getElementById(type + 'OccupancyLabel');
-                        if (label) {
-                            label.classList.toggle('selected', this.value === type);
-                        }
-                    });
-                });
-            });
-
             // Add booking type change listeners
             const bookingTypeRadios = document.querySelectorAll('input[name="booking_type"]');
             bookingTypeRadios.forEach(radio => {
@@ -1226,11 +1309,37 @@ try {
             });
         });
         
-        // Update price displays when occupancy type changes
-        function updatePriceBasedOnOccupancy() {
-            const occupancyType = document.querySelector('input[name="occupancy_type"]:checked').value;
+        // Helper function to update occupancy visual selection based on guest count
+        function updateOccupancyVisualSelection(guestCount) {
+            let selectedType = 'double'; // default
+            if (guestCount === 1) {
+                selectedType = 'single';
+            } else if (guestCount >= 3) {
+                selectedType = 'triple';
+            }
             
+            ['single', 'double', 'triple'].forEach(type => {
+                const label = document.getElementById(type + 'OccupancyLabel');
+                if (label) {
+                    label.classList.toggle('selected', selectedType === type);
+                }
+            });
+        }
+        
+        // Update price displays based on guest count (occupancy is auto-determined)
+        function updatePriceBasedOnGuestCount() {
             if (!selectedRoomId) return;
+            
+            const guestSelect = document.getElementById('number_of_guests');
+            const guestCount = parseInt(guestSelect?.value || '0', 10);
+            
+            // Determine occupancy type based on guest count
+            let occupancyType = 'double'; // default
+            if (guestCount === 1) {
+                occupancyType = 'single';
+            } else if (guestCount >= 3) {
+                occupancyType = 'triple';
+            }
             
             // Find the selected room from roomsData
             const selectedRoom = roomsData.find(room => room.id === selectedRoomId);
@@ -1248,46 +1357,35 @@ try {
             }
             
             selectedRoomPrice = newPrice;
+            
+            // Update visual selection based on guest count
+            updateOccupancyVisualSelection(guestCount);
+            
+            // Update summary after price change to reflect new pricing
+            updateSummary();
         }
 
         function applyOccupancyAvailability(room) {
-            const singleInput = document.querySelector('input[name="occupancy_type"][value="single"]');
-            const doubleInput = document.querySelector('input[name="occupancy_type"][value="double"]');
-            const tripleInput = document.querySelector('input[name="occupancy_type"][value="triple"]');
             const occupancyHint = document.getElementById('occupancyHint');
             const mapping = [
-                { key: 'single_enabled', input: singleInput, labelId: 'singleOccupancyLabel' },
-                { key: 'double_enabled', input: doubleInput, labelId: 'doubleOccupancyLabel' },
-                { key: 'triple_enabled', input: tripleInput, labelId: 'tripleOccupancyLabel' }
+                { key: 'single_enabled', labelId: 'singleOccupancyLabel', value: 'single' },
+                { key: 'double_enabled', labelId: 'doubleOccupancyLabel', value: 'double' },
+                { key: 'triple_enabled', labelId: 'tripleOccupancyLabel', value: 'triple' }
             ];
 
-            let firstEnabled = null;
             let enabledCount = 0;
             mapping.forEach(item => {
                 const enabled = Number(room[item.key] || 0) === 1;
                 if (enabled) {
                     enabledCount++;
-                    if (!firstEnabled) firstEnabled = item.input;
                 }
-                if (item.input) {
-                    item.input.disabled = !enabled;
-                    const label = document.getElementById(item.labelId);
-                    if (label) {
-                        // Hide disabled options completely instead of just dimming
-                        label.style.display = enabled ? '' : 'none';
-                        label.classList.toggle('selected', false);
-                    }
+                const label = document.getElementById(item.labelId);
+                if (label) {
+                    // Hide disabled options completely
+                    label.style.display = enabled ? '' : 'none';
+                    label.classList.remove('selected');
                 }
             });
-
-            // Auto-select first enabled option if current selection is disabled
-            const checked = document.querySelector('input[name="occupancy_type"]:checked');
-            if (!checked || checked.disabled) {
-                if (firstEnabled) {
-                    firstEnabled.checked = true;
-                    firstEnabled.dispatchEvent(new Event('change'));
-                }
-            }
 
             // Update hint based on available options
             if (occupancyHint) {
@@ -1298,22 +1396,45 @@ try {
                         occupancyHint.innerHTML = `<i class="fas fa-info-circle"></i> Only ${typeName} occupancy available for this room`;
                     }
                 } else {
-                    occupancyHint.innerHTML = '<i class="fas fa-info-circle"></i> Prices vary based on occupancy type';
+                    occupancyHint.innerHTML = '<i class="fas fa-info-circle"></i> Occupancy type is automatically determined based on your guest count';
                 }
             }
+            
+            // Update price and visual selection after applying availability
+            updatePriceBasedOnGuestCount();
         }
 
         function applyChildrenPolicy(room) {
             const childInput = document.getElementById('child_guests');
             const childHint = document.getElementById('childGuestHint');
+            const childGroup = childInput ? childInput.closest('.form-group') : null;
             const allowed = Number(room.children_allowed || 0) === 1;
             if (!childInput) return;
 
             childInput.disabled = !allowed;
+            
+            // Visual indication for disabled state
+            if (childGroup) {
+                childGroup.style.opacity = allowed ? '1' : '0.5';
+            }
+            
             if (!allowed) {
                 childInput.value = '0';
-                if (childHint) childHint.textContent = 'Children are not allowed for this room type.';
+                if (childHint) {
+                    childHint.innerHTML = '<i class="fas fa-ban" style="color: #dc3545;"></i> Children are not allowed for this room type.';
+                    childHint.style.color = '#dc3545';
+                }
+            } else {
+                // Update hint with pricing info
+                const childMultiplier = Number(room.child_price_multiplier || childPriceMultiplier || 50);
+                if (childHint) {
+                    childHint.innerHTML = `<i class="fas fa-child"></i> Children under 12 stay at ${childMultiplier}% of adult rate. At least 1 adult required.`;
+                    childHint.style.color = '#666';
+                }
             }
+            
+            // Update summary after applying policy
+            updateSummary();
         }
         
         // Update occupancy price displays when room is selected
@@ -1391,8 +1512,8 @@ try {
                 applyChildrenPolicy(room);
             }
             
-            // Get current occupancy type and set price
-            updatePriceBasedOnOccupancy();
+            // Update price based on guest count (occupancy is auto-determined)
+            updatePriceBasedOnGuestCount();
             
             // Update calendars with selected room blocked dates (global + room-specific)
             applyBlockedDatesToCalendars(roomId);
@@ -1547,8 +1668,13 @@ try {
                 const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
 
                 if (nights > 0) {
-                    // Get current occupancy type
-                    const occupancyType = document.querySelector('input[name="occupancy_type"]:checked')?.value || 'double';
+                    // Determine occupancy type based on guest count (auto-determined)
+                    let occupancyType = 'double'; // default
+                    if (totalGuests === 1) {
+                        occupancyType = 'single';
+                    } else if (totalGuests >= 3) {
+                        occupancyType = 'triple';
+                    }
                     
                     // Find the selected room from roomsData
                     const selectedRoom = roomsData.find(room => room.id === selectedRoomId);
@@ -1620,25 +1746,11 @@ try {
             validateFormForSubmit();
         });
         
-        // Add guest count change listener
+        // Add guest count change listener - occupancy is auto-determined
         document.getElementById('number_of_guests').addEventListener('change', function() {
-            const guestCount = parseInt(this.value);
-            
-            // Update occupancy type based on number of guests
-            const occupancyRadios = document.querySelectorAll('input[name="occupancy_type"]');
-            if (guestCount === 1) {
-                occupancyRadios[0].checked = true; // Single occupancy
-                occupancyRadios[0].dispatchEvent(new Event('change'));
-            } else if (guestCount === 2) {
-                occupancyRadios[1].checked = true; // Double occupancy
-                occupancyRadios[1].dispatchEvent(new Event('change'));
-            } else if (guestCount >= 3) {
-                occupancyRadios[2].checked = true; // Triple occupancy
-                occupancyRadios[2].dispatchEvent(new Event('change'));
-            }
-            
             checkGuestCapacity();
             enforceChildGuestRules();
+            updatePriceBasedOnGuestCount();
             updateSummary();
             validateFormForSubmit();
         });
@@ -1652,7 +1764,7 @@ try {
             if (childInput.disabled) {
                 childInput.value = '0';
                 if (childHint) {
-                    childHint.textContent = 'Children are not allowed for this room type.';
+                    childHint.innerHTML = '<i class="fas fa-ban" style="color: #dc3545;"></i> Children are not allowed for this room type.';
                 }
                 return;
             }
@@ -1668,8 +1780,28 @@ try {
             }
 
             const adults = Math.max(0, totalGuests - childGuests);
+            
+            // Get room-specific child price multiplier
+            let effectiveMultiplier = childPriceMultiplier;
+            if (selectedRoomId) {
+                const selectedRoom = roomsData.find(room => room.id === selectedRoomId);
+                if (selectedRoom && selectedRoom.child_price_multiplier !== undefined) {
+                    effectiveMultiplier = Number(selectedRoom.child_price_multiplier);
+                }
+            }
+            
             if (childHint) {
-                childHint.textContent = `Adults: ${adults} • Children: ${childGuests} • At least 1 adult required.`;
+                let hintHtml = '';
+                if (childGuests > 0 && adults >= 1) {
+                    // Show breakdown with pricing
+                    hintHtml = `<i class="fas fa-users"></i> ${adults} adult${adults === 1 ? '' : 's'} + ${childGuests} child${childGuests === 1 ? '' : 'ren'}`;
+                    hintHtml += ` <span style="color: var(--gold);">• Child rate: ${effectiveMultiplier}% of adult price</span>`;
+                } else if (adults < 1) {
+                    hintHtml = `<i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i> At least 1 adult is required. Current: ${adults} adult${adults === 1 ? '' : 's'}`;
+                } else {
+                    hintHtml = `<i class="fas fa-child"></i> Children under 12 stay at ${effectiveMultiplier}% of adult rate. Max ${maxChildren} children for ${totalGuests} guest${totalGuests === 1 ? '' : 's'}.`;
+                }
+                childHint.innerHTML = hintHtml;
             }
         }
 
@@ -1690,6 +1822,63 @@ try {
                 selectedOption.closest('.booking-type-option').classList.add('selected');
             }
         }
+
+        // Room Category Filter Tabs for booking page
+        (function() {
+            const filterTabs = document.querySelectorAll('#roomsFilterTabs .chip');
+            const roomOptions = document.querySelectorAll('.room-option[data-filter]');
+            
+            if (filterTabs.length === 0 || roomOptions.length === 0) return;
+            
+            filterTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const filterValue = this.getAttribute('data-filter');
+                    const badgeFilter = this.getAttribute('data-badge-filter');
+                    
+                    // Update active tab
+                    filterTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Filter room options - respect availability hiding
+                    roomOptions.forEach(option => {
+                        const optionFilter = option.getAttribute('data-filter');
+                        
+                        // Check if this room is currently disabled due to availability
+                        const isAvailabilityDisabled = option.classList.contains('room-option-disabled');
+                        const radio = option.querySelector('input[type="radio"]');
+                        const isRadioDisabled = radio && radio.disabled;
+                        
+                        // Apply filter
+                        if (filterValue === 'all' || (optionFilter && optionFilter.includes(filterValue))) {
+                            // Show this room option
+                            option.style.display = '';
+                            
+                            // If it was availability-disabled, keep it disabled but visible
+                            if (isAvailabilityDisabled || isRadioDisabled) {
+                                option.style.opacity = '0.5';
+                                option.style.pointerEvents = 'none';
+                                if (radio) radio.disabled = true;
+                            } else {
+                                option.style.opacity = '';
+                                option.style.pointerEvents = '';
+                                if (radio) radio.disabled = false;
+                            }
+                        } else {
+                            // Hide this room option
+                            option.style.display = 'none';
+                        }
+                    });
+                    
+                    // If the currently selected room is hidden, clear selection
+                    if (selectedRoomId) {
+                        const selectedOption = document.querySelector(`.room-option[data-room-id="${selectedRoomId}"]`);
+                        if (selectedOption && selectedOption.style.display === 'none') {
+                            clearRoomSelection();
+                        }
+                    }
+                });
+            });
+        })();
         
         // Initialize booking type selection on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -1697,7 +1886,276 @@ try {
             enforceChildGuestRules();
             validateFormForSubmit();
             initInstantValidation();
+            initAvailabilityValidation();
         });
+
+        // Availability state tracking
+        let availabilityCheckPending = false;
+        let availabilityCheckTimer = null;
+        let roomAvailabilityStatus = {}; // Track availability status per room
+
+        // Initialize immediate availability validation
+        function initAvailabilityValidation() {
+            const checkInInput = document.getElementById('check_in_date');
+            const checkOutInput = document.getElementById('check_out_date');
+            const guestsInput = document.getElementById('number_of_guests');
+            const bookingForm = document.getElementById('bookingForm');
+
+            // Debounced availability check on date/guest changes
+            const scheduleAvailabilityCheck = () => {
+                clearTimeout(availabilityCheckTimer);
+                availabilityCheckTimer = setTimeout(() => {
+                    performAvailabilityCheck();
+                }, 500); // 500ms debounce
+            };
+
+            // Add event listeners for immediate validation
+            if (checkInInput) {
+                checkInInput.addEventListener('change', scheduleAvailabilityCheck);
+            }
+            if (checkOutInput) {
+                checkOutInput.addEventListener('change', scheduleAvailabilityCheck);
+            }
+            if (guestsInput) {
+                guestsInput.addEventListener('change', scheduleAvailabilityCheck);
+            }
+
+            // Prevent form submission if availability check is pending or failed
+            if (bookingForm) {
+                bookingForm.addEventListener('submit', function(e) {
+                    if (availabilityCheckPending) {
+                        e.preventDefault();
+                        showAvailabilityMessage('<i class="fas fa-spinner fa-spin"></i> Checking availability... Please wait.', 'warning');
+                        return false;
+                    }
+                    
+                    if (selectedRoomId) {
+                        const checkIn = checkInInput ? checkInInput.value : '';
+                        const checkOut = checkOutInput ? checkOutInput.value : '';
+                        
+                        if (checkIn && checkOut) {
+                            const statusKey = `${selectedRoomId}_${checkIn}_${checkOut}`;
+                            const roomStatus = roomAvailabilityStatus[statusKey];
+                            
+                            if (roomStatus && !roomStatus.available) {
+                                e.preventDefault();
+                                showAvailabilityMessage(roomStatus.message, 'error');
+                                return false;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Perform availability check for all rooms or selected room
+        function performAvailabilityCheck() {
+            const checkIn = document.getElementById('check_in_date').value;
+            const checkOut = document.getElementById('check_out_date').value;
+            const guestsInput = document.getElementById('number_of_guests');
+            const numGuests = guestsInput ? parseInt(guestsInput.value || '0', 10) : 0;
+
+            // Clear previous availability status if dates are incomplete
+            if (!checkIn || !checkOut) {
+                clearAvailabilityMessage();
+                enableAllRoomOptions();
+                return;
+            }
+
+            // Validate date range
+            const checkInDate = new Date(checkIn);
+            const checkOutDate = new Date(checkOut);
+            if (checkOutDate <= checkInDate) {
+                showAvailabilityMessage('<i class="fas fa-exclamation-triangle"></i> Check-out date must be after check-in date.', 'error');
+                return;
+            }
+
+            availabilityCheckPending = true;
+            
+            // Check availability for all rooms
+            const roomOptions = document.querySelectorAll('.room-option[data-room-id]');
+            let checksCompleted = 0;
+            const totalRooms = roomOptions.length;
+
+            roomOptions.forEach(roomOption => {
+                const roomId = parseInt(roomOption.getAttribute('data-room-id'));
+                const radio = roomOption.querySelector('input[type="radio"]');
+                
+                // Skip if already disabled for other reasons
+                if (radio && radio.disabled) {
+                    checksCompleted++;
+                    return;
+                }
+
+                checkRoomAvailability(roomId, checkIn, checkOut, function(result) {
+                    const statusKey = `${roomId}_${checkIn}_${checkOut}`;
+                    roomAvailabilityStatus[statusKey] = result;
+
+                    if (result.available) {
+                        // Room is available - enable the option
+                        enableRoomOption(roomOption);
+                    } else {
+                        // Room is unavailable - disable the option
+                        disableRoomOption(roomOption, result.message);
+                        
+                        // If this was the selected room, clear selection
+                        if (selectedRoomId === roomId) {
+                            clearRoomSelection();
+                        }
+                    }
+
+                    checksCompleted++;
+                    
+                    // Show summary message when all checks complete
+                    if (checksCompleted >= totalRooms) {
+                        availabilityCheckPending = false;
+                        const availableRooms = document.querySelectorAll('.room-option:not(.room-option-disabled)');
+                        
+                        if (availableRooms.length === 0) {
+                            showAvailabilityMessage(
+                                '<i class="fas fa-calendar-times"></i> <strong>No rooms available</strong> for the selected dates. ' +
+                                '<i class="fas fa-lightbulb" style="margin-top: 8px; display: inline-block;"></i> ' +
+                                '<strong>Tip:</strong> Try different dates or reduce the number of guests.',
+                                'error'
+                            );
+                        } else if (availableRooms.length < roomOptions.length) {
+                            const unavailableCount = roomOptions.length - availableRooms.length;
+                            showAvailabilityMessage(
+                                `<i class="fas fa-info-circle"></i> ${unavailableCount} room type${unavailableCount > 1 ? 's are' : ' is'} unavailable for your selected dates. ` +
+                                '<i class="fas fa-lightbulb" style="margin-top: 8px; display: inline-block;"></i> ' +
+                                '<strong>Tip:</strong> Select from the available rooms above or try different dates.',
+                                'warning'
+                            );
+                        } else {
+                            clearAvailabilityMessage();
+                        }
+                        
+                        // Re-validate form for submit
+                        validateFormForSubmit();
+                    }
+                });
+            });
+        }
+
+        // Disable a room option with visual feedback (composes with filter tabs)
+        function disableRoomOption(roomOption, reason) {
+            roomOption.classList.add('room-option-disabled');
+            const radio = roomOption.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.disabled = true;
+            }
+            
+            // Add unavailable badge
+            let badge = roomOption.querySelector('.unavailable-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'unavailable-badge';
+                roomOption.appendChild(badge);
+            }
+            badge.innerHTML = '<i class="fas fa-ban"></i> Unavailable';
+            badge.title = reason;
+            
+            // Reduce opacity - filter controls visibility, this controls availability state
+            roomOption.style.opacity = '0.5';
+            roomOption.style.pointerEvents = 'none';
+        }
+
+        // Enable a room option (composes with filter tabs)
+        function enableRoomOption(roomOption) {
+            roomOption.classList.remove('room-option-disabled');
+            const radio = roomOption.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.disabled = false;
+            }
+            
+            // Remove unavailable badge
+            const badge = roomOption.querySelector('.unavailable-badge');
+            if (badge) {
+                badge.remove();
+            }
+            
+            // Restore opacity - filter controls visibility, this controls availability state
+            roomOption.style.opacity = '';
+            roomOption.style.pointerEvents = '';
+        }
+
+        // Enable all room options (respects current filter state)
+        function enableAllRoomOptions() {
+            const roomOptions = document.querySelectorAll('.room-option');
+            roomOptions.forEach(enableRoomOption);
+        }
+
+        // Clear room selection
+        function clearRoomSelection() {
+            selectedRoomId = null;
+            selectedRoomName = null;
+            selectedRoomPrice = null;
+            selectedRoomMaxGuests = null;
+            
+            const roomRadios = document.querySelectorAll('input[name="room_id"]');
+            roomRadios.forEach(radio => {
+                radio.checked = false;
+            });
+            
+            const roomOptions = document.querySelectorAll('.room-option');
+            roomOptions.forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Clear summary
+            const summary = document.getElementById('bookingSummary');
+            if (summary) {
+                summary.style.display = 'none';
+            }
+            
+            // Disable submit button
+            const submitBtn = document.querySelector('.btn-submit');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-bed"></i> Select a Room';
+                submitBtn.style.opacity = '0.6';
+            }
+        }
+
+        // Show availability message
+        function showAvailabilityMessage(message, type) {
+            const messageContainer = document.getElementById('roomAvailabilityMessage');
+            if (!messageContainer) return;
+            
+            messageContainer.innerHTML = message;
+            messageContainer.style.display = 'block';
+            
+            // Set styling based on type
+            messageContainer.className = 'availability-message';
+            if (type === 'error') {
+                messageContainer.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
+                messageContainer.style.border = '1px solid rgba(220, 53, 69, 0.3)';
+                messageContainer.style.color = '#dc3545';
+            } else if (type === 'warning') {
+                messageContainer.style.backgroundColor = 'rgba(255, 193, 7, 0.1)';
+                messageContainer.style.border = '1px solid rgba(255, 193, 7, 0.3)';
+                messageContainer.style.color = '#856404';
+            } else {
+                messageContainer.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
+                messageContainer.style.border = '1px solid rgba(40, 167, 69, 0.3)';
+                messageContainer.style.color = '#28a745';
+            }
+            
+            messageContainer.style.padding = '12px 16px';
+            messageContainer.style.borderRadius = '6px';
+            messageContainer.style.marginBottom = '16px';
+            messageContainer.style.fontSize = '14px';
+            messageContainer.style.lineHeight = '1.6';
+        }
+
+        // Clear availability message
+        function clearAvailabilityMessage() {
+            const messageContainer = document.getElementById('roomAvailabilityMessage');
+            if (messageContainer) {
+                messageContainer.style.display = 'none';
+                messageContainer.innerHTML = '';
+            }
+        }
 
         // Instant field validation for better UX
         function initInstantValidation() {
@@ -1886,7 +2344,7 @@ try {
             return feedback;
         }
 
-        // Override validateFormForSubmit to include instant validation
+        // Override validateFormForSubmit to include instant validation and availability check
         const originalValidateFormForSubmit = validateFormForSubmit;
         validateFormForSubmit = function() {
             const checkIn = document.getElementById('check_in_date').value;
@@ -1908,13 +2366,27 @@ try {
             const emailValid = emailInput && emailInput.classList.contains('is-valid');
             const phoneValid = phoneInput && phoneInput.classList.contains('is-valid');
 
-            if (selectedRoomId && checkIn && checkOut && numGuests && childValid && adultsInt >= 1 && nameValid && emailValid && phoneValid) {
+            // Check availability status for selected room
+            let availabilityValid = true;
+            if (selectedRoomId && checkIn && checkOut) {
+                const statusKey = `${selectedRoomId}_${checkIn}_${checkOut}`;
+                const roomStatus = roomAvailabilityStatus[statusKey];
+                if (roomStatus && !roomStatus.available) {
+                    availabilityValid = false;
+                }
+            }
+
+            if (selectedRoomId && checkIn && checkOut && numGuests && childValid && adultsInt >= 1 && nameValid && emailValid && phoneValid && availabilityValid) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Booking';
                 submitBtn.style.opacity = '1';
             } else {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Complete All Fields';
+                if (!availabilityValid) {
+                    submitBtn.innerHTML = '<i class="fas fa-ban"></i> Room Unavailable';
+                } else {
+                    submitBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Complete All Fields';
+                }
                 submitBtn.style.opacity = '0.6';
             }
         };

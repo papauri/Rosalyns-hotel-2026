@@ -4,6 +4,7 @@ require_once 'admin-init.php';
 
 require_once '../includes/modal.php';
 require_once '../includes/alert.php';
+require_once '../includes/room-management.php';
 
 $user = [
     'id' => $_SESSION['admin_user_id'],
@@ -113,10 +114,11 @@ $activity_log = [];
 if ($user['role'] === 'admin') {
     try {
         $log_stmt = $pdo->query("
-            SELECT al.*, au.full_name 
-            FROM admin_activity_log al 
-            LEFT JOIN admin_users au ON al.user_id = au.id 
-            ORDER BY al.created_at DESC 
+            SELECT al.*, au.full_name
+            FROM admin_activity_log al
+            LEFT JOIN admin_users au ON al.user_id = au.id
+            WHERE al.action IN ('login_success', 'login_failed', 'logout', 'password_reset', 'login_blocked')
+            ORDER BY al.created_at DESC
             LIMIT 20
         ");
         $activity_log = $log_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -212,6 +214,73 @@ $currency_symbol = getSetting('currency_symbol');
                     <div class="stat-label">Expired (24h)</div>
                 </div>
             </div>
+
+        <!-- Room Status Widget -->
+        <?php
+        $roomSummary = getRoomDashboardSummary();
+        $roomStatuses = getRoomStatuses();
+        ?>
+        <div class="room-status-widget">
+            <div class="widget-header">
+                <h3><i class="fas fa-door-open"></i> Room Status Overview</h3>
+                <a href="room-dashboard.php" class="btn btn-sm btn-outline">View Details <i class="fas fa-arrow-right"></i></a>
+            </div>
+            <div class="widget-content">
+                <div class="occupancy-overview">
+                    <div class="occupancy-percentage">
+                        <span class="value"><?php echo $roomSummary['occupancy_rate'] ?? 0; ?>%</span>
+                        <span class="label">Occupancy</span>
+                    </div>
+                    <div class="occupancy-bar-mini">
+                        <?php 
+                        $total = array_sum($roomSummary['status_counts'] ?? []);
+                        if ($total > 0):
+                            $colors = [
+                                'occupied' => '#dc3545',
+                                'available' => '#28a745', 
+                                'cleaning' => '#ffc107',
+                                'inspection' => '#17a2b8',
+                                'maintenance' => '#fd7e14',
+                                'out_of_order' => '#6c757d'
+                            ];
+                            foreach ($roomSummary['status_counts'] ?? [] as $status => $count):
+                                $percent = ($count / $total) * 100;
+                        ?>
+                        <div class="bar-segment" style="width: <?php echo $percent; ?>%; background: <?php echo $colors[$status] ?? '#ccc'; ?>;" title="<?php echo ucfirst($status); ?>: <?php echo $count; ?>"></div>
+                        <?php 
+                            endforeach;
+                        endif;
+                        ?>
+                    </div>
+                </div>
+                <div class="status-cards-mini">
+                    <?php foreach ($roomStatuses as $status => $info): ?>
+                    <div class="status-mini <?php echo $status; ?>">
+                        <span class="count"><?php echo $roomSummary['status_counts'][$status] ?? 0; ?></span>
+                        <span class="label"><?php echo $info['label']; ?></span>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="quick-actions-row">
+                    <div class="action-item">
+                        <span class="action-value"><?php echo $roomSummary['cleaning_queue'] ?? 0; ?></span>
+                        <span class="action-label"><i class="fas fa-broom"></i> To Clean</span>
+                    </div>
+                    <div class="action-item">
+                        <span class="action-value"><?php echo $roomSummary['checkins_today'] ?? 0; ?></span>
+                        <span class="action-label"><i class="fas fa-sign-in-alt"></i> Check-ins</span>
+                    </div>
+                    <div class="action-item">
+                        <span class="action-value"><?php echo $roomSummary['checkouts_today'] ?? 0; ?></span>
+                        <span class="action-label"><i class="fas fa-sign-out-alt"></i> Check-outs</span>
+                    </div>
+                    <div class="action-item">
+                        <span class="action-value"><?php echo $roomSummary['available_now'] ?? 0; ?></span>
+                        <span class="action-label"><i class="fas fa-check-circle"></i> Available</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Today's Check-ins Management -->
         <div class="today-checkins-section">
@@ -559,10 +628,16 @@ $currency_symbol = getSetting('currency_symbol');
         </div>
     </div>
 
-    <?php if ($user['role'] === 'admin' && !empty($activity_log)): ?>
+    <?php if ($user['role'] === 'admin'): ?>
     <!-- Login Activity Log -->
     <div class="today-checkins-section">
         <h3><i class="fas fa-shield-alt"></i> Recent Login Activity</h3>
+        <?php if (empty($activity_log)): ?>
+            <div class="empty-state">
+                <i class="fas fa-shield-alt"></i>
+                <p>No recent login activity found</p>
+            </div>
+        <?php else: ?>
         <div style="overflow-x: auto;">
             <table class="table" style="width:100%; border-collapse:collapse; font-size:13px;">
                 <thead>
@@ -575,7 +650,7 @@ $currency_symbol = getSetting('currency_symbol');
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($activity_log as $log): 
+                    <?php foreach ($activity_log as $log):
                         $action_colors = [
                             'login_success' => ['bg' => '#e8f5e9', 'color' => '#2e7d32', 'icon' => 'fa-sign-in-alt', 'label' => 'Login'],
                             'login_failed' => ['bg' => '#fbe9e7', 'color' => '#c62828', 'icon' => 'fa-times-circle', 'label' => 'Failed Login'],
@@ -611,6 +686,7 @@ $currency_symbol = getSetting('currency_symbol');
                 </tbody>
             </table>
         </div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 

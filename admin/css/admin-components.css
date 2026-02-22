@@ -774,6 +774,70 @@ body.modal-open {
     }
 }
 
+/* ============================================
+   BUTTON LOADING STATE
+   ============================================ */
+
+/* Loading state for buttons */
+.btn-loading,
+.quick-action.btn-loading {
+    position: relative;
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+    opacity: 0.7 !important;
+}
+
+.btn-loading::before,
+.quick-action.btn-loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: inherit;
+    z-index: 1;
+}
+
+/* Spinner animation for loading buttons */
+.btn-loading .fa-spinner,
+.quick-action.btn-loading .fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Prevent double-click on all quick-action buttons */
+.quick-action {
+    transition: all 0.2s ease;
+}
+
+.quick-action:disabled,
+.quick-action[disabled] {
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+    opacity: 0.5 !important;
+}
+
+/* Quick action button pressed state */
+.quick-action:not(:disabled):active {
+    transform: scale(0.98);
+}
+
+/* Accessibility: Focus visible for quick action buttons */
+.quick-action:focus-visible {
+    outline: 2px solid var(--gold, #8B7355);
+    outline-offset: 2px;
+}
+
 /* Touch-friendly targets on 320px */
 @media (max-width: 320px) {
     /* Increase tap targets for buttons */

@@ -118,22 +118,25 @@ function listPayments($pdo) {
     $offset = ($page - 1) * $limit;
     
     // Build query
+    // Get dynamic conference field names for compatibility
+    $conferenceFields = finance_conference_fields($pdo);
+    
     $sql = "
-        SELECT 
+        SELECT
             p.*,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN CONCAT('Room Booking - ', b.guest_name)
-                WHEN p.booking_type = 'conference' THEN CONCAT('Conference - ', ci.organization_name)
+                WHEN p.booking_type = 'conference' THEN CONCAT('Conference - ', ci.{$conferenceFields['company']})
                 ELSE p.booking_type
             END as booking_description,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN b.booking_reference
-                WHEN p.booking_type = 'conference' THEN ci.enquiry_reference
+                WHEN p.booking_type = 'conference' THEN ci.{$conferenceFields['reference']}
                 ELSE NULL
             END as booking_reference,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN b.guest_email
-                WHEN p.booking_type = 'conference' THEN ci.contact_email
+                WHEN p.booking_type = 'conference' THEN ci.{$conferenceFields['email']}
                 ELSE NULL
             END as contact_email
         FROM payments p
@@ -195,12 +198,12 @@ function listPayments($pdo) {
     $stmt->execute($params);
     $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Calculate summary statistics
+    // Calculate summary statistics - use consistent payment status check
     $summarySql = "
-        SELECT 
+        SELECT
             COUNT(*) as total_payments,
-            SUM(CASE WHEN payment_status = 'completed' THEN total_amount ELSE 0 END) as total_collected,
-            SUM(CASE WHEN payment_status = 'pending' THEN total_amount ELSE 0 END) as total_pending,
+            SUM(CASE WHEN payment_status IN ('completed', 'paid') THEN total_amount ELSE 0 END) as total_collected,
+            SUM(CASE WHEN payment_status IN ('pending', 'partial') THEN total_amount ELSE 0 END) as total_pending,
             SUM(CASE WHEN payment_status = 'refunded' THEN total_amount ELSE 0 END) as total_refunded,
             SUM(vat_amount) as total_vat_collected
         FROM payments
@@ -277,27 +280,29 @@ function listPayments($pdo) {
  * Get single payment details
  */
 function getPayment($pdo, $paymentId) {
+    $conferenceFields = finance_conference_fields($pdo);
+    
     $stmt = $pdo->prepare("
-        SELECT 
+        SELECT
             p.*,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN CONCAT('Room Booking - ', b.guest_name)
-                WHEN p.booking_type = 'conference' THEN CONCAT('Conference - ', ci.organization_name)
+                WHEN p.booking_type = 'conference' THEN CONCAT('Conference - ', ci.{$conferenceFields['company']})
                 ELSE p.booking_type
             END as booking_description,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN b.booking_reference
-                WHEN p.booking_type = 'conference' THEN ci.enquiry_reference
+                WHEN p.booking_type = 'conference' THEN ci.{$conferenceFields['reference']}
                 ELSE NULL
             END as booking_reference,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN b.guest_name
-                WHEN p.booking_type = 'conference' THEN ci.contact_name
+                WHEN p.booking_type = 'conference' THEN ci.{$conferenceFields['contact_name']}
                 ELSE NULL
             END as customer_name,
-            CASE 
+            CASE
                 WHEN p.booking_type = 'room' THEN b.guest_email
-                WHEN p.booking_type = 'conference' THEN ci.contact_email
+                WHEN p.booking_type = 'conference' THEN ci.{$conferenceFields['email']}
                 ELSE NULL
             END as customer_email
         FROM payments p
@@ -359,6 +364,7 @@ function getPayment($pdo, $paymentId) {
             ];
         }
     } elseif ($payment['booking_type'] === 'conference') {
+        $conferenceFields = finance_conference_fields($pdo);
         $confStmt = $pdo->prepare("
             SELECT * FROM conference_inquiries WHERE id = ?
         ");
@@ -369,18 +375,18 @@ function getPayment($pdo, $paymentId) {
             $bookingDetails = [
                 'type' => 'conference',
                 'id' => (int)$enquiry['id'],
-                'reference' => $enquiry['enquiry_reference'],
+                'reference' => $enquiry[$conferenceFields['reference']] ?? '',
                 'organization' => [
-                    'name' => $enquiry['organization_name'],
-                    'contact_person' => $enquiry['contact_name'],
-                    'email' => $enquiry['contact_email'],
-                    'phone' => $enquiry['contact_phone']
+                    'name' => $enquiry[$conferenceFields['company']] ?? '',
+                    'contact_person' => $enquiry[$conferenceFields['contact_name']] ?? '',
+                    'email' => $enquiry[$conferenceFields['email']] ?? '',
+                    'phone' => $enquiry[$conferenceFields['phone']] ?? ''
                 ],
                 'event' => [
                     'type' => $enquiry['event_type'],
-                    'start_date' => $enquiry['start_date'],
-                    'end_date' => $enquiry['end_date'],
-                    'expected_attendees' => (int)$enquiry['expected_attendees']
+                    'start_date' => $enquiry[$conferenceFields['start_date']] ?? null,
+                    'end_date' => $enquiry[$conferenceFields['end_date']] ?? null,
+                    'expected_attendees' => (int)($enquiry[$conferenceFields['expected_attendees']] ?? 0)
                 ],
                 'amounts' => [
                     'total_amount' => (float)$enquiry['total_amount'],

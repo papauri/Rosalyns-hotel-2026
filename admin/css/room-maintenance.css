@@ -1,7 +1,6 @@
-.filters-bar form select {
-    min-width: 200px;
-}
+/* Room Maintenance Management Styles */
 
+/* Status Pills */
 .status-pill {
     display: inline-flex;
     align-items: center;
@@ -11,13 +10,83 @@
     font-weight: 600;
 }
 
-.status-pill.planned { background: #eef2ff; color: #3747a5; }
+.status-pill.pending { background: #eef2ff; color: #3747a5; }
 .status-pill.in_progress { background: #fff4e5; color: #a46200; }
 .status-pill.completed { background: #e8f7ee; color: #1f7a45; }
+.status-pill.verified { background: #dbeafe; color: #1e40af; }
 .status-pill.cancelled { background: #f4f5f7; color: #5d6878; }
 
+/* Priority Badges */
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.priority-badge.urgent {
+    background: linear-gradient(135deg, #7c2d12 0%, #991b1b 100%);
+    color: #fef2f2;
+}
+
+.priority-badge.high {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.priority-badge.medium {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+.priority-badge.low {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    color: #4f46e5;
+}
+
+/* Maintenance Type Badges */
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.type-badge.repair {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.type-badge.replacement {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+.type-badge.inspection {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #2563eb;
+}
+
+.type-badge.upgrade {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    color: #7c3aed;
+}
+
+.type-badge.emergency {
+    background: linear-gradient(135deg, #7c2d12 0%, #991b1b 100%);
+    color: #fef2f2;
+}
+
+/* Modal Styles */
 .maintenance-modal-content {
-    width: min(760px, 94vw);
+    width: min(720px, 94vw);
 }
 
 .maintenance-modal-content h3 {
@@ -52,12 +121,313 @@
 }
 
 .maintenance-modal-content .modal-body {
-    max-height: min(72vh, 720px);
+    max-height: min(72vh, 680px);
     overflow-y: auto;
 }
 
+/* Dashboard Statistics Cards */
+.rm-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.rm-stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rm-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.rm-stat-card .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--navy, #1f2d3d);
+}
+
+.rm-stat-card .stat-label {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rm-stat-card.pending {
+    border-left: 4px solid #3747a5;
+}
+
+.rm-stat-card.in_progress {
+    border-left: 4px solid #a46200;
+}
+
+.rm-stat-card.completed {
+    border-left: 4px solid #1f7a45;
+}
+
+.rm-stat-card.high_priority {
+    border-left: 4px solid #dc2626;
+}
+
+.rm-stat-card.urgent_priority {
+    border-left: 4px solid #7c2d12;
+}
+
+/* Section Containers */
+.rm-section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.rm-section h3 {
+    margin: 0 0 16px;
+    font-size: 18px;
+    color: var(--navy, #1f2d3d);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Rooms Needing Maintenance List */
+.rooms-needing-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.room-needs-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fafafa;
+    transition: all 0.2s ease;
+}
+
+.room-needs-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.room-needs-card.out-of-order {
+    border-color: #dc2626;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.room-needs-card.maintenance {
+    border-color: #ea580c;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+}
+
+.room-needs-card .room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.room-needs-card .room-number {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--navy, #1f2d3d);
+}
+
+.room-needs-card .room-condition {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: #e5e7eb;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.room-needs-card.out-of-order .room-condition {
+    background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+    color: #991b1b;
+}
+
+.room-needs-card.maintenance .room-condition {
+    background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+    color: #9a3412;
+}
+
+.room-needs-card .guest-info {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+/* Staff Workload Table */
+.staff-workload-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.staff-workload-table th,
+.staff-workload-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.staff-workload-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.staff-workload-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+/* Bulk Actions */
+.bulk-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.btn-quick {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: white;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-quick:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.btn-quick i {
+    font-size: 12px;
+}
+
+/* Room Status Indicators */
+.room-status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.room-status-indicator.available {
+    background: #10b981;
+}
+
+.room-status-indicator.occupied {
+    background: #f59e0b;
+}
+
+.room-status-indicator.cleaning {
+    background: #3b82f6;
+}
+
+.room-status-indicator.maintenance {
+    background: #ef4444;
+}
+
+.room-status-indicator.out_of_order {
+    background: #dc2626;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
+    .rm-dashboard {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .rooms-needing-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .bulk-actions {
+        flex-direction: column;
+    }
+    
+    .btn-quick {
+        width: 100%;
+        justify-content: center;
+    }
+    
     .maintenance-modal-content .form-row {
         grid-template-columns: 1fr;
     }
+}
+
+@media (max-width: 480px) {
+    .rm-dashboard {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Animation for new items */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.rm-stat-card,
+.room-needs-card {
+    animation: slideIn 0.3s ease;
+}
+
+/* Checkbox styling */
+.room-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--navy, #1f2d3d);
+}
+
+/* Form helper text */
+.form-helper-text {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Recurring options panel */
+#recurringOptions {
+    background: #f9fafb;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+#recurringOptions .form-group {
+    margin-bottom: 8px;
+}
+
+#recurringOptions .form-group:last-child {
+    margin-bottom: 0;
+}
+
+/* Filters bar */
+.filters-bar form select {
+    min-width: 200px;
 }

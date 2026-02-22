@@ -80,7 +80,7 @@ The system requires these database tables (included in `Database/p601229_hotels.
 
 - `rooms` - Room information
 - `bookings` - Booking records
-- `room_blocked_dates` - Date blocking
+- `blocked_dates` - Date blocking
 - `site_settings` - System settings
 - `reviews` - Customer reviews
 - `policies` - Hotel policies

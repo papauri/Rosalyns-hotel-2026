@@ -248,17 +248,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_booking'])) {
         
         $new_booking_id = $pdo->lastInsertId();
         
-        // Update individual room status if assigned
-        if ($individual_room_id && $booking_status === 'confirmed') {
-            $pdo->prepare("UPDATE individual_rooms SET status = 'occupied' WHERE id = ?")->execute([$individual_room_id]);
-            
-            // Log the status change
-            $logStmt = $pdo->prepare("
-                INSERT INTO room_maintenance_log (individual_room_id, status_from, status_to, reason, performed_by)
-                VALUES (?, 'available', 'occupied', ?, ?)
-            ");
-            $logStmt->execute([$individual_room_id, 'Booking: ' . $booking_reference, $user['id']]);
-        }
+        // Note: Individual room status is now handled by assignIndividualRoomToBooking()
+        // which uses timeline-aware logic (only 'occupied' on/after check-in date)
+        // No need to manually set status here
         
         // If confirmed, decrement room availability
         if ($booking_status === 'confirmed') {

@@ -349,59 +349,82 @@ function getIndividualRoomsAvailability($roomTypeId, $checkIn, $checkOut, $exclu
             continue;
         }
         
-        // Check for conflicting bookings
-        $conflictStmt = $pdo->prepare("
-            SELECT
-                b.id,
-                b.booking_reference,
-                b.guest_name,
-                b.check_in_date,
-                b.check_out_date,
-                b.status
-            FROM bookings b
-            WHERE b.individual_room_id = ?
-            AND b.status IN ('pending', 'confirmed', 'checked-in')
-            AND NOT (b.check_out_date <= ? OR b.check_in_date >= ?)
-            " . ($excludeBookingId ? "AND b.id != ?" : "") . "
-            LIMIT 1
+        // Check for individual room blocked dates
+        $blockedStmt = $pdo->prepare("
+            SELECT block_date, block_type, reason
+            FROM individual_room_blocked_dates
+            WHERE individual_room_id = ?
+            AND block_date >= ? AND block_date < ?
+            ORDER BY block_date ASC
         ");
+        $blockedStmt->execute([$room['id'], $checkIn, $checkOut]);
+        $blockedDates = $blockedStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        $params = [$room['id'], $checkIn, $checkOut];
-        if ($excludeBookingId) {
-            $params[] = $excludeBookingId;
-        }
-        
-        $conflictStmt->execute($params);
-        $conflict = $conflictStmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($conflict) {
-            // Room has a booking conflict
+        if (!empty($blockedDates)) {
+            // Room has blocked dates
             $unavailableRooms[] = [
                 'id' => $room['id'],
                 'room_number' => $room['room_number'],
                 'floor' => $room['floor'],
-                'status' => 'booked',
-                'reason' => 'Booked by ' . $conflict['guest_name'],
-                'booking_reference' => $conflict['booking_reference'],
-                'conflicting_booking' => $conflict
+                'status' => 'blocked',
+                'reason' => 'Blocked dates: ' . count($blockedDates) . ' date(s)',
+                'blocked_dates' => $blockedDates
             ];
         } else {
-            // Room is available
-            $availableRooms[] = [
-                'id' => $room['id'],
-                'room_number' => $room['room_number'],
-                'floor' => $room['floor'],
-                'status' => $room['status'],
-                'amenities' => $room['amenities'],
-                'notes' => $room['notes']
-            ];
+            // Check for conflicting bookings
+            $conflictStmt = $pdo->prepare("
+                SELECT
+                    b.id,
+                    b.booking_reference,
+                    b.guest_name,
+                    b.check_in_date,
+                    b.check_out_date,
+                    b.status
+                FROM bookings b
+                WHERE b.individual_room_id = ?
+                AND b.status IN ('pending', 'confirmed', 'checked-in')
+                AND NOT (b.check_out_date <= ? OR b.check_in_date >= ?)
+                " . ($excludeBookingId ? "AND b.id != ?" : "") . "
+                LIMIT 1
+            ");
+            
+            $params = [$room['id'], $checkIn, $checkOut];
+            if ($excludeBookingId) {
+                $params[] = $excludeBookingId;
+            }
+            
+            $conflictStmt->execute($params);
+            $conflict = $conflictStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($conflict) {
+                // Room has a booking conflict
+                $unavailableRooms[] = [
+                    'id' => $room['id'],
+                    'room_number' => $room['room_number'],
+                    'floor' => $room['floor'],
+                    'status' => 'booked',
+                    'reason' => 'Booked by ' . $conflict['guest_name'],
+                    'booking_reference' => $conflict['booking_reference'],
+                    'conflicting_booking' => $conflict
+                ];
+            } else {
+                // Room is available
+                $availableRooms[] = [
+                    'id' => $room['id'],
+                    'room_number' => $room['room_number'],
+                    'floor' => $room['floor'],
+                    'status' => $room['status'],
+                    'amenities' => $room['amenities'],
+                    'notes' => $room['notes']
+                ];
+            }
         }
     }
     
     // Check for blocked dates
     $blockedStmt = $pdo->prepare("
         SELECT block_date, reason
-        FROM room_blocked_dates
+        FROM blocked_dates
         WHERE (room_id = ? OR room_id IS NULL)
         AND block_date >= ? AND block_date < ?
         ORDER BY block_date ASC

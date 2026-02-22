@@ -55,8 +55,8 @@ $outstandingAmount = 0;
 
 if ($bookingType && $bookingId) {
     if ($bookingType === 'room') {
-        $stmt = $pdo->prepare(" 
-            SELECT 
+        $stmt = $pdo->prepare("
+            SELECT
                 b.id,
                 b.booking_reference,
                 b.guest_name,
@@ -66,6 +66,7 @@ if ($bookingType && $bookingId) {
                 b.child_guests,
                 b.child_supplement_total,
                 b.total_amount,
+                b.folio_charges_total,
                 b.amount_paid,
                 b.amount_due,
                 b.vat_rate,
@@ -78,7 +79,10 @@ if ($bookingType && $bookingId) {
         ");
         $stmt->execute([$bookingId]);
         $bookingDetails = $stmt->fetch(PDO::FETCH_ASSOC);
-        $outstandingAmount = $bookingDetails['amount_due'] ?? 0;
+        
+        // Calculate folio summary for accurate totals
+        $folioSummary = getBookingFolioSummary($bookingId);
+        $outstandingAmount = $folioSummary['balance_due'] ?? $bookingDetails['amount_due'] ?? 0;
     } elseif ($bookingType === 'conference') {
         $stmt = $pdo->prepare(" 
             SELECT 

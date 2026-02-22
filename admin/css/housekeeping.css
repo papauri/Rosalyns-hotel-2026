@@ -1,3 +1,6 @@
+/* Housekeeping Management Styles */
+
+/* Status Pills */
 .status-pill {
     display: inline-flex;
     align-items: center;
@@ -10,8 +13,68 @@
 .status-pill.pending { background: #eef2ff; color: #3747a5; }
 .status-pill.in_progress { background: #fff4e5; color: #a46200; }
 .status-pill.completed { background: #e8f7ee; color: #1f7a45; }
+.status-pill.verified { background: #dbeafe; color: #1e40af; }
 .status-pill.blocked { background: #fdeced; color: #a8373f; }
 
+/* Priority Badges */
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.priority-badge.high {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.priority-badge.medium {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+.priority-badge.low {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    color: #4f46e5;
+}
+
+/* Assignment Type Badges */
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.type-badge.checkout_cleanup {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.type-badge.deep_clean {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    color: #7c3aed;
+}
+
+.type-badge.turn_down {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #2563eb;
+}
+
+.type-badge.maintenance {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+/* Modal Styles */
 .housekeeping-modal-content {
     width: min(720px, 94vw);
 }
@@ -44,4 +107,289 @@
 .housekeeping-modal-content .modal-body {
     max-height: min(72vh, 680px);
     overflow-y: auto;
+}
+
+/* Dashboard Statistics Cards */
+.hk-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.hk-stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hk-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.hk-stat-card .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--navy, #1f2d3d);
+}
+
+.hk-stat-card .stat-label {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hk-stat-card.pending {
+    border-left: 4px solid #3747a5;
+}
+
+.hk-stat-card.in_progress {
+    border-left: 4px solid #a46200;
+}
+
+.hk-stat-card.completed {
+    border-left: 4px solid #1f7a45;
+}
+
+.hk-stat-card.high_priority {
+    border-left: 4px solid #dc2626;
+}
+
+/* Section Containers */
+.hk-section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.hk-section h3 {
+    margin: 0 0 16px;
+    font-size: 18px;
+    color: var(--navy, #1f2d3d);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Occupied Rooms List */
+.occupied-rooms-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.occupied-room-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fafafa;
+    transition: all 0.2s ease;
+}
+
+.occupied-room-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.occupied-room-card.checkout-today {
+    border-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.occupied-room-card .room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.occupied-room-card .room-number {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--navy, #1f2d3d);
+}
+
+.occupied-room-card .occupancy-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: #e5e7eb;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.occupied-room-card.checkout-today .occupancy-badge {
+    background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%);
+    color: #92400e;
+}
+
+.occupied-room-card .guest-info {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.occupied-room-card .date-info {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* Staff Workload Table */
+.staff-workload-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.staff-workload-table th,
+.staff-workload-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.staff-workload-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.staff-workload-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+/* Bulk Actions */
+.bulk-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.btn-quick {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: white;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-quick:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.btn-quick i {
+    font-size: 12px;
+}
+
+/* Room Status Indicators */
+.room-status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.room-status-indicator.available {
+    background: #10b981;
+}
+
+.room-status-indicator.occupied {
+    background: #f59e0b;
+}
+
+.room-status-indicator.cleaning {
+    background: #3b82f6;
+}
+
+.room-status-indicator.maintenance {
+    background: #ef4444;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .hk-dashboard {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .occupied-rooms-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .bulk-actions {
+        flex-direction: column;
+    }
+    
+    .btn-quick {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .hk-dashboard {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Animation for new items */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hk-stat-card,
+.occupied-room-card {
+    animation: slideIn 0.3s ease;
+}
+
+/* Checkbox styling */
+.room-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--navy, #1f2d3d);
+}
+
+/* Form helper text */
+.form-helper-text {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Recurring options panel */
+#recurringOptions {
+    background: #f9fafb;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+#recurringOptions .form-group {
+    margin-bottom: 8px;
+}
+
+#recurringOptions .form-group:last-child {
+    margin-bottom: 0;
 }

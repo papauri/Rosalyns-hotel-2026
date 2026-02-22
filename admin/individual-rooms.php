@@ -323,7 +323,7 @@ if ($filter_floor) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT 
+    SELECT
         ir.*,
         r.name as room_type_name,
         r.price_per_night,
@@ -334,16 +334,56 @@ $stmt = $pdo->prepare("
         r.children_allowed,
         r.child_price_multiplier as room_type_child_price_multiplier,
         COALESCE(ir.child_price_multiplier, r.child_price_multiplier) AS effective_child_price_multiplier,
-        b.booking_reference as current_booking_ref,
-        b.id as current_booking_id,
-        b.guest_name as current_guest,
-        b.check_in_date as current_checkin,
-        b.check_out_date as current_checkout
+        -- Active booking: guest has checked in (check_in <= today AND check_out >= today)
+        active_b.booking_reference as active_booking_ref,
+        active_b.id as active_booking_id,
+        active_b.guest_name as active_guest,
+        active_b.check_in_date as active_checkin,
+        active_b.check_out_date as active_checkout,
+        active_b.status as active_booking_status,
+        -- Reserved booking: future confirmed booking (check_in > today)
+        reserved_b.booking_reference as reserved_booking_ref,
+        reserved_b.id as reserved_booking_id,
+        reserved_b.guest_name as reserved_guest,
+        reserved_b.check_in_date as reserved_checkin,
+        reserved_b.check_out_date as reserved_checkout,
+        reserved_b.status as reserved_booking_status,
+        -- Next booking: after active/reserved booking ends
+        next_b.booking_reference as next_booking_ref,
+        next_b.id as next_booking_id,
+        next_b.guest_name as next_guest,
+        next_b.check_in_date as next_checkin,
+        next_b.check_out_date as next_checkout,
+        next_b.status as next_booking_status
     FROM individual_rooms ir
     LEFT JOIN rooms r ON ir.room_type_id = r.id
-    LEFT JOIN bookings b ON ir.id = b.individual_room_id 
-        AND b.status IN ('confirmed', 'checked-in') 
-        AND b.check_out_date >= CURDATE()
+    -- Active booking: currently occupied (checked in and stay has started)
+    LEFT JOIN bookings active_b ON ir.id = active_b.individual_room_id
+        AND active_b.status IN ('confirmed', 'checked-in')
+        AND active_b.check_in_date <= CURDATE()
+        AND active_b.check_out_date >= CURDATE()
+    -- Reserved booking: future confirmed booking (stay hasn't started yet)
+    LEFT JOIN bookings reserved_b ON ir.id = reserved_b.individual_room_id
+        AND reserved_b.status IN ('confirmed', 'checked-in')
+        AND reserved_b.check_in_date > CURDATE()
+        AND reserved_b.check_in_date = (
+            SELECT MIN(check_in_date)
+            FROM bookings b2
+            WHERE b2.individual_room_id = ir.id
+            AND b2.status IN ('confirmed', 'checked-in')
+            AND b2.check_in_date > CURDATE()
+        )
+    -- Next booking: earliest future booking from today (includes reserved bookings)
+    LEFT JOIN bookings next_b ON ir.id = next_b.individual_room_id
+        AND next_b.status IN ('confirmed', 'checked-in')
+        AND next_b.check_in_date > CURDATE()
+        AND next_b.check_in_date = (
+            SELECT MIN(check_in_date)
+            FROM bookings b3
+            WHERE b3.individual_room_id = ir.id
+            AND b3.status IN ('confirmed', 'checked-in')
+            AND b3.check_in_date > CURDATE()
+        )
     WHERE " . implode(' AND ', $whereClauses) . "
     ORDER BY r.name ASC, ir.floor ASC, ir.room_number ASC
 ");
@@ -527,19 +567,66 @@ $currency = htmlspecialchars(getSetting('currency_symbol', 'MWK'));
                             <th>Floor</th>
                             <th>Status</th>
                             <th>Current Booking</th>
+                            <th>Next Booking</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($individualRooms)): ?>
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                                <td colspan="8" style="text-align: center; padding: 40px; color: #666;">
                                     <i class="fas fa-door-open" style="font-size: 48px; margin-bottom: 16px; display: block; color: #ddd;"></i>
                                     No individual rooms found. Click "Add Individual Room" to create one.
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($individualRooms as $room): ?>
+                                <?php
+                                // Compute timeline-aware display status
+                                $displayStatus = $room['status'];
+                                $statusIcon = 'check';
+                                $statusLabel = ucfirst(str_replace('_', ' ', $room['status']));
+                                $hasActiveBooking = !empty($room['active_booking_ref']);
+                                $hasReservedBooking = !empty($room['reserved_booking_ref']);
+                                
+                                // Timeline-aware status override
+                                if ($hasActiveBooking) {
+                                    // Room has an active checked-in booking (stay in progress)
+                                    $displayStatus = 'occupied';
+                                    $statusIcon = 'user';
+                                    $statusLabel = 'Occupied';
+                                } elseif ($hasReservedBooking) {
+                                    // Room has a future confirmed booking (reserved/upcoming)
+                                    // Show as available now with future booking details in booking columns
+                                    $displayStatus = 'available';
+                                    $statusIcon = 'check';
+                                    $statusLabel = 'Available';
+                                } else {
+                                    // No active or future bookings - use physical status
+                                    switch ($room['status']) {
+                                        case 'available':
+                                            $statusIcon = 'check';
+                                            $statusLabel = 'Available';
+                                            break;
+                                        case 'occupied':
+                                            $statusIcon = 'user';
+                                            $statusLabel = 'Occupied';
+                                            break;
+                                        case 'cleaning':
+                                            $statusIcon = 'broom';
+                                            $statusLabel = 'Cleaning';
+                                            break;
+                                        case 'maintenance':
+                                            $statusIcon = 'tools';
+                                            $statusLabel = 'Maintenance';
+                                            break;
+                                        case 'out_of_order':
+                                            $statusIcon = 'ban';
+                                            $statusLabel = 'Out of Order';
+                                            break;
+                                    }
+                                }
+                                ?>
                                 <tr>
                                     <td>
                                         <input type="checkbox" name="room_ids[]" value="<?php echo $room['id']; ?>" onchange="updateBulkActions()">
@@ -553,26 +640,36 @@ $currency = htmlspecialchars(getSetting('currency_symbol', 'MWK'));
                                     <td><?php echo htmlspecialchars($room['room_type_name'] ?? 'Unknown'); ?></td>
                                     <td><?php echo $room['floor'] ? htmlspecialchars($room['floor']) : '-'; ?></td>
                                     <td>
-                                        <span class="status-badge status-<?php echo $room['status']; ?>">
-                                            <i class="fas fa-<?php 
-                                                echo $room['status'] === 'available' ? 'check' : 
-                                                    ($room['status'] === 'occupied' ? 'user' : 
-                                                    ($room['status'] === 'cleaning' ? 'broom' : 
-                                                    ($room['status'] === 'maintenance' ? 'tools' : 'ban'))); 
-                                            ?>"></i>
-                                            <?php echo ucfirst(str_replace('_', ' ', $room['status'])); ?>
+                                        <span class="status-badge status-<?php echo $displayStatus; ?>">
+                                            <i class="fas fa-<?php echo $statusIcon; ?>"></i>
+                                            <?php echo $statusLabel; ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <?php if ($room['current_booking_ref']): ?>
+                                        <?php if ($hasActiveBooking): ?>
                                             <div class="current-booking">
-                                                <a href="booking-details.php?id=<?php echo $room['current_booking_id'] ?? ''; ?>">
-                                                    <?php echo htmlspecialchars($room['current_booking_ref']); ?>
+                                                <a href="booking-details.php?id=<?php echo $room['active_booking_id']; ?>">
+                                                    <?php echo htmlspecialchars($room['active_booking_ref']); ?>
                                                 </a>
                                                 <br>
-                                                <small><?php echo htmlspecialchars($room['current_guest']); ?></small>
+                                                <small><?php echo htmlspecialchars($room['active_guest']); ?></small>
                                                 <br>
-                                                <small><?php echo $room['current_checkin']; ?> &rarr; <?php echo $room['current_checkout']; ?></small>
+                                                <small><?php echo $room['active_checkin']; ?> &rarr; <?php echo $room['active_checkout']; ?></small>
+                                            </div>
+                                        <?php else: ?>
+                                            <span style="color: #999;">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($room['next_booking_ref']): ?>
+                                            <div class="next-booking">
+                                                <a href="booking-details.php?id=<?php echo $room['next_booking_id']; ?>">
+                                                    <?php echo htmlspecialchars($room['next_booking_ref']); ?>
+                                                </a>
+                                                <br>
+                                                <small><?php echo htmlspecialchars($room['next_guest']); ?></small>
+                                                <br>
+                                                <small><?php echo $room['next_checkin']; ?> &rarr; <?php echo $room['next_checkout']; ?></small>
                                             </div>
                                         <?php else: ?>
                                             <span style="color: #999;">-</span>

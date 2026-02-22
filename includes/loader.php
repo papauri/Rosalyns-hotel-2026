@@ -1,6 +1,7 @@
 <?php
+$siteName = '';
 if (function_exists('getSetting')) {
-    $siteName = getSetting('site_name');
+    $siteName = getSetting('site_name') ?? '';
 }
 
 // Auto-detect current page slug from filename

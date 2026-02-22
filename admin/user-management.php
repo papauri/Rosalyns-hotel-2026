@@ -1,7 +1,11 @@
 <?php
-// Include admin initialization (PHP-only, no HTML output)
+/**
+ * User Management
+ * Comprehensive admin user and permission management
+ * 
+ * @version 2.0.0
+ */
 require_once 'admin-init.php';
-// permissions.php already loaded by admin-init.php
 
 // Require access to user management module
 if (!hasPermission($user['id'], 'user_management')) {
@@ -12,6 +16,9 @@ if (!hasPermission($user['id'], 'user_management')) {
 $site_name = getSetting('site_name');
 $success_msg = '';
 $error_msg = '';
+
+// Get all roles for use throughout the page
+$all_roles = getAllRoles();
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -26,31 +33,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!hasPermission($user['id'], 'user_create')) {
                 $error_msg = 'You do not have permission to create users.';
             } else {
-            $username = trim($_POST['username'] ?? '');
-            $email = trim($_POST['email'] ?? '');
-            $full_name = trim($_POST['full_name'] ?? '');
-            $role = $_POST['role'] ?? 'receptionist';
-            $password = $_POST['password'] ?? '';
-            
-            if (empty($username) || empty($email) || empty($full_name) || empty($password)) {
-                $error_msg = 'All fields are required.';
-            } elseif (strlen($password) < 8) {
-                $error_msg = 'Password must be at least 8 characters.';
-            } elseif (!in_array($role, ['admin', 'manager', 'receptionist'])) {
-                $error_msg = 'Invalid role selected.';
-            } else {
-                // Check for duplicate username/email
-                $check = $pdo->prepare("SELECT COUNT(*) FROM admin_users WHERE username = ? OR email = ?");
-                $check->execute([$username, $email]);
-                if ($check->fetchColumn() > 0) {
-                    $error_msg = 'Username or email already exists.';
+                $username = trim($_POST['username'] ?? '');
+                $email = trim($_POST['email'] ?? '');
+                $full_name = trim($_POST['full_name'] ?? '');
+                $role = $_POST['role'] ?? 'receptionist';
+                $password = $_POST['password'] ?? '';
+                $send_welcome = !empty($_POST['send_welcome']);
+                
+                if (empty($username) || empty($email) || empty($full_name) || empty($password)) {
+                    $error_msg = 'All fields are required.';
+                } elseif (strlen($password) < 8) {
+                    $error_msg = 'Password must be at least 8 characters.';
+                } elseif (!isset($all_roles[$role])) {
+                    $error_msg = 'Invalid role selected.';
                 } else {
-                    $hash = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt = $pdo->prepare("INSERT INTO admin_users (username, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)");
-                    $stmt->execute([$username, $email, $hash, $full_name, $role]);
-                    $success_msg = "User '{$full_name}' created successfully.";
+                    // Check for duplicate username/email
+                    $check = $pdo->prepare("SELECT COUNT(*) FROM admin_users WHERE username = ? OR email = ?");
+                    $check->execute([$username, $email]);
+                    if ($check->fetchColumn() > 0) {
+                        $error_msg = 'Username or email already exists.';
+                    } else {
+                        $hash = password_hash($password, PASSWORD_DEFAULT);
+                        $stmt = $pdo->prepare("INSERT INTO admin_users (username, email, password_hash, full_name, role, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                        $stmt->execute([$username, $email, $hash, $full_name, $role]);
+                        $new_user_id = $pdo->lastInsertId();
+                        
+                        // Log the action
+                        logActivity($user['id'], 'user_created', "Created user '{$username}' ({$full_name}) with role '{$role}'");
+                        
+                        $success_msg = "User '{$full_name}' created successfully.";
+                        
+                        // Send welcome email if requested
+                        if ($send_welcome) {
+                            // TODO: Implement welcome email
+                        }
+                    }
                 }
-            }
             }
         }
         
@@ -59,40 +77,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!hasPermission($user['id'], 'user_edit')) {
                 $error_msg = 'You do not have permission to edit users.';
             } else {
-            $uid = (int)($_POST['user_id'] ?? 0);
-            $full_name = trim($_POST['full_name'] ?? '');
-            $email = trim($_POST['email'] ?? '');
-            $role = $_POST['role'] ?? 'receptionist';
-            $is_active = isset($_POST['is_active']) ? 1 : 0;
-            $new_password = $_POST['new_password'] ?? '';
-            
-            if ($uid <= 0 || empty($full_name) || empty($email)) {
-                $error_msg = 'Full name and email are required.';
-            } elseif (!in_array($role, ['admin', 'manager', 'receptionist'])) {
-                $error_msg = 'Invalid role selected.';
-            } else {
-                // Check email uniqueness (excluding current user)
-                $check = $pdo->prepare("SELECT COUNT(*) FROM admin_users WHERE email = ? AND id != ?");
-                $check->execute([$email, $uid]);
-                if ($check->fetchColumn() > 0) {
-                    $error_msg = 'Email already in use by another user.';
+                $uid = (int)($_POST['user_id'] ?? 0);
+                $full_name = trim($_POST['full_name'] ?? '');
+                $email = trim($_POST['email'] ?? '');
+                $role = $_POST['role'] ?? 'receptionist';
+                $is_active = isset($_POST['is_active']) ? 1 : 0;
+                $new_password = $_POST['new_password'] ?? '';
+                
+                // Check if user can manage this target user
+                if (!canManageUser($user['id'], $uid)) {
+                    $error_msg = 'You cannot edit this user.';
+                } elseif ($uid <= 0 || empty($full_name) || empty($email)) {
+                    $error_msg = 'Full name and email are required.';
+                } elseif (!isset($all_roles[$role])) {
+                    $error_msg = 'Invalid role selected.';
                 } else {
-                    if (!empty($new_password)) {
-                        if (strlen($new_password) < 8) {
-                            $error_msg = 'Password must be at least 8 characters.';
-                        } else {
-                            $hash = password_hash($new_password, PASSWORD_DEFAULT);
-                            $stmt = $pdo->prepare("UPDATE admin_users SET full_name = ?, email = ?, role = ?, is_active = ?, password_hash = ? WHERE id = ?");
-                            $stmt->execute([$full_name, $email, $role, $is_active, $hash, $uid]);
-                            $success_msg = "User updated successfully (including password).";
-                        }
+                    // Check email uniqueness (excluding current user)
+                    $check = $pdo->prepare("SELECT COUNT(*) FROM admin_users WHERE email = ? AND id != ?");
+                    $check->execute([$email, $uid]);
+                    if ($check->fetchColumn() > 0) {
+                        $error_msg = 'Email already in use by another user.';
                     } else {
-                        $stmt = $pdo->prepare("UPDATE admin_users SET full_name = ?, email = ?, role = ?, is_active = ? WHERE id = ?");
-                        $stmt->execute([$full_name, $email, $role, $is_active, $uid]);
-                        $success_msg = "User updated successfully.";
+                        // Check if this is the last admin
+                        $current_role_stmt = $pdo->prepare("SELECT role FROM admin_users WHERE id = ?");
+                        $current_role_stmt->execute([$uid]);
+                        $current_role = $current_role_stmt->fetchColumn();
+                        
+                        if ($current_role === 'admin' && $role !== 'admin') {
+                            $admin_count = $pdo->query("SELECT COUNT(*) FROM admin_users WHERE role = 'admin' AND is_active = 1")->fetchColumn();
+                            if ($admin_count <= 1) {
+                                $error_msg = 'Cannot change role: this is the last active admin.';
+                            }
+                        }
+                        
+                        if (!$error_msg) {
+                            if (!empty($new_password)) {
+                                if (strlen($new_password) < 8) {
+                                    $error_msg = 'Password must be at least 8 characters.';
+                                } else {
+                                    $hash = password_hash($new_password, PASSWORD_DEFAULT);
+                                    $stmt = $pdo->prepare("UPDATE admin_users SET full_name = ?, email = ?, role = ?, is_active = ?, password_hash = ? WHERE id = ?");
+                                    $stmt->execute([$full_name, $email, $role, $is_active, $hash, $uid]);
+                                    $success_msg = "User updated successfully (including password).";
+                                }
+                            } else {
+                                $stmt = $pdo->prepare("UPDATE admin_users SET full_name = ?, email = ?, role = ?, is_active = ? WHERE id = ?");
+                                $stmt->execute([$full_name, $email, $role, $is_active, $uid]);
+                                $success_msg = "User updated successfully.";
+                            }
+                            
+                            // Reset permissions to role defaults if role changed
+                            if ($current_role !== $role && $role !== 'admin') {
+                                resetUserPermissionsToDefault($uid, $user['id']);
+                                $success_msg .= ' Permissions reset to role defaults.';
+                            }
+                            
+                            logActivity($user['id'], 'user_updated', "Updated user ID {$uid}");
+                        }
                     }
                 }
-            }
             }
         }
         
@@ -101,34 +144,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!hasPermission($user['id'], 'user_permissions')) {
                 $error_msg = 'You do not have permission to modify user permissions.';
             } else {
-            $uid = (int)($_POST['user_id'] ?? 0);
-            if ($uid <= 0) {
-                $error_msg = 'Invalid user.';
-            } else {
-                // Ensure not editing admin's permissions
-                $check_role = $pdo->prepare("SELECT role FROM admin_users WHERE id = ?");
-                $check_role->execute([$uid]);
-                $target_role = $check_role->fetchColumn();
-                
-                if ($target_role === 'admin') {
-                    $error_msg = 'Cannot modify admin permissions.';
+                $uid = (int)($_POST['user_id'] ?? 0);
+                if ($uid <= 0) {
+                    $error_msg = 'Invalid user.';
+                } elseif (!canManageUser($user['id'], $uid)) {
+                    $error_msg = 'You cannot modify this user\'s permissions.';
                 } else {
-                    $all_perms = getAllPermissions();
-                    $granted = $_POST['permissions'] ?? [];
-                    $perms_to_set = [];
+                    // Ensure not editing admin's permissions
+                    $check_role = $pdo->prepare("SELECT role FROM admin_users WHERE id = ?");
+                    $check_role->execute([$uid]);
+                    $target_role = $check_role->fetchColumn();
                     
-                    foreach ($all_perms as $key => $info) {
-                        if ($key === 'user_management') continue; // Admin-only
-                        $perms_to_set[$key] = in_array($key, $granted);
-                    }
-                    
-                    if (setUserPermissions($uid, $perms_to_set, $user['id'])) {
-                        $success_msg = "Permissions updated successfully.";
+                    if ($target_role === 'admin') {
+                        $error_msg = 'Cannot modify admin permissions.';
                     } else {
-                        $error_msg = "Failed to update permissions.";
+                        $all_perms = getAllPermissions();
+                        $granted = $_POST['permissions'] ?? [];
+                        $perms_to_set = [];
+                        
+                        foreach ($all_perms as $key => $info) {
+                            if ($key === 'user_management') continue; // Admin-only
+                            $perms_to_set[$key] = in_array($key, $granted);
+                        }
+                        
+                        if (setUserPermissions($uid, $perms_to_set, $user['id'])) {
+                            $success_msg = "Permissions updated successfully.";
+                        } else {
+                            $error_msg = "Failed to update permissions.";
+                        }
                     }
                 }
             }
+        }
+        
+        // ---- RESET PERMISSIONS ----
+        elseif ($action === 'reset_permissions') {
+            if (!hasPermission($user['id'], 'user_permissions')) {
+                $error_msg = 'You do not have permission to modify user permissions.';
+            } else {
+                $uid = (int)($_POST['user_id'] ?? 0);
+                
+                if (!canManageUser($user['id'], $uid)) {
+                    $error_msg = 'You cannot modify this user\'s permissions.';
+                } elseif (resetUserPermissionsToDefault($uid, $user['id'])) {
+                    $success_msg = "Permissions reset to role defaults.";
+                } else {
+                    $error_msg = "Failed to reset permissions.";
+                }
             }
         }
         
@@ -137,34 +199,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!hasPermission($user['id'], 'user_delete')) {
                 $error_msg = 'You do not have permission to delete users.';
             } else {
-            $uid = (int)($_POST['user_id'] ?? 0);
-            if ($uid <= 0) {
-                $error_msg = 'Invalid user.';
-            } elseif ($uid === (int)$user['id']) {
-                $error_msg = 'You cannot delete your own account.';
-            } else {
-                // Don't allow deleting the last admin
-                $admin_count = $pdo->query("SELECT COUNT(*) FROM admin_users WHERE role = 'admin' AND is_active = 1")->fetchColumn();
-                $check_role = $pdo->prepare("SELECT role FROM admin_users WHERE id = ?");
-                $check_role->execute([$uid]);
-                $target_role = $check_role->fetchColumn();
-                
-                if ($target_role === 'admin' && $admin_count <= 1) {
-                    $error_msg = 'Cannot delete the last admin user.';
+                $uid = (int)($_POST['user_id'] ?? 0);
+                if ($uid <= 0) {
+                    $error_msg = 'Invalid user.';
+                } elseif ($uid === (int)$user['id']) {
+                    $error_msg = 'You cannot delete your own account.';
+                } elseif (!canManageUser($user['id'], $uid)) {
+                    $error_msg = 'You cannot delete this user.';
                 } else {
-                    $stmt = $pdo->prepare("DELETE FROM admin_users WHERE id = ?");
-                    $stmt->execute([$uid]);
-                    $success_msg = "User deleted successfully.";
+                    // Don't allow deleting the last admin
+                    $admin_count = $pdo->query("SELECT COUNT(*) FROM admin_users WHERE role = 'admin' AND is_active = 1")->fetchColumn();
+                    $check_role = $pdo->prepare("SELECT role, full_name FROM admin_users WHERE id = ?");
+                    $check_role->execute([$uid]);
+                    $target = $check_role->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($target && $target['role'] === 'admin' && $admin_count <= 1) {
+                        $error_msg = 'Cannot delete the last admin user.';
+                    } else {
+                        // Delete user permissions first
+                        $pdo->prepare("DELETE FROM user_permissions WHERE user_id = ?")->execute([$uid]);
+                        
+                        // Delete user
+                        $stmt = $pdo->prepare("DELETE FROM admin_users WHERE id = ?");
+                        $stmt->execute([$uid]);
+                        
+                        logActivity($user['id'], 'user_deleted', "Deleted user '{$target['full_name']}'");
+                        $success_msg = "User deleted successfully.";
+                    }
                 }
             }
+        }
+        
+        // ---- BULK ROLE CHANGE ----
+        elseif ($action === 'bulk_role_change') {
+            if (!hasPermission($user['id'], 'user_edit')) {
+                $error_msg = 'You do not have permission to edit users.';
+            } else {
+                $user_ids = $_POST['user_ids'] ?? [];
+                $new_role = $_POST['new_role'] ?? '';
+                
+                if (!isset($all_roles[$new_role])) {
+                    $error_msg = 'Invalid role selected.';
+                } elseif (empty($user_ids)) {
+                    $error_msg = 'No users selected.';
+                } else {
+                    $count = 0;
+                    foreach ($user_ids as $uid) {
+                        $uid = (int)$uid;
+                        if (canManageUser($user['id'], $uid)) {
+                            // Skip if it's the last admin
+                            $check = $pdo->prepare("SELECT role FROM admin_users WHERE id = ?");
+                            $check->execute([$uid]);
+                            $current_role = $check->fetchColumn();
+                            
+                            if ($current_role === 'admin' && $new_role !== 'admin') {
+                                $admin_count = $pdo->query("SELECT COUNT(*) FROM admin_users WHERE role = 'admin' AND is_active = 1")->fetchColumn();
+                                if ($admin_count <= 1) continue; // Skip last admin
+                            }
+                            
+                            $pdo->prepare("UPDATE admin_users SET role = ? WHERE id = ?")->execute([$new_role, $uid]);
+                            resetUserPermissionsToDefault($uid, $user['id']);
+                            $count++;
+                        }
+                    }
+                    $success_msg = "Updated role for {$count} user(s).";
+                    logActivity($user['id'], 'bulk_role_change', "Changed {$count} users to role '{$new_role}'");
+                }
             }
         }
     }
 }
 
-// Fetch all users
-$users_stmt = $pdo->query("SELECT * FROM admin_users ORDER BY role ASC, full_name ASC");
+// Fetch all users with last activity
+$users_stmt = $pdo->query("
+    SELECT u.*, 
+           (SELECT action FROM admin_activity_log WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) as last_action,
+           (SELECT created_at FROM admin_activity_log WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) as last_activity
+    FROM admin_users u
+    ORDER BY u.role ASC, u.full_name ASC
+");
 $all_users = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get user counts by role
+$user_counts = getUserCountByRole();
 
 // If editing a specific user's permissions
 $editing_user_id = isset($_GET['permissions']) ? (int)$_GET['permissions'] : 0;
@@ -188,6 +305,9 @@ foreach ($all_permissions as $key => $info) {
     if ($key === 'user_management') continue;
     $permission_categories[$info['category']][$key] = $info;
 }
+
+// Get navigation categories for ordered display
+$nav_categories = getNavCategories();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -200,95 +320,714 @@ foreach ($all_permissions as $key => $info) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../css/base/critical.css">
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="css/admin-styles.css">
-    <link rel="stylesheet" href="css/admin-components.css"></head>
+    <link rel="stylesheet" href="css/admin-components.css">
+    <style>
+        .user-management-container {
+            padding: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .page-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 28px;
+            color: var(--navy);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .page-title i {
+            color: var(--gold);
+        }
+        
+        /* Role Overview Cards */
+        .role-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .role-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid var(--admin-surface-border);
+            transition: all 0.2s;
+        }
+        
+        .role-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .role-card .role-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            margin: 0 auto 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .role-card .role-count {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--navy);
+            line-height: 1;
+        }
+        
+        .role-card .role-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        /* User Table */
+        .users-section {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        
+        .users-section-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .users-section-header h3 {
+            margin: 0;
+            font-size: 16px;
+            color: var(--navy);
+        }
+        
+        .user-filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--admin-surface-border);
+            background: white;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--gold);
+            border-color: var(--gold);
+            color: white;
+        }
+        
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .users-table th {
+            background: #f8f9fb;
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            letter-spacing: 0.5px;
+        }
+        
+        .users-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        
+        .users-table tr:hover {
+            background: #fafbfd;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--navy) 0%, #2A2A2A 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .user-details .user-name {
+            font-weight: 600;
+            color: var(--navy);
+        }
+        
+        .user-details .user-email {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .role-badge.admin { background: rgba(212, 168, 67, 0.15); color: #b8941f; }
+        .role-badge.manager { background: rgba(23, 162, 184, 0.15); color: #17a2b8; }
+        .role-badge.receptionist { background: rgba(40, 167, 69, 0.15); color: #28a745; }
+        .role-badge.housekeeping { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+        .role-badge.accountant { background: rgba(253, 126, 20, 0.15); color: #fd7e14; }
+        .role-badge.viewer { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        
+        .status-badge.active { background: #d4edda; color: #155724; }
+        .status-badge.inactive { background: #f8d7da; color: #721c24; }
+        
+        .status-badge i {
+            font-size: 6px;
+        }
+        
+        .actions-cell {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .btn-edit { background: #e3f2fd; color: #1565c0; }
+        .btn-edit:hover { background: #1565c0; color: white; }
+        
+        .btn-permissions { background: #fff3e0; color: #e65100; }
+        .btn-permissions:hover { background: #e65100; color: white; }
+        
+        .btn-delete { background: #ffebee; color: #c62828; }
+        .btn-delete:hover { background: #c62828; color: white; }
+        
+        .btn-add {
+            background: linear-gradient(135deg, var(--gold) 0%, #c49b2e 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .btn-add:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(212, 168, 67, 0.3);
+        }
+        
+        /* Permissions Panel */
+        .permissions-panel {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            overflow: hidden;
+            margin-top: 24px;
+        }
+        
+        .permissions-header {
+            background: linear-gradient(135deg, var(--navy) 0%, #2A2A2A 100%);
+            color: white;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .permissions-header h3 {
+            margin: 0;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .perm-user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .perm-user-name {
+            font-weight: 600;
+        }
+        
+        .permissions-body {
+            padding: 24px;
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-select-all, .btn-select-none, .btn-select-defaults {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--admin-surface-border);
+            background: white;
+            transition: all 0.2s;
+        }
+        
+        .btn-select-all:hover { background: #d4edda; border-color: #28a745; }
+        .btn-select-none:hover { background: #f8d7da; border-color: #dc3545; }
+        .btn-select-defaults:hover { background: #fff3cd; border-color: #ffc107; }
+        
+        .perm-category {
+            margin-bottom: 24px;
+        }
+        
+        .perm-category-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--navy);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .perm-category-title i {
+            color: var(--gold);
+        }
+        
+        .perm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 10px;
+        }
+        
+        .perm-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f8f9fb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .perm-item:hover {
+            background: #f0f2f5;
+        }
+        
+        .perm-item.checked {
+            background: rgba(40, 167, 69, 0.08);
+            border-color: rgba(40, 167, 69, 0.3);
+        }
+        
+        .perm-item input {
+            display: none;
+        }
+        
+        .perm-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .perm-item.checked .perm-icon {
+            background: var(--gold);
+            color: white;
+        }
+        
+        .perm-info {
+            flex: 1;
+        }
+        
+        .perm-label {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--navy);
+        }
+        
+        .perm-desc {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+        
+        .perm-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #f0f0f0;
+        }
+        
+        .btn-cancel {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--admin-surface-border);
+            background: white;
+            color: var(--navy);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-save-perms {
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: linear-gradient(135deg, var(--gold) 0%, #c49b2e 100%);
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        
+        .form-row {
+            margin-bottom: 16px;
+        }
+        
+        .form-row label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--navy);
+        }
+        
+        .form-row input,
+        .form-row select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--admin-surface-border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Jost', sans-serif;
+        }
+        
+        .form-row input:focus,
+        .form-row select:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+        
+        .hint {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+        
+        /* Admin Info Panel */
+        .admin-info-panel {
+            background: linear-gradient(135deg, rgba(212, 168, 67, 0.1) 0%, rgba(212, 168, 67, 0.05) 100%);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            margin-top: 24px;
+        }
+        
+        .admin-info-panel i.crown-icon {
+            font-size: 48px;
+            color: var(--gold);
+            margin-bottom: 16px;
+        }
+        
+        .admin-info-panel h3 {
+            margin: 0 0 8px;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 24px;
+            color: var(--navy);
+        }
+        
+        .admin-info-panel p {
+            color: #666;
+            margin: 0;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .user-management-container {
+                padding: 16px;
+            }
+            
+            .users-table th:nth-child(5),
+            .users-table td:nth-child(5) {
+                display: none;
+            }
+            
+            .perm-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
 <body>
 
 <?php require_once 'includes/admin-header.php'; ?>
 
-<main class="admin-content">
-    
-    <?php if (isset($_GET['error']) && $_GET['error'] === 'access_denied'): ?>
-    <div class="access-denied">
-        <i class="fas fa-exclamation-triangle"></i>
-        You do not have permission to access that page.
-    </div>
-    <?php endif; ?>
+<div class="user-management-container">
     
     <?php if ($success_msg): ?>
-    <div class="alert alert-success">
+    <div class="alert alert-success" style="background: #d4edda; color: #155724; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
         <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_msg); ?>
     </div>
     <?php endif; ?>
     
     <?php if ($error_msg): ?>
-    <div class="alert alert-error">
+    <div class="alert alert-error" style="background: #f8d7da; color: #721c24; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
         <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_msg); ?>
     </div>
     <?php endif; ?>
     
-    <!-- USERS LIST -->
+    <!-- Page Header -->
     <div class="page-header">
-        <h2><i class="fas fa-users-cog"></i> User Management</h2>
+        <h1 class="page-title"><i class="fas fa-users-cog"></i> User Management</h1>
         <?php if (hasPermission($user['id'], 'user_create')): ?>
-        <button class="btn-add" onclick="Modal.open('addUserModal')">
-            <i class="fas fa-user-plus"></i> Add New User
+        <button class="btn-add" onclick="openModal('addUserModal')">
+            <i class="fas fa-user-plus"></i> Add User
         </button>
         <?php endif; ?>
     </div>
     
-    <div style="overflow-x:auto;">
-        <table class="users-table">
+    <!-- Role Overview -->
+    <div class="role-overview">
+        <?php foreach ($all_roles as $role_key => $role_data): ?>
+        <?php $count = $user_counts[$role_key] ?? 0; ?>
+        <div class="role-card">
+            <div class="role-icon" style="background: <?php echo $role_data['color']; ?>20; color: <?php echo $role_data['color']; ?>;">
+                <i class="fas <?php echo $role_data['icon']; ?>"></i>
+            </div>
+            <div class="role-count"><?php echo $count; ?></div>
+            <div class="role-label"><?php echo $role_data['label']; ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    
+    <!-- Users List -->
+    <div class="users-section">
+        <div class="users-section-header">
+            <h3><i class="fas fa-users"></i> All Users (<?php echo count($all_users); ?>)</h3>
+            <div class="user-filters">
+                <button class="filter-btn active" onclick="filterUsers('all')">All</button>
+                <?php foreach ($all_roles as $role_key => $role_data): ?>
+                <button class="filter-btn" onclick="filterUsers('<?php echo $role_key; ?>')">
+                    <?php echo $role_data['label']; ?>
+                </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        
+        <table class="users-table" id="usersTable">
             <thead>
                 <tr>
                     <th>User</th>
-                    <th>Username</th>
-                    <th>Email</th>
                     <th>Role</th>
                     <th>Status</th>
-                    <th>Last Login</th>
+                    <th>Last Active</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($all_users as $u): ?>
-                <tr>
-                    <td data-label="User">
-                        <strong><?php echo htmlspecialchars($u['full_name']); ?></strong>
+                <tr data-role="<?php echo $u['role']; ?>">
+                    <td>
+                        <div class="user-info">
+                            <div class="user-avatar">
+                                <?php echo strtoupper(substr($u['full_name'], 0, 1)); ?>
+                            </div>
+                            <div class="user-details">
+                                <div class="user-name"><?php echo htmlspecialchars($u['full_name']); ?></div>
+                                <div class="user-email"><?php echo htmlspecialchars($u['email']); ?></div>
+                            </div>
+                        </div>
                     </td>
-                    <td data-label="Username"><?php echo htmlspecialchars($u['username']); ?></td>
-                    <td data-label="Email"><?php echo htmlspecialchars($u['email']); ?></td>
-                    <td data-label="Role">
+                    <td>
                         <span class="role-badge <?php echo $u['role']; ?>">
-                            <?php echo ucfirst($u['role']); ?>
+                            <i class="fas <?php echo $all_roles[$u['role']]['icon'] ?? 'fa-user'; ?>"></i>
+                            <?php echo $all_roles[$u['role']]['label'] ?? ucfirst($u['role']); ?>
                         </span>
                     </td>
-                    <td data-label="Status">
+                    <td>
                         <span class="status-badge <?php echo $u['is_active'] ? 'active' : 'inactive'; ?>">
                             <i class="fas fa-circle"></i>
                             <?php echo $u['is_active'] ? 'Active' : 'Inactive'; ?>
                         </span>
                     </td>
-                    <td data-label="Last Login">
-                        <span class="last-login">
-                            <?php echo $u['last_login'] ? date('M j, Y g:ia', strtotime($u['last_login'])) : 'Never'; ?>
+                    <td>
+                        <?php if ($u['last_activity']): ?>
+                        <span title="<?php echo htmlspecialchars($u['last_action']); ?>">
+                            <?php echo date('M j, g:ia', strtotime($u['last_activity'])); ?>
                         </span>
+                        <?php else: ?>
+                        <span style="color: #999;">Never</span>
+                        <?php endif; ?>
                     </td>
-                    <td data-label="Actions">
+                    <td>
                         <div class="actions-cell">
-                            <?php if (hasPermission($user['id'], 'user_edit')): ?>
-                            <button type="button" class="btn-sm btn-edit js-edit-user" data-user="<?php echo htmlspecialchars(json_encode($u), ENT_QUOTES, 'UTF-8'); ?>">
+                            <?php if (hasPermission($user['id'], 'user_edit') && canManageUser($user['id'], $u['id'])): ?>
+                            <button type="button" class="btn-sm btn-edit" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($u), ENT_QUOTES); ?>)">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
                             <?php endif; ?>
-                            <?php if ($u['role'] !== 'admin' && hasPermission($user['id'], 'user_permissions')): ?>
+                            
+                            <?php if ($u['role'] !== 'admin' && hasPermission($user['id'], 'user_permissions') && canManageUser($user['id'], $u['id'])): ?>
                             <a href="?permissions=<?php echo $u['id']; ?>" class="btn-sm btn-permissions">
                                 <i class="fas fa-shield-alt"></i> Permissions
                             </a>
                             <?php endif; ?>
-                            <?php if ($u['id'] != $user['id'] && hasPermission($user['id'], 'user_delete')): ?>
+                            
+                            <?php if ($u['id'] != $user['id'] && hasPermission($user['id'], 'user_delete') && canManageUser($user['id'], $u['id'])): ?>
                             <button type="button" class="btn-sm btn-delete" onclick="confirmDelete(<?php echo $u['id']; ?>, '<?php echo htmlspecialchars($u['full_name'], ENT_QUOTES); ?>')">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -301,8 +1040,8 @@ foreach ($all_permissions as $key => $info) {
         </table>
     </div>
     
-    <!-- PERMISSIONS EDITOR -->
-    <?php if ($editing_user && $editing_user['role'] !== 'admin' && hasPermission($user['id'], 'user_permissions')): ?>
+    <!-- Permissions Editor -->
+    <?php if ($editing_user && $editing_user['role'] !== 'admin' && hasPermission($user['id'], 'user_permissions') && canManageUser($user['id'], $editing_user['id'])): ?>
     <form method="POST" id="permissionsForm">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
         <input type="hidden" name="action" value="save_permissions">
@@ -313,7 +1052,9 @@ foreach ($all_permissions as $key => $info) {
                 <h3><i class="fas fa-shield-alt"></i> Edit Permissions</h3>
                 <div class="perm-user-info">
                     <span class="perm-user-name"><?php echo htmlspecialchars($editing_user['full_name']); ?></span>
-                    <span class="role-badge <?php echo $editing_user['role']; ?>"><?php echo ucfirst($editing_user['role']); ?></span>
+                    <span class="role-badge <?php echo $editing_user['role']; ?>">
+                        <?php echo $all_roles[$editing_user['role']]['label']; ?>
+                    </span>
                 </div>
             </div>
             <div class="permissions-body">
@@ -330,11 +1071,14 @@ foreach ($all_permissions as $key => $info) {
                     </button>
                 </div>
                 
-                <?php foreach ($permission_categories as $cat_name => $cat_perms): ?>
+                <?php foreach ($nav_categories as $cat_name => $cat_info): ?>
+                <?php if (!isset($permission_categories[$cat_name])) continue; ?>
                 <div class="perm-category">
-                    <h4 class="perm-category-title"><i class="fas fa-folder"></i> <?php echo htmlspecialchars($cat_name); ?></h4>
+                    <h4 class="perm-category-title">
+                        <i class="fas <?php echo $cat_info['icon']; ?>"></i> <?php echo $cat_name; ?>
+                    </h4>
                     <div class="perm-grid">
-                        <?php foreach ($cat_perms as $perm_key => $perm_info): ?>
+                        <?php foreach ($permission_categories[$cat_name] as $perm_key => $perm_info): ?>
                         <?php 
                             $is_checked = isset($editing_permissions[$perm_key]) && $editing_permissions[$perm_key];
                         ?>
@@ -369,32 +1113,30 @@ foreach ($all_permissions as $key => $info) {
             </div>
         </div>
     </form>
+    
     <?php elseif ($editing_user && $editing_user['role'] === 'admin'): ?>
-    <div class="permissions-panel" style="margin-top: 24px;">
-        <div class="permissions-body" style="text-align: center; padding: 40px;">
-            <i class="fas fa-crown" style="font-size: 48px; color: var(--gold, #c9a44a); margin-bottom: 16px;"></i>
-            <h3 style="margin: 0 0 8px;">Admin Role</h3>
-            <p style="color: #888; margin: 0;">Admin users have full access to all features. Their permissions cannot be restricted.</p>
-            <a href="user-management.php" class="btn-cancel" style="margin-top: 20px;">
-                <i class="fas fa-arrow-left"></i> Back to Users
-            </a>
-        </div>
+    <div class="admin-info-panel">
+        <i class="fas fa-crown crown-icon"></i>
+        <h3>Administrator</h3>
+        <p><?php echo htmlspecialchars($editing_user['full_name']); ?> has full admin access to all features. Their permissions cannot be restricted.</p>
+        <a href="user-management.php" class="btn-cancel" style="margin-top: 20px;">
+            <i class="fas fa-arrow-left"></i> Back to Users
+        </a>
     </div>
     <?php endif; ?>
-    
-</main>
+</div>
 
-<!-- ADD USER MODAL -->
+<!-- Add User Modal -->
 <?php if (hasPermission($user['id'], 'user_create')): ?>
-<div class="modal-overlay" id="addUserModal-overlay" data-modal-overlay></div>
-<div class="modal-wrapper modal-md" id="addUserModal" data-modal>
+<div class="modal-overlay" id="addUserModal">
+    <div class="modal-content">
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="action" value="add_user">
             
             <div class="modal-header">
                 <h3><i class="fas fa-user-plus"></i> Add New User</h3>
-                <button type="button" class="modal-close" data-modal-close>&times;</button>
+                <button type="button" class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-row">
@@ -412,9 +1154,9 @@ foreach ($all_permissions as $key => $info) {
                 <div class="form-row">
                     <label for="add-role">Role</label>
                     <select id="add-role" name="role">
-                        <option value="receptionist">Receptionist</option>
-                        <option value="manager">Manager</option>
-                        <option value="admin">Administrator</option>
+                        <?php foreach ($all_roles as $role_key => $role_data): ?>
+                        <option value="<?php echo $role_key; ?>"><?php echo $role_data['label']; ?> - <?php echo $role_data['description']; ?></option>
+                        <?php endforeach; ?>
                     </select>
                     <div class="hint">Role determines default permissions. You can customize later.</div>
                 </div>
@@ -424,7 +1166,7 @@ foreach ($all_permissions as $key => $info) {
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-cancel" data-modal-close>Cancel</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('addUserModal')">Cancel</button>
                 <button type="submit" class="btn-save-perms">
                     <i class="fas fa-user-plus"></i> Create User
                 </button>
@@ -434,10 +1176,10 @@ foreach ($all_permissions as $key => $info) {
 </div>
 <?php endif; ?>
 
-<!-- EDIT USER MODAL -->
+<!-- Edit User Modal -->
 <?php if (hasPermission($user['id'], 'user_edit')): ?>
-<div class="modal-overlay" id="editUserModal-overlay" data-modal-overlay></div>
-<div class="modal-wrapper modal-md" id="editUserModal" data-modal>
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal-content">
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="action" value="update_user">
@@ -445,7 +1187,7 @@ foreach ($all_permissions as $key => $info) {
             
             <div class="modal-header">
                 <h3><i class="fas fa-user-edit"></i> Edit User</h3>
-                <button type="button" class="modal-close" data-modal-close>&times;</button>
+                <button type="button" class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-row">
@@ -459,14 +1201,14 @@ foreach ($all_permissions as $key => $info) {
                 <div class="form-row">
                     <label for="edit-role">Role</label>
                     <select id="edit-role" name="role">
-                        <option value="receptionist">Receptionist</option>
-                        <option value="manager">Manager</option>
-                        <option value="admin">Administrator</option>
+                        <?php foreach ($all_roles as $role_key => $role_data): ?>
+                        <option value="<?php echo $role_key; ?>"><?php echo $role_data['label']; ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="form-row">
-                    <label>
-                        <input type="checkbox" name="is_active" id="edit-active" value="1" style="width:auto; margin-right: 6px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" name="is_active" id="edit-active" value="1" style="width: auto;">
                         Active Account
                     </label>
                 </div>
@@ -476,7 +1218,7 @@ foreach ($all_permissions as $key => $info) {
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-cancel" data-modal-close>Cancel</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('editUserModal')">Cancel</button>
                 <button type="submit" class="btn-save-perms">
                     <i class="fas fa-save"></i> Save Changes
                 </button>
@@ -486,39 +1228,35 @@ foreach ($all_permissions as $key => $info) {
 </div>
 <?php endif; ?>
 
-<!-- DELETE FORM (hidden) -->
+<!-- Delete Form (hidden) -->
 <form method="POST" id="deleteForm" style="display:none;">
     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
     <input type="hidden" name="action" value="delete_user">
     <input type="hidden" name="user_id" id="delete-user-id">
 </form>
 
-<script src="js/admin-components.js"></script>
 <script>
-function openEditModal(user) {
-    document.getElementById('edit-user-id').value = user.id;
-    document.getElementById('edit-fullname').value = user.full_name;
-    document.getElementById('edit-email').value = user.email;
-    document.getElementById('edit-role').value = user.role;
-    document.getElementById('edit-active').checked = user.is_active == 1;
-    document.getElementById('edit-password').value = '';
-    Modal.open('editUserModal');
+// Modal functions
+function openModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
 }
 
-// Bind edit buttons (data-user JSON)
-document.querySelectorAll('.js-edit-user').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const raw = this.getAttribute('data-user');
-        if (!raw) return;
-        try {
-            const user = JSON.parse(raw);
-            openEditModal(user);
-        } catch (e) {
-            console.error('Failed to parse user data for edit modal.', e);
-        }
-    });
-});
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
 
+// Edit user modal
+function openEditModal(userData) {
+    document.getElementById('edit-user-id').value = userData.id;
+    document.getElementById('edit-fullname').value = userData.full_name;
+    document.getElementById('edit-email').value = userData.email;
+    document.getElementById('edit-role').value = userData.role;
+    document.getElementById('edit-active').checked = userData.is_active == 1;
+    document.getElementById('edit-password').value = '';
+    openModal('editUserModal');
+}
+
+// Delete confirmation
 function confirmDelete(userId, userName) {
     if (confirm('Are you sure you want to delete user "' + userName + '"?\n\nThis action cannot be undone and will remove all their permissions.')) {
         document.getElementById('delete-user-id').value = userId;
@@ -526,6 +1264,7 @@ function confirmDelete(userId, userName) {
     }
 }
 
+// Permission toggle
 function togglePermItem(checkbox) {
     const label = checkbox.closest('.perm-item');
     if (checkbox.checked) {
@@ -549,7 +1288,33 @@ function selectDefaults() {
     });
 }
 
-// Modal system is handled by admin-components.js
+// User filter
+function filterUsers(role) {
+    const rows = document.querySelectorAll('#usersTable tbody tr');
+    const buttons = document.querySelectorAll('.filter-btn');
+    
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    rows.forEach(row => {
+        if (role === 'all' || row.dataset.role === role) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Close modal on outside click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.classList.remove('active');
+        }
+    });
+});
 </script>
 
 <?php require_once 'includes/admin-footer.php'; ?>
+</body>
+</html>

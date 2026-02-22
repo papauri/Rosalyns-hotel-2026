@@ -186,6 +186,26 @@ function generateInvoicePDF($booking_id) {
 }
 
 /**
+ * Get hotel logo URL for invoices
+ */
+function getInvoiceLogoUrl() {
+    $logo_url = getSetting('logo_url', '');
+    $site_url = getSetting('site_url', '');
+    
+    // Fallback to default logo if not set
+    if (empty($logo_url)) {
+        $logo_url = 'images/logo/logo.png';
+    }
+    
+    // If logo is a relative path, make it absolute
+    if (!empty($logo_url) && strpos($logo_url, 'http') !== 0) {
+        $logo_url = rtrim($site_url, '/') . '/' . ltrim($logo_url, '/');
+    }
+    
+    return $logo_url;
+}
+
+/**
  * Build HTML content for invoice
  */
 function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address, $phone_number, $address, $currency_symbol) {
@@ -193,6 +213,13 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
     
     $check_in = date('F j, Y', strtotime($booking['check_in_date']));
     $check_out = date('F j, Y', strtotime($booking['check_out_date']));
+    
+    // Get logo URL
+    $logo_url = getInvoiceLogoUrl();
+    $logo_html = '';
+    if (!empty($logo_url)) {
+        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($site_name) . '" style="max-width: 280px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;">';
+    }
     $childGuests = (int)($booking['child_guests'] ?? 0);
     $adultGuests = (int)($booking['adult_guests'] ?? max(1, ((int)($booking['number_of_guests'] ?? 1)) - $childGuests));
     $childSupplementTotal = (float)($booking['child_supplement_total'] ?? 0);
@@ -203,6 +230,28 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
     $vatEnabled = in_array(getSetting('vat_enabled'), ['1', 1, true, 'true', 'on'], true);
     $vatRate = $vatEnabled ? (float)getSetting('vat_rate') : 0;
     $vatNumber = getSetting('vat_number');
+    
+    // Get folio charges for this booking
+    $folioCharges = [];
+    $folioTotal = 0;
+    $folioVat = 0;
+    try {
+        $chargesStmt = $pdo->prepare("
+            SELECT charge_type, description, quantity, unit_price, line_subtotal, vat_amount, line_total, posted_at
+            FROM booking_charges
+            WHERE booking_id = ? AND voided = 0
+            ORDER BY posted_at ASC, id ASC
+        ");
+        $chargesStmt->execute([$booking['id']]);
+        $folioCharges = $chargesStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($folioCharges as $charge) {
+            $folioTotal += (float)$charge['line_total'];
+            $folioVat += (float)$charge['vat_amount'];
+        }
+    } catch (PDOException $e) {
+        error_log("Error fetching folio charges: " . $e->getMessage());
+    }
     
     // Get payment details for this booking
     $paymentsStmt = $pdo->prepare("
@@ -215,9 +264,51 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
     $payments = $paymentsStmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Calculate totals
-    $subtotal = (float)$booking['total_amount'];
-    $vatAmount = $vatEnabled ? ($subtotal * ($vatRate / 100)) : 0;
-    $totalWithVat = $subtotal + $vatAmount;
+    $roomSubtotal = (float)$booking['total_amount'];
+    $extrasSubtotal = $folioTotal - $folioVat;
+    $subtotal = $roomSubtotal + $extrasSubtotal;
+    $vatAmount = ($vatEnabled ? ($roomSubtotal * ($vatRate / 100)) : 0) + $folioVat;
+    $totalWithVat = $roomSubtotal + $folioTotal + ($vatEnabled ? ($roomSubtotal * ($vatRate / 100)) : 0);
+    
+    // Calculate amount paid and balance due
+    $amountPaid = 0;
+    foreach ($payments as $payment) {
+        $amountPaid += (float)$payment['total_amount'];
+    }
+    $balanceDue = max(0, $totalWithVat - $amountPaid);
+    
+    // Build folio items HTML
+    $folioItemsHTML = '';
+    if (!empty($folioCharges)) {
+        $folioItemsHTML = '<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                    <h4 style="color: #1A1A1A; margin-top: 0; border-bottom: 2px solid #8B7355; padding-bottom: 10px;">Folio Items / Extras</h4>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold; color: #666; font-size: 12px;">
+                        <span style="flex: 0 0 80px;">Date</span>
+                        <span style="flex: 1;">Description</span>
+                        <span style="flex: 0 0 100px; text-align: right;">Amount</span>
+                    </div>';
+        
+        foreach ($folioCharges as $charge) {
+            $chargeDate = date('M j, Y', strtotime($charge['posted_at']));
+            $chargeLabel = htmlspecialchars($charge['description']);
+            if ($charge['quantity'] != 1) {
+                $chargeLabel .= ' x ' . number_format($charge['quantity'], 0);
+            }
+            
+            $folioItemsHTML .= '<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                        <span style="flex: 0 0 80px; font-size: 12px; color: #666;">' . $chargeDate . '</span>
+                        <span style="flex: 1;">' . $chargeLabel . '</span>
+                        <span style="flex: 0 0 100px; text-align: right;">' . $currency_symbol . ' ' . number_format($charge['line_total'], 2) . '</span>
+                    </div>';
+        }
+        
+        $folioItemsHTML .= '<div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #ddd; margin-top: 10px; font-weight: bold;">
+                    <span style="flex: 0 0 80px;"></span>
+                    <span style="flex: 1;">Folio Subtotal:</span>
+                    <span style="flex: 0 0 100px; text-align: right;">' . $currency_symbol . ' ' . number_format($folioTotal, 2) . '</span>
+                </div>
+            </div>';
+    }
     
     // Build payment details HTML
     $paymentDetailsHTML = '';
@@ -256,7 +347,8 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
     
     return '
     <div class="invoice-container">
-        <div class="invoice-header">
+        <div class="invoice-header" style="text-align: center;">
+            ' . $logo_html . '
             <h1 style="color: #8B7355; margin: 0 0 10px 0; font-size: 32px;">PAYMENT RECEIPT / INVOICE</h1>
             <p style="margin: 5px 0; font-size: 18px;">' . htmlspecialchars($site_name) . '</p>
             <p style="margin: 5px 0;">Invoice Number: <strong>' . htmlspecialchars($invoice_number) . '</strong></p>
@@ -318,10 +410,20 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
                 </div>') : '') . '
             </div>
             
+            ' . $folioItemsHTML . '
+            
             <div class="total-section">
+                <div class="invoice-row">
+                    <span class="invoice-label">Room Stay Amount:</span>
+                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($roomSubtotal, 2) . '</span>
+                </div>
                 ' . ($childGuests > 0 ? ('<div class="invoice-row">
-                    <span class="invoice-label">Base Stay Amount:</span>
-                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($baseAmount, 2) . '</span>
+                    <span class="invoice-label">Child Supplement:</span>
+                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($childSupplementTotal, 2) . '</span>
+                </div>') : '') . '
+                ' . (!empty($folioCharges) ? ('<div class="invoice-row">
+                    <span class="invoice-label">Extras / Folio Charges:</span>
+                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($extrasSubtotal, 2) . '</span>
                 </div>') : '') . '
                 ' . $vatSectionHTML . '
                 <div class="total-row">
@@ -329,13 +431,13 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
                     <span>' . $currency_symbol . ' ' . number_format($totalWithVat, 2) . '</span>
                 </div>
                 <p style="margin: 15px 0 0 0; color: #666; font-size: 14px;">
-                    <strong>Payment Status:</strong> <span style="color: #28a745; font-weight: bold;">PAID</span>
+                    <strong>Payment Status:</strong> <span style="color: ' . ($balanceDue <= 0 ? '#28a745' : '#dc3545') . '; font-weight: bold;">' . ($balanceDue <= 0 ? 'PAID' : 'PARTIAL') . '</span>
                 </p>
                 <p style="margin: 5px 0; color: #666; font-size: 14px;">
-                    <strong>Amount Paid:</strong> ' . $currency_symbol . ' ' . number_format($booking['amount_paid'] ?? $totalWithVat, 2) . '
+                    <strong>Amount Paid:</strong> ' . $currency_symbol . ' ' . number_format($amountPaid, 2) . '
                 </p>
-                ' . ($booking['amount_due'] > 0 ? '<p style="margin: 5px 0; color: #dc3545; font-size: 14px;">
-                    <strong>Balance Due:</strong> ' . $currency_symbol . ' ' . number_format($booking['amount_due'], 2) . '
+                ' . ($balanceDue > 0 ? '<p style="margin: 5px 0; color: #dc3545; font-size: 14px;">
+                    <strong>Balance Due:</strong> ' . $currency_symbol . ' ' . number_format($balanceDue, 2) . '
                 </p>' : '') . '
             </div>
             
@@ -705,6 +807,211 @@ function sendEmailWithAttachmentAndCC($to, $toName, $subject, $htmlBody, $attach
         } elseif ($smtpSecureNormalized === '' && (int)$smtp_port === 465) {
             $smtpSecureNormalized = 'ssl';
         }
+        
+        /**
+         * Generate and send final invoice at checkout
+         * Includes idempotency safeguards to avoid duplicate invoice generation
+         *
+         * @param int $booking_id Booking ID
+         * @param int|null $processed_by Admin user ID processing the checkout
+         * @return array Result with success status, invoice details, and any warnings
+         */
+        function generateAndSendFinalInvoice(int $booking_id, ?int $processed_by = null): array {
+            global $pdo;
+            
+            try {
+                // Check if booking exists
+                $stmt = $pdo->prepare("SELECT id, booking_reference, guest_name, guest_email, status, final_invoice_generated FROM bookings WHERE id = ?");
+                $stmt->execute([$booking_id]);
+                $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$booking) {
+                    return ['success' => false, 'message' => 'Booking not found'];
+                }
+                
+                // Check if final invoice already generated (idempotency)
+                if ($booking['final_invoice_generated']) {
+                    // Return existing invoice details
+                    $existingStmt = $pdo->prepare("SELECT final_invoice_path, final_invoice_number, final_invoice_sent_at FROM bookings WHERE id = ?");
+                    $existingStmt->execute([$booking_id]);
+                    $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    return [
+                        'success' => true,
+                        'message' => 'Final invoice already generated',
+                        'invoice_path' => $existing['final_invoice_path'],
+                        'invoice_number' => $existing['final_invoice_number'],
+                        'sent_at' => $existing['final_invoice_sent_at'],
+                        'idempotent' => true
+                    ];
+                }
+                
+                // Recalculate folio before generating invoice
+                recalculateBookingFinancials($booking_id);
+                
+                // Generate final invoice
+                $invoice_result = generateInvoicePDF($booking_id);
+                if (!$invoice_result) {
+                    return ['success' => false, 'message' => 'Failed to generate final invoice'];
+                }
+                
+                $invoice_file = $invoice_result['filepath'];
+                $invoice_number = $invoice_result['invoice_number'];
+                $invoice_path = $invoice_result['relative_path'];
+                
+                // Update booking with final invoice details
+                $updateStmt = $pdo->prepare("
+                    UPDATE bookings
+                    SET final_invoice_generated = 1,
+                        final_invoice_path = ?,
+                        final_invoice_number = ?,
+                        final_invoice_sent_at = NULL,
+                        checkout_processed_by = ?,
+                        updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $updateStmt->execute([$invoice_path, $invoice_number, $processed_by, $booking_id]);
+                
+                // Send final invoice email
+                $email_sent = false;
+                $email_error = null;
+                
+                try {
+                    // Get invoice recipients
+                    $invoice_recipients = getEmailSetting('invoice_recipients', '');
+                    $smtp_username = getEmailSetting('smtp_username', '');
+                    
+                    // Parse recipients
+                    $cc_recipients = array_filter(array_map('trim', explode(',', $invoice_recipients)));
+                    
+                    // Always add SMTP username to CC
+                    if (!empty($smtp_username) && !in_array($smtp_username, $cc_recipients)) {
+                        $cc_recipients[] = $smtp_username;
+                    }
+                    
+                    // Send email
+                    $email_result = sendFinalInvoiceEmail($booking, $invoice_file, $cc_recipients);
+                    $email_sent = $email_result['success'];
+                    
+                    if ($email_sent) {
+                        // Update sent timestamp
+                        $pdo->prepare("UPDATE bookings SET final_invoice_sent_at = NOW() WHERE id = ?")
+                            ->execute([$booking_id]);
+                    } else {
+                        $email_error = $email_result['message'];
+                    }
+                    
+                } catch (Exception $e) {
+                    $email_error = $e->getMessage();
+                    error_log("Final invoice email error: " . $email_error);
+                }
+                
+                return [
+                    'success' => true,
+                    'message' => 'Final invoice generated' . ($email_sent ? ' and sent' : ' (email failed)'),
+                    'invoice_file' => $invoice_file,
+                    'invoice_number' => $invoice_number,
+                    'invoice_path' => $invoice_path,
+                    'email_sent' => $email_sent,
+                    'email_error' => $email_error,
+                    'idempotent' => false
+                ];
+                
+            } catch (Exception $e) {
+                error_log("Generate and send final invoice error: " . $e->getMessage());
+                return ['success' => false, 'message' => $e->getMessage()];
+            }
+        }
+        
+        /**
+         * Send final invoice email at checkout
+         *
+         * @param array $booking Booking details
+         * @param string $invoice_file Path to invoice file
+         * @param array $cc_recipients CC recipients
+         * @return array Result with success status
+         */
+        function sendFinalInvoiceEmail($booking, $invoice_file, $cc_recipients = []) {
+            global $pdo, $email_from_name, $email_from_email, $email_site_name, $email_site_url;
+            
+            try {
+                // Get room details
+                $stmt = $pdo->prepare("SELECT * FROM rooms WHERE id = ?");
+                $stmt->execute([$booking['room_id']]);
+                $room = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                $currency_symbol = getSetting('currency_symbol');
+                
+                // Build email content
+                $htmlBody = '
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1 style="color: #8B7355; margin: 0; font-size: 32px;">✓ CHECKOUT COMPLETE</h1>
+                        <p style="color: white; margin: 10px 0 0 0; font-size: 18px;">Thank you for your stay!</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 30px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px;">
+                        <p>Dear ' . htmlspecialchars($booking['guest_name']) . ',</p>
+                        
+                        <p>We hope you enjoyed your stay at <strong>' . htmlspecialchars($email_site_name) . '</strong>. Your checkout has been completed and your final invoice is ready.</p>
+                        
+                        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #8B7355;">
+                            <h3 style="color: #1A1A1A; margin-top: 0;">Final Invoice Details</h3>
+                            
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: bold; color: #333;">Booking Reference:</span>
+                                <span style="color: #666;">' . htmlspecialchars($booking['booking_reference']) . '</span>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: bold; color: #333;">Room:</span>
+                                <span style="color: #666;">' . htmlspecialchars($room['name']) . '</span>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: bold; color: #333;">Check-out Date:</span>
+                                <span style="color: #666;">' . date('F j, Y') . '</span>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #d4edda; padding: 15px; border-left: 4px solid #28a745; border-radius: 5px; margin: 20px 0;">
+                            <h3 style="color: #155724; margin-top: 0;">✅ Final Invoice Attached</h3>
+                            <p style="color: #155724; margin: 0;">Please find your final invoice attached to this email. It includes all room charges, extras, and payments made during your stay.</p>
+                        </div>
+                        
+                        <div style="background: #e7f3ff; padding: 15px; border-left: 4px solid #0d6efd; border-radius: 5px;">
+                            <h3 style="color: #0d6efd; margin-top: 0;">We Hope to See You Again!</h3>
+                            <p style="color: #0d6efd; margin: 0;">Thank you for choosing ' . htmlspecialchars($email_site_name) . '. We look forward to welcoming you back soon.</p>
+                        </div>
+                        
+                        <p style="margin-top: 30px;">If you have any questions about your invoice or your stay, please contact us at <a href="mailto:' . htmlspecialchars($email_from_email) . '">' . htmlspecialchars($email_from_email) . '</a>.</p>
+                        
+                        <p style="margin-top: 20px;">Safe travels!</p>
+                        
+                        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #1A1A1A;">
+                            <p style="color: #666; font-size: 14px; margin: 5px 0;"><strong>The ' . htmlspecialchars($email_site_name) . ' Team</strong></p>
+                            <p style="color: #666; font-size: 14px; margin: 5px 0;"><a href="' . htmlspecialchars($email_site_url) . '">' . htmlspecialchars($email_site_url) . '</a></p>
+                        </div>
+                    </div>
+                </div>';
+                
+                $subject = 'Final Invoice - ' . htmlspecialchars($email_site_name) . ' [' . $booking['booking_reference'] . ']';
+                
+                // Send email with attachment
+                return sendEmailWithAttachmentAndCC(
+                    $booking['guest_email'],
+                    $booking['guest_name'],
+                    $subject,
+                    $htmlBody,
+                    $invoice_file,
+                    $cc_recipients
+                );
+                
+            } catch (Exception $e) {
+                error_log("Send final invoice email error: " . $e->getMessage());
+                return ['success' => false, 'message' => $e->getMessage()];
+            }
+        }
         // Many SMTP relays require From to match authenticated mailbox.
         $fromAddress = $smtp_username;
         
@@ -751,7 +1058,7 @@ function sendEmailWithAttachmentAndCC($to, $toName, $subject, $htmlBody, $attach
         // Content
         $mail->isHTML(true);
         $mail->Subject = $subject;
-        $mail->Body = $htmlBody;
+        $mail->Body = wrapEmailTemplate($htmlBody, $subject);
         $mail->AltBody = $textBody ?: strip_tags($htmlBody);
         
         $mail->send();
@@ -933,6 +1240,13 @@ function buildConferenceInvoiceHTML($enquiry, $invoice_number, $site_name, $emai
     
     $event_date = date('F j, Y', strtotime($enquiry['event_date']));
     
+    // Get logo URL
+    $logo_url = getInvoiceLogoUrl();
+    $logo_html = '';
+    if (!empty($logo_url)) {
+        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($site_name) . '" style="max-width: 280px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;">';
+    }
+    
     // Get VAT settings - more flexible check
     $vatEnabled = in_array(getSetting('vat_enabled'), ['1', 1, true, 'true', 'on'], true);
     $vatRate = $vatEnabled ? (float)getSetting('vat_rate') : 0;
@@ -1003,7 +1317,8 @@ function buildConferenceInvoiceHTML($enquiry, $invoice_number, $site_name, $emai
     
     return '
     <div class="invoice-container">
-        <div class="invoice-header">
+        <div class="invoice-header" style="text-align: center;">
+            ' . $logo_html . '
             <h1 style="color: #8B7355; margin: 0 0 10px 0; font-size: 32px;">CONFERENCE INVOICE</h1>
             <p style="margin: 5px 0; font-size: 18px;">' . htmlspecialchars($site_name) . '</p>
             <p style="margin: 5px 0;">Invoice Number: <strong>' . htmlspecialchars($invoice_number) . '</strong></p>

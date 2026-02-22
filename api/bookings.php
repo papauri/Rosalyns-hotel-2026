@@ -278,6 +278,10 @@ try {
         
         $bookingId = $pdo->lastInsertId();
         
+        // Update room availability count for confirmed bookings
+        // Note: 'pending' bookings don't decrement availability until confirmed
+        // Individual rooms are assigned later during check-in or manually
+        
         // Commit transaction
         $pdo->commit();
         

@@ -35,12 +35,28 @@ if ($nextMonth > 12) {
     $nextYear++;
 }
 
-// Get all rooms
+// Get all individual rooms with room type info
+try {
+    $stmt = $pdo->query("
+        SELECT ir.*, r.name as room_type_name, r.price_per_night, r.slug as room_type_slug
+        FROM individual_rooms ir
+        INNER JOIN rooms r ON ir.room_type_id = r.id
+        WHERE ir.is_active = 1 AND r.is_active = 1
+        ORDER BY r.name, ir.display_order ASC, ir.room_number ASC
+    ");
+    $individualRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = "Error fetching individual rooms: " . $e->getMessage();
+    $individualRooms = [];
+}
+
+// Get all room types for grouping (optional)
 try {
     $stmt = $pdo->query("SELECT * FROM rooms WHERE is_active = 1 ORDER BY name");
-    $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $roomTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $error = "Error fetching rooms: " . $e->getMessage();
+    $error = "Error fetching room types: " . $e->getMessage();
+    $roomTypes = [];
 }
 
 // Get blocked dates for current month
@@ -48,13 +64,13 @@ $blockedDatesByDate = [];
 try {
     $startDate = sprintf('%04d-%02d-01', $currentYear, $currentMonth);
     $endDate = sprintf('%04d-%02d-31', $currentYear, $currentMonth);
-    
+
     $stmt = $pdo->prepare("
-        SELECT rbd.*, r.name as room_name
-        FROM room_blocked_dates rbd
-        LEFT JOIN rooms r ON rbd.room_id = r.id
-        WHERE rbd.block_date >= :start_date AND rbd.block_date <= :end_date
-        ORDER BY rbd.block_date ASC, rbd.room_id ASC
+        SELECT bd.*, r.name as room_name
+        FROM blocked_dates bd
+        LEFT JOIN rooms r ON bd.room_id = r.id
+        WHERE bd.block_date >= :start_date AND bd.block_date <= :end_date
+        ORDER BY bd.block_date ASC, bd.room_id ASC
     ");
     $stmt->execute(['start_date' => $startDate, 'end_date' => $endDate]);
     $blockedDates = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -73,14 +89,16 @@ try {
 
 // Get bookings for the current month with individual room info
 $bookingsByDate = [];
+$bookingsByIndividualRoom = []; // Also index by individual room for easier lookup
 try {
     $startDate = sprintf('%04d-%02d-01', $currentYear, $currentMonth);
     $endDate = sprintf('%04d-%02d-31', $currentYear, $currentMonth);
     
     $stmt = $pdo->prepare("
         SELECT b.*, r.name as room_name, r.id as room_id, r.price_per_night,
-               ir.room_number as individual_room_number, ir.room_name as individual_room_name,
-               ir.floor as individual_room_floor, ir.status as individual_room_status
+               ir.id as individual_room_id, ir.room_number as individual_room_number,
+               ir.room_name as individual_room_name, ir.floor as individual_room_floor,
+               ir.status as individual_room_status
         FROM bookings b
         INNER JOIN rooms r ON b.room_id = r.id
         LEFT JOIN individual_rooms ir ON b.individual_room_id = ir.id
@@ -89,12 +107,12 @@ try {
         AND (
             (b.check_in_date <= :end_date AND b.check_out_date >= :start_date)
         )
-        ORDER BY b.check_in_date ASC, r.name ASC
+        ORDER BY b.check_in_date ASC, r.name ASC, ir.room_number ASC
     ");
     $stmt->execute(['start_date' => $startDate, 'end_date' => $endDate]);
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Group bookings by date and room
+    // Group bookings by date and individual room (or room type if no individual room assigned)
     foreach ($bookings as $booking) {
         $checkIn = new DateTime($booking['check_in_date']);
         $checkOut = new DateTime($booking['check_out_date']);
@@ -102,22 +120,59 @@ try {
         $currentDate = clone $checkIn;
         while ($currentDate < $checkOut) {
             $dateKey = $currentDate->format('Y-m-d');
-            $roomId = $booking['room_id'];
+            
+            // Use individual room ID if assigned, otherwise use room type ID
+            $roomKey = !empty($booking['individual_room_id'])
+                ? 'ir_' . $booking['individual_room_id']
+                : 'rt_' . $booking['room_id'];
             
             if (!isset($bookingsByDate[$dateKey])) {
                 $bookingsByDate[$dateKey] = [];
             }
             
-            if (!isset($bookingsByDate[$dateKey][$roomId])) {
-                $bookingsByDate[$dateKey][$roomId] = [];
+            if (!isset($bookingsByDate[$dateKey][$roomKey])) {
+                $bookingsByDate[$dateKey][$roomKey] = [];
             }
             
-            $bookingsByDate[$dateKey][$roomId][] = $booking;
+            $bookingsByDate[$dateKey][$roomKey][] = $booking;
             $currentDate->modify('+1 day');
         }
     }
 } catch (PDOException $e) {
     $error = "Error fetching bookings: " . $e->getMessage();
+}
+
+// Helper function to determine timeline-aware status for a room on a specific date
+function getTimelineAwareRoomStatus($room, $date, $bookingsByDate) {
+    $today = date('Y-m-d');
+    $dateKey = $date;
+    $roomKey = 'ir_' . $room['id'];
+    
+    // Check if there's a booking for this room on this date
+    if (isset($bookingsByDate[$dateKey][$roomKey])) {
+        foreach ($bookingsByDate[$dateKey][$roomKey] as $booking) {
+            $checkIn = $booking['check_in_date'];
+            $checkOut = $booking['check_out_date'];
+            $status = $booking['status'];
+            
+            // Timeline-aware status logic
+            if ($date < $checkIn) {
+                // Before check-in date - room is reserved but available
+                return 'reserved';
+            } elseif ($date >= $checkIn && $date < $checkOut) {
+                // During stay - determine status based on booking status and date
+                if ($status === 'checked-in' || ($status === 'confirmed' && $date <= $today)) {
+                    return 'occupied';
+                } else {
+                    // Future confirmed booking - reserved
+                    return 'reserved';
+                }
+            }
+        }
+    }
+    
+    // No booking - use current physical status
+    return $room['status'];
 }
 
 // Get days in month
@@ -146,8 +201,8 @@ $today = date('Y-m-d');
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/main.css">
-    <link rel="stylesheet" href="css/admin-styles.css">
-    <link rel="stylesheet" href="css/admin-components.css"></head>
+    <link rel="stylesheet" href="css/admin-styles.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/admin-components.css?v=<?php echo time(); ?>">
 <body>
 
     <?php require_once 'includes/admin-header.php'; ?>
@@ -178,16 +233,24 @@ $today = date('Y-m-d');
             
             <div class="legend">
                 <div class="legend-item">
-                    <div class="legend-color pending"></div>
-                    <span>Pending</span>
+                    <div class="legend-color available"></div>
+                    <span>Available</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color confirmed"></div>
-                    <span>Confirmed</span>
+                    <div class="legend-color reserved"></div>
+                    <span>Reserved (Future Booking)</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color checked-in"></div>
-                    <span>Checked In</span>
+                    <div class="legend-color occupied"></div>
+                    <span>Occupied</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color cleaning"></div>
+                    <span>Cleaning</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color maintenance"></div>
+                    <span>Maintenance</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color blocked"></div>
@@ -195,14 +258,28 @@ $today = date('Y-m-d');
                 </div>
             </div>
             
-            <?php if (!empty($rooms)): ?>
+            <?php if (!empty($individualRooms)): ?>
                 <div class="room-calendars">
-                    <?php foreach ($rooms as $room): ?>
-                        <div class="room-calendar">
+                    <?php foreach ($individualRooms as $indRoom): ?>
+                        <?php
+                            $roomKey = 'ir_' . $indRoom['id'];
+                            $roomNumber = htmlspecialchars($indRoom['room_number']);
+                            $roomName = htmlspecialchars($indRoom['room_name'] ?? '');
+                            $roomTypeName = htmlspecialchars($indRoom['room_type_name']);
+                            $floor = htmlspecialchars($indRoom['floor'] ?? '');
+                            $displayTitle = $roomNumber . ($roomName ? ' - ' . $roomName : '') . ' (' . $roomTypeName . ')';
+                            if ($floor) {
+                                $displayTitle .= ' [Floor ' . $floor . ']';
+                            }
+                        ?>
+                        <div class="room-calendar individual-room-calendar">
                             <div class="room-header">
-                                <h3><?php echo htmlspecialchars($room['name']); ?></h3>
+                                <h3><?php echo $displayTitle; ?></h3>
                                 <span class="room-price">
-                                    <?php echo getSetting('currency_symbol', 'MWK') . ' ' . number_format($room['price_per_night'], 0); ?>/night
+                                    <?php echo getSetting('currency_symbol', 'MWK') . ' ' . number_format($indRoom['price_per_night'], 0); ?>/night
+                                </span>
+                                <span class="current-status-badge status-<?php echo $indRoom['status']; ?>">
+                                    <?php echo ucfirst($indRoom['status']); ?>
                                 </span>
                             </div>
                             
@@ -223,21 +300,23 @@ $today = date('Y-m-d');
                                 
                                 <!-- Days of the month -->
                                 <?php for ($day = 1; $day <= $daysInMonth; $day++): ?>
-                                    <?php 
+                                    <?php
                                         $dateKey = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $day);
                                         $isToday = ($dateKey === $today);
-                                        $dateForComparison = $dateKey;
+                                        // Get timeline-aware status for this date
+                                        $timelineStatus = getTimelineAwareRoomStatus($indRoom, $dateKey, $bookingsByDate);
+                                        $statusClass = 'status-' . $timelineStatus;
                                     ?>
-                                    <div class="calendar-day <?php echo $isToday ? 'today' : ''; ?>">
+                                    <div class="calendar-day <?php echo $isToday ? 'today' : ''; ?> <?php echo $statusClass; ?>">
                                         <div class="day-number"><?php echo $day; ?></div>
-                                         
+                                          
                                         <?php
-                                            // Check if this date is blocked for this room or all rooms
+                                            // Check if this date is blocked for this room type or all rooms
                                             $isBlocked = false;
                                             if (isset($blockedDatesByDate[$dateKey])) {
                                                 foreach ($blockedDatesByDate[$dateKey] as $blocked) {
-                                                    // Check if blocked for this specific room or all rooms
-                                                    if ($blocked['room_id'] == $room['id'] || $blocked['room_id'] === null) {
+                                                    // Check if blocked for this specific room type or all rooms
+                                                    if ($blocked['room_id'] == $indRoom['room_type_id'] || $blocked['room_id'] === null) {
                                                         $isBlocked = true;
                                                         $blockType = htmlspecialchars($blocked['block_type']);
                                                         $blockReason = htmlspecialchars($blocked['reason'] ?? 'No reason provided');
@@ -252,43 +331,74 @@ $today = date('Y-m-d');
                                                 }
                                             }
                                             
-                                            // Show bookings if date is not blocked
-                                            if (!$isBlocked && isset($bookingsByDate[$dateKey]) &&
-                                                isset($bookingsByDate[$dateKey][$room['id']])) {
-                                                $dayBookings = $bookingsByDate[$dateKey][$room['id']];
+                                            // Show bookings if date is not blocked and has bookings
+                                            if (!$isBlocked && isset($bookingsByDate[$dateKey][$roomKey])) {
+                                                $dayBookings = $bookingsByDate[$dateKey][$roomKey];
                                                 foreach ($dayBookings as $booking) {
-                                                    $statusClass = strtolower($booking['status']);
-                                                    $guestName = htmlspecialchars($booking['guest_name']);
-                                                    $ref = htmlspecialchars($booking['booking_reference']);
-                                                    $nights = $booking['number_of_nights'];
-                                                    $guests = $booking['number_of_guests'];
-                                                    $checkIn = date('M j', strtotime($booking['check_in_date']));
-                                                    $checkOut = date('M j', strtotime($booking['check_out_date']));
+                                                    $statusClass = strtolower(str_replace('-', '_', $booking['status']));
+                                                    $guestName = htmlspecialchars($booking['guest_name'], ENT_QUOTES, 'UTF-8');
+                                                    $ref = htmlspecialchars($booking['booking_reference'], ENT_QUOTES, 'UTF-8');
+                                                    $checkInDate = $booking['check_in_date'];
+                                                    $checkOutDate = $booking['check_out_date'];
+                                                    $checkIn = date('M j, Y', strtotime($checkInDate));
+                                                    $checkOut = date('M j, Y', strtotime($checkOutDate));
                                                     
-                                                    // Build individual room display
-                                                    $individualRoomDisplay = '';
-                                                    $individualRoomBadge = '';
-                                                    if (!empty($booking['individual_room_id'])) {
-                                                        $roomNum = htmlspecialchars($booking['individual_room_number']);
-                                                        $roomNm = htmlspecialchars($booking['individual_room_name'] ?? '');
-                                                        $floor = htmlspecialchars($booking['individual_room_floor'] ?? '');
-                                                        
-                                                        $individualRoomDisplay = ' | Room: ' . $roomNum;
-                                                        if ($floor) {
-                                                            $individualRoomDisplay .= ' (Floor ' . $floor . ')';
-                                                        }
-                                                        
-                                                        // Create a small badge for the room number
-                                                        $individualRoomBadge = '<span class="room-badge">' . $roomNum . '</span>';
-                                                    }
+                                                    // Calculate nights
+                                                    $checkInObj = new DateTime($checkInDate);
+                                                    $checkOutObj = new DateTime($checkOutDate);
+                                                    $nights = $checkInObj->diff($checkOutObj)->days;
                                                     
-                                                    $tooltip = "$guestName ($ref)\nCheck-in: $checkIn\nCheck-out: $checkOut\nNights: $nights\nGuests: $guests" . $individualRoomDisplay;
+                                                    // Room info
+                                                    $roomName = htmlspecialchars($booking['room_name'], ENT_QUOTES, 'UTF-8');
+                                                    $individualRoomNumber = !empty($booking['individual_room_number'])
+                                                        ? htmlspecialchars($booking['individual_room_number'], ENT_QUOTES, 'UTF-8')
+                                                        : 'Not assigned';
+                                                    $individualRoomName = !empty($booking['individual_room_name'])
+                                                        ? htmlspecialchars($booking['individual_room_name'], ENT_QUOTES, 'UTF-8')
+                                                        : '';
+                                                    
+                                                    // Status
+                                                    $status = ucfirst(str_replace('-', ' ', $booking['status']));
+                                                    
+                                                    // Payment info
+                                                    $paymentStatus = !empty($booking['payment_status'])
+                                                        ? ucfirst(htmlspecialchars($booking['payment_status'], ENT_QUOTES, 'UTF-8'))
+                                                        : 'Pending';
+                                                    $totalAmount = !empty($booking['total_amount'])
+                                                        ? number_format(floatval($booking['total_amount']), 2)
+                                                        : '0.00';
+                                                    $currencySymbol = getSetting('currency_symbol', 'MWK');
+                                                    
+                                                    // Build tooltip data attributes (all properly escaped)
+                                                    // Use actual newlines (%0A encoded) for white-space: pre-line to work
+                                                    $tooltipText = $ref . ' - ' . $guestName . "\n" . 
+                                                                  $individualRoomNumber . ' | ' . $checkIn . ' to ' . $checkOut . ' (' . $nights . ' nights)' . "\n" . 
+                                                                  'Status: ' . $status . ' | Payment: ' . $paymentStatus;
+                                                    
+                                                    $dataAttrs = [
+                                                        'data-booking-ref' => $ref,
+                                                        'data-guest-name' => $guestName,
+                                                        'data-room-name' => $roomName,
+                                                        'data-room-number' => $individualRoomNumber,
+                                                        'data-room-display' => $individualRoomNumber . ($individualRoomName ? ' - ' . $individualRoomName : ''),
+                                                        'data-status' => $status,
+                                                        'data-check-in' => $checkIn,
+                                                        'data-check-out' => $checkOut,
+                                                        'data-nights' => $nights,
+                                                        'data-payment-status' => $paymentStatus,
+                                                        'data-amount' => $currencySymbol . ' ' . $totalAmount,
+                                                        'data-booking-id' => intval($booking['id']),
+                                                        // CSS-only fallback tooltip (simple text for when JS fails)
+                                                        'data-tooltip' => htmlspecialchars($tooltipText, ENT_QUOTES, 'UTF-8')
+                                                    ];
                                             ?>
-                                                <div class="booking-indicator <?php echo $statusClass; ?> <?php echo !empty($booking['individual_room_id']) ? 'has-room' : ''; ?>"
-                                                     data-tooltip="<?php echo htmlspecialchars($tooltip); ?>"
-                                                     onclick="window.location.href='booking-details.php?id=<?php echo $booking['id']; ?>'">
-                                                    <?php echo $individualRoomBadge; ?>
-                                                    <?php echo substr($guestName, 0, 10); ?>
+                                                <div class="booking-indicator <?php echo $statusClass; ?> calendar-booking-tooltip-trigger"
+                                                     <?php foreach ($dataAttrs as $attr => $value): echo $attr . '="' . $value . '" '; endforeach; ?>
+                                                     tabindex="0"
+                                                     role="button"
+                                                     aria-label="Booking details for <?php echo $guestName; ?>"
+                                                     onclick="window.location.href='booking-details.php?id=<?php echo intval($booking['id']); ?>'">
+                                                    <?php echo substr($guestName, 0, 12); ?>
                                                 </div>
                                             <?php
                                                 }
@@ -303,7 +413,7 @@ $today = date('Y-m-d');
             <?php else: ?>
                 <div class="empty-state">
                     <i class="fas fa-inbox"></i>
-                    <p>No rooms found.</p>
+                    <p>No individual rooms found.</p>
                 </div>
             <?php endif; ?>
         </div>

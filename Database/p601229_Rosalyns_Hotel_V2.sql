@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Feb 20, 2026 at 11:10 AM
+-- Generation Time: Feb 21, 2026 at 11:31 PM
 -- Server version: 8.0.44-cll-lve
 -- PHP Version: 8.4.17
 
@@ -212,6 +212,7 @@ CREATE TABLE `blocked_dates` (
   `id` int UNSIGNED NOT NULL,
   `room_id` int UNSIGNED DEFAULT NULL,
   `block_date` date NOT NULL,
+  `block_type` enum('manual','maintenance','event','full') COLLATE utf8mb4_unicode_ci DEFAULT 'manual',
   `reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `blocked_by` int UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
@@ -268,8 +269,86 @@ CREATE TABLE `bookings` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `expires_at` datetime DEFAULT NULL COMMENT 'When tentative booking expires (NULL for non-tentative bookings)',
   `converted_from_tentative` tinyint(1) DEFAULT '0' COMMENT 'Whether this booking was converted from tentative status (1=yes, 0=no)',
-  `occupancy_type` enum('single','double','triple') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'double' COMMENT 'Occupancy type for pricing'
+  `occupancy_type` enum('single','double','triple') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'double' COMMENT 'Occupancy type for pricing',
+  `final_invoice_generated` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Whether final invoice has been generated at checkout',
+  `final_invoice_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Path to final invoice file',
+  `final_invoice_number` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Final invoice number',
+  `final_invoice_sent_at` datetime DEFAULT NULL COMMENT 'When final invoice email was sent',
+  `checkout_completed_at` datetime DEFAULT NULL COMMENT 'When checkout was completed',
+  `folio_charges_total` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'Total of all folio charge lines (including VAT)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `bookings`
+--
+
+INSERT INTO `bookings` (`id`, `booking_reference`, `room_id`, `individual_room_id`, `guest_name`, `guest_email`, `guest_phone`, `guest_country`, `guest_address`, `number_of_guests`, `adult_guests`, `child_guests`, `child_price_multiplier`, `check_in_date`, `check_out_date`, `number_of_nights`, `total_amount`, `child_supplement_total`, `amount_paid`, `amount_due`, `vat_rate`, `vat_amount`, `total_with_vat`, `last_payment_date`, `special_requests`, `status`, `is_tentative`, `tentative_expires_at`, `deposit_required`, `deposit_amount`, `deposit_paid`, `deposit_paid_at`, `reminder_sent`, `reminder_sent_at`, `converted_to_confirmed_at`, `expired_at`, `tentative_notes`, `payment_status`, `payment_amount`, `payment_date`, `created_at`, `updated_at`, `expires_at`, `converted_from_tentative`, `occupancy_type`, `final_invoice_generated`, `final_invoice_path`, `final_invoice_number`, `final_invoice_sent_at`, `checkout_completed_at`, `folio_charges_total`) VALUES
+(36, 'LSH20263047', 1, 11, 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', 'Ireland', '10 Lois na Coille\r\nBallykilmurray, Tullamore', 5, 5, 0, 0.00, '2026-02-23', '2026-02-25', 2, 920000.00, 0.00, 1071800.00, 0.00, 16.50, 151800.00, 1071800.00, '2026-02-21', '', 'confirmed', 0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, 'paid', 0.00, NULL, '2026-02-21 11:50:33', '2026-02-21 12:15:48', NULL, 0, 'triple', 0, NULL, NULL, NULL, NULL, 0.00),
+(37, 'LSH20268184', 2, 1, 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', 'Ireland', '10 Lois na Coille\r\nBallykilmurray, Tullamore', 2, 2, 0, 0.00, '2026-02-23', '2026-02-24', 1, 250000.00, 0.00, 291250.00, 0.00, 16.50, 41250.00, 291250.00, '2026-02-21', '', 'confirmed', 0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, 'paid', 0.00, NULL, '2026-02-21 16:11:51', '2026-02-21 18:28:51', NULL, 0, 'double', 0, NULL, NULL, NULL, NULL, 16426.50);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `booking_charges`
+--
+
+CREATE TABLE `booking_charges` (
+  `id` int UNSIGNED NOT NULL,
+  `booking_id` int UNSIGNED NOT NULL,
+  `charge_type` enum('room','food','drink','service','minibar','custom','breakfast','room_service','laundry','other') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'custom',
+  `source_item_id` int UNSIGNED DEFAULT NULL COMMENT 'FK to menu item ID if applicable (food_menu.id or drink_menu.id)',
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Snapshot of charge description at time of creation',
+  `quantity` decimal(10,2) NOT NULL DEFAULT '1.00',
+  `unit_price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'Snapshot of unit price at time of creation',
+  `line_subtotal` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'quantity * unit_price',
+  `vat_rate` decimal(5,2) NOT NULL DEFAULT '0.00' COMMENT 'VAT rate percentage for this line',
+  `vat_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'VAT amount for this line',
+  `line_total` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'line_subtotal + vat_amount',
+  `posted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When charge was posted to folio',
+  `added_by` int UNSIGNED DEFAULT NULL COMMENT 'Admin user ID who added the charge',
+  `voided` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Whether charge is voided/reversed',
+  `voided_at` datetime DEFAULT NULL COMMENT 'When charge was voided',
+  `void_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Reason for voiding',
+  `voided_by` int UNSIGNED DEFAULT NULL COMMENT 'Admin user ID who voided the charge',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Booking folio charges - tracks all extras and room charges with audit trail';
+
+--
+-- Dumping data for table `booking_charges`
+--
+
+INSERT INTO `booking_charges` (`id`, `booking_id`, `charge_type`, `source_item_id`, `description`, `quantity`, `unit_price`, `line_subtotal`, `vat_rate`, `vat_amount`, `line_total`, `posted_at`, `added_by`, `voided`, `voided_at`, `void_reason`, `voided_by`, `created_at`, `updated_at`) VALUES
+(1, 37, 'food', 64, 'Ice Cream', 1.00, 14100.00, 14100.00, 16.50, 2326.50, 16426.50, '2026-02-21 18:28:51', 1, 0, NULL, NULL, NULL, '2026-02-21 18:28:51', '2026-02-21 18:28:51');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `booking_date_adjustments`
+--
+
+CREATE TABLE `booking_date_adjustments` (
+  `id` int UNSIGNED NOT NULL,
+  `booking_id` int UNSIGNED NOT NULL,
+  `booking_reference` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `old_check_in_date` date NOT NULL COMMENT 'Previous check-in date',
+  `new_check_in_date` date NOT NULL COMMENT 'New check-in date',
+  `old_check_out_date` date NOT NULL COMMENT 'Previous check-out date',
+  `new_check_out_date` date NOT NULL COMMENT 'New check-out date',
+  `old_number_of_nights` int NOT NULL COMMENT 'Previous number of nights',
+  `new_number_of_nights` int NOT NULL COMMENT 'New number of nights',
+  `old_total_amount` decimal(10,2) NOT NULL COMMENT 'Previous booking total amount',
+  `new_total_amount` decimal(10,2) NOT NULL COMMENT 'New booking total amount',
+  `amount_delta` decimal(10,2) NOT NULL COMMENT 'Difference in amount (positive = additional charge, negative = refund)',
+  `adjustment_reason` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Reason for the adjustment',
+  `adjusted_by` int UNSIGNED DEFAULT NULL COMMENT 'Admin user ID who made the adjustment',
+  `adjusted_by_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Admin user name who made the adjustment',
+  `adjustment_timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the adjustment was made',
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'IP address of the admin making the adjustment',
+  `metadata` json DEFAULT NULL COMMENT 'Additional metadata (e.g., room rate at time of adjustment)',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Booking date adjustments audit trail with financial impact tracking';
 
 -- --------------------------------------------------------
 
@@ -312,13 +391,6 @@ CREATE TABLE `booking_notes` (
   `created_by` int UNSIGNED DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `booking_notes`
---
-
-INSERT INTO `booking_notes` (`id`, `booking_id`, `note_text`, `created_by`, `created_at`) VALUES
-(1, 27, 'Test', 2, '2026-02-07 00:22:22');
 
 -- --------------------------------------------------------
 
@@ -365,6 +437,14 @@ CREATE TABLE `booking_timeline_logs` (
   `metadata` json DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `booking_timeline_logs`
+--
+
+INSERT INTO `booking_timeline_logs` (`id`, `booking_id`, `booking_reference`, `action`, `action_type`, `description`, `old_value`, `new_value`, `performed_by_type`, `performed_by_id`, `performed_by_name`, `ip_address`, `user_agent`, `metadata`, `created_at`) VALUES
+(4, 36, 'LSH20263047', 'Booking created', 'create', 'New booking created for 2 night(s) - Total: 920000', NULL, 'pending', 'guest', NULL, 'JOHN-PAUL CHIRWA', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '{\"total\": 920000, \"guests\": 5, \"room_id\": 1, \"check_in\": \"2026-02-23\", \"check_out\": \"2026-02-25\", \"is_tentative\": 0}', '2026-02-21 11:50:33'),
+(5, 37, 'LSH20268184', 'Booking created', 'create', 'New booking created for 1 night(s) - Total: 250000', NULL, 'pending', 'guest', NULL, 'JOHN-PAUL CHIRWA', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '{\"total\": 250000, \"guests\": 2, \"room_id\": 2, \"check_in\": \"2026-02-23\", \"check_out\": \"2026-02-24\", \"is_tentative\": 0}', '2026-02-21 16:11:51');
 
 -- --------------------------------------------------------
 
@@ -694,13 +774,6 @@ CREATE TABLE `events` (
   `video_path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Path to event video file',
   `video_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Video MIME type (video/mp4, video/webm, etc.)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `events`
---
-
-INSERT INTO `events` (`id`, `title`, `description`, `event_date`, `start_time`, `end_time`, `location`, `image_path`, `ticket_price`, `capacity`, `is_featured`, `show_in_upcoming`, `is_active`, `display_order`, `created_at`, `updated_at`, `video_path`, `video_type`) VALUES
-(15, 'Valentines Day', 'Love is in the Sun', '2026-02-14', '00:00:00', '00:00:00', '', 'images/events/valentines.png', 0.00, 0, 1, 1, 1, 0, '2026-02-09 16:24:09', '2026-02-11 16:15:27', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -1086,7 +1159,18 @@ CREATE TABLE `housekeeping_assignments` (
   `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `completed_at` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `priority` enum('high','medium','low') COLLATE utf8mb4_unicode_ci DEFAULT 'medium',
+  `assignment_type` enum('checkout_cleanup','regular_cleaning','maintenance','deep_clean','turn_down') COLLATE utf8mb4_unicode_ci DEFAULT 'regular_cleaning',
+  `is_recurring` tinyint(1) DEFAULT '0',
+  `recurring_pattern` enum('daily','weekly','monthly') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `recurring_end_date` date DEFAULT NULL,
+  `verified_by` int UNSIGNED DEFAULT NULL,
+  `verified_at` datetime DEFAULT NULL,
+  `estimated_duration` int DEFAULT '30' COMMENT 'Estimated duration in minutes',
+  `actual_duration` int DEFAULT NULL COMMENT 'Actual duration in minutes',
+  `auto_created` tinyint(1) DEFAULT '0',
+  `linked_booking_id` int UNSIGNED DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -1125,21 +1209,21 @@ CREATE TABLE `individual_rooms` (
 --
 
 INSERT INTO `individual_rooms` (`id`, `room_type_id`, `room_number`, `room_name`, `floor`, `view_type`, `status`, `child_price_multiplier`, `single_occupancy_enabled_override`, `double_occupancy_enabled_override`, `triple_occupancy_enabled_override`, `children_allowed_override`, `housekeeping_status`, `housekeeping_notes`, `last_cleaned_at`, `next_maintenance_date`, `specific_amenities`, `notes`, `is_active`, `display_order`, `created_at`, `updated_at`) VALUES
-(1, 4, 'DELU-001', 'Deluxe Room 1', '1', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 1, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(2, 4, 'DELU-002', 'Deluxe Room 2', '1', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 2, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(3, 4, 'DELU-003', 'Deluxe Room 3', '2', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 3, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(4, 4, 'DELU-004', 'Deluxe Room 4', '2', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 4, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(5, 4, 'DELU-005', 'Deluxe Room 5', '3', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 5, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(6, 2, 'EXEC-001', 'Executive Suite 1', '1', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 1, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(7, 2, 'EXEC-002', 'Executive Suite 2', '1', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 2, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(8, 2, 'EXEC-003', 'Executive Suite 3', '2', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 3, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(9, 2, 'EXEC-004', 'Executive Suite 4', '2', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 4, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(10, 2, 'EXEC-005', 'Executive Suite 5', '3', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 5, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(11, 5, 'STAN-001', 'Standard Room 1', '1', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 1, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(12, 5, 'STAN-002', 'Standard Room 2', '1', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 2, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(13, 5, 'STAN-003', 'Standard Room 3', '2', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 3, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(14, 5, 'STAN-004', 'Standard Room 4', '2', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 4, '2026-02-11 12:06:30', '2026-02-11 12:06:30'),
-(15, 5, 'STAN-005', 'Standard Room 5', '3', NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 5, '2026-02-11 12:06:30', '2026-02-11 12:06:30');
+(1, 2, '1A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 1, '2026-02-11 12:06:30', '2026-02-20 15:26:00'),
+(2, 2, '1B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 2, '2026-02-11 12:06:30', '2026-02-20 15:25:57'),
+(3, 2, '2A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 3, '2026-02-11 12:06:30', '2026-02-20 15:25:53'),
+(4, 2, '2B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 4, '2026-02-11 12:06:30', '2026-02-20 15:26:03'),
+(5, 2, '3A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 5, '2026-02-11 12:06:30', '2026-02-20 15:26:07'),
+(6, 2, '3B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 6, '2026-02-11 12:06:30', '2026-02-20 15:26:10'),
+(7, 2, '4A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 7, '2026-02-11 12:06:30', '2026-02-20 15:26:13'),
+(8, 2, '4B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 8, '2026-02-11 12:06:30', '2026-02-20 15:26:16'),
+(9, 2, '5A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 9, '2026-02-11 12:06:30', '2026-02-20 15:26:18'),
+(10, 2, '5B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 10, '2026-02-11 12:06:30', '2026-02-20 15:26:21'),
+(11, 1, 'Villa', 'Villa', NULL, NULL, 'occupied', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 11, '2026-02-11 12:06:30', '2026-02-21 12:15:48'),
+(12, 2, '6A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 12, '2026-02-11 12:06:30', '2026-02-20 15:26:28'),
+(13, 2, '6B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 13, '2026-02-11 12:06:30', '2026-02-20 15:26:31'),
+(14, 2, '7A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 14, '2026-02-11 12:06:30', '2026-02-20 15:26:34'),
+(15, 2, '7B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 15, '2026-02-11 12:06:30', '2026-02-20 15:26:37');
 
 -- --------------------------------------------------------
 
@@ -1156,6 +1240,23 @@ CREATE TABLE `individual_room_amenities` (
   `is_included` tinyint(1) DEFAULT '1',
   `display_order` int DEFAULT '0',
   `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `individual_room_blocked_dates`
+--
+
+CREATE TABLE `individual_room_blocked_dates` (
+  `id` int UNSIGNED NOT NULL,
+  `individual_room_id` int UNSIGNED NOT NULL,
+  `block_date` date NOT NULL,
+  `block_type` enum('manual','maintenance','event','full') COLLATE utf8mb4_unicode_ci DEFAULT 'manual',
+  `reason` text COLLATE utf8mb4_unicode_ci,
+  `blocked_by` int UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1379,7 +1480,7 @@ INSERT INTO `managed_media_links` (`id`, `media_catalog_id`, `source_table`, `so
 (2, 4, 'conference_rooms', '1', 'image_path', '', 'image', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 1, 'card_image', 1, 1, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (3, 5, 'conference_rooms', '2', 'image_path', '', 'image', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 2, 'card_image', 2, 1, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (4, 6, 'conference_rooms', '3', 'image_path', '', 'image', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 3, 'card_image', 3, 1, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
-(5, 7, 'events', '15', 'image_path', '', 'image', 'events.image_path', 'events', 'events_overview', 'event', 15, 'event_card_image', 0, 1, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
+(5, 7, 'events', '15', 'image_path', '', 'image', 'events.image_path', 'events', 'events_overview', 'event', 15, 'event_card_image', 0, 0, '2026-02-16 13:10:31', '2026-02-20 11:27:57'),
 (6, 8, 'rooms', '2', 'image_url', '', 'image', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 2, 'featured_image', 1, 1, '2026-02-16 13:10:31', '2026-02-17 14:05:25'),
 (7, 9, 'rooms', '4', 'image_url', '', 'image', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 4, 'featured_image', 2, 1, '2026-02-16 13:10:31', '2026-02-17 14:07:33'),
 (8, 10, 'rooms', '5', 'image_url', '', 'image', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 5, 'featured_image', 3, 1, '2026-02-16 13:10:31', '2026-02-17 14:07:18'),
@@ -1642,6 +1743,14 @@ CREATE TABLE `payments` (
   `deleted_at` timestamp NULL DEFAULT NULL COMMENT 'Soft delete timestamp'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='All payment transactions for room and conference bookings';
 
+--
+-- Dumping data for table `payments`
+--
+
+INSERT INTO `payments` (`id`, `payment_reference`, `booking_type`, `booking_id`, `conference_id`, `booking_reference`, `payment_date`, `payment_amount`, `vat_rate`, `vat_amount`, `total_amount`, `payment_method`, `payment_type`, `payment_reference_number`, `payment_status`, `invoice_generated`, `invoice_number`, `amount`, `status`, `transaction_id`, `invoice_path`, `notes`, `recorded_by`, `created_at`, `updated_at`, `cc_emails`, `receipt_number`, `processed_by`, `deleted_at`) VALUES
+(13, 'PAY-2026-000036', 'room', 36, NULL, 'LSH20263047', '2026-02-21', 920000.00, 16.50, 151800.00, 1071800.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001002', 0.00, 'completed', NULL, 'invoices/INV-2026-001002.html', NULL, 1, '2026-02-21 12:12:07', '2026-02-21 15:37:45', NULL, NULL, NULL, NULL),
+(14, 'PAY-2026-000037', 'room', 37, NULL, 'LSH20268184', '2026-02-21', 250000.00, 16.50, 41250.00, 291250.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001003', 0.00, 'completed', NULL, 'invoices/INV-2026-001003.html', NULL, 1, '2026-02-21 16:15:06', '2026-02-21 16:15:09', NULL, NULL, NULL, NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -1795,8 +1904,8 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`id`, `name`, `slug`, `description`, `short_description`, `price_per_night`, `size_sqm`, `max_guests`, `single_occupancy_enabled`, `double_occupancy_enabled`, `triple_occupancy_enabled`, `children_allowed`, `rooms_available`, `total_rooms`, `bed_type`, `image_url`, `badge`, `amenities`, `is_featured`, `is_active`, `display_order`, `created_at`, `updated_at`, `video_path`, `video_type`, `price_single_occupancy`, `price_double_occupancy`, `price_triple_occupancy`, `child_price_multiplier`) VALUES
-(2, 'VIP Beach Front Villa', 'executive-suite', 'Experience luxury beachfront living in our spacious two-room villa. Perfect for groups of up to 4, featuring a private lounge and fully-equipped kitchen. Enjoy breathtaking lake views and direct beach access.\r\n\r\n', 'Spacious room with work area', 460000.00, 60, 2, 1, 1, 0, 1, 0, 1, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-06-30%20at%2018.38.03.f4a12059d4216a3061ab.jpeg', NULL, 'King Bed,Work Desk,Butler Service,Living Area,Smart TV,High-Speed WiFi,Coffee Machine,Mini Bar,Safe', 1, 1, 1, '2026-01-19 20:22:49', '2026-02-19 22:27:34', NULL, NULL, 460000.00, 460000.00, 460000.00, 0.00),
-(4, 'Superior Suite', 'deluxe-room', 'Indulge in our luxurious Executive Suite, offering panoramic views and exclusive amenities. Perfect for couples or business travelers, this suite includes a sumptuous bed and breakfast for two, ensuring a memorable stay.', 'Comfortable room with private bathroom', 250000.00, 45, 2, 1, 1, 0, 1, 17, 17, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-10%20at%2019.27.57%20(13).60ab649ff39cf3dd7a51.jpeg', 'Popular', 'King Bed,Jacuzzi Tub,Living Area,Marble Bathroom,Premium Bedding,Smart TV,Mini Bar,Free WiFi', 1, 1, 2, '2026-01-19 20:22:49', '2026-02-19 12:01:17', NULL, NULL, 250000.00, 250000.00, 0.00, 50.00);
+(1, 'VIP Beach Front Villa', 'executive-villa', 'Experience luxury beachfront living in our spacious two-room villa. Perfect for groups of up to 4, featuring a private lounge and fully-equipped kitchen. Enjoy breathtaking lake views and direct beach access.\r\n\r\n', 'Spacious room with work area', 460000.00, 60, 5, 1, 1, 1, 2, 0, 1, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-06-30%20at%2018.38.03.f4a12059d4216a3061ab.jpeg', NULL, 'King Bed,Work Desk,Butler Service,Living Area,Smart TV,High-Speed WiFi,Coffee Machine,Mini Bar,Safe', 1, 1, 1, '2026-01-19 20:22:49', '2026-02-21 12:15:48', NULL, NULL, 460000.00, 460000.00, 460000.00, 0.00),
+(2, 'Superior Suite', 'deluxe-room', 'Indulge in our luxurious Executive Suite, offering panoramic views and exclusive amenities. Perfect for couples or business travelers, this suite includes a sumptuous bed and breakfast for two, ensuring a memorable stay.', 'Comfortable room with private bathroom', 250000.00, 45, 2, 1, 1, 0, 0, 16, 17, 'King Bed', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-10%20at%2019.27.57%20(13).60ab649ff39cf3dd7a51.jpeg', 'Popular', 'King Bed,Jacuzzi Tub,Living Area,Marble Bathroom,Premium Bedding,Smart TV,Mini Bar,Free WiFi', 1, 1, 2, '2026-01-19 20:22:49', '2026-02-21 16:14:01', NULL, NULL, 250000.00, 250000.00, NULL, 0.00);
 
 -- --------------------------------------------------------
 
@@ -1975,7 +2084,7 @@ INSERT INTO `session_logs` (`id`, `session_id`, `ip_address`, `device_type`, `br
 (69, 'drqqccrjkafr08nhsufqg460td', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/booking.php', 'localhost', 'Local', '2026-02-17 10:42:35', '2026-02-17 21:03:32', 9, 'all'),
 (78, 's27pekk2s9np7i6t3c2mrr24p9', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/gym.php', 'localhost', 'Local', '2026-02-18 10:29:20', '2026-02-18 11:48:31', 3, 'all'),
 (81, 'jdp02hfip1clvm2mtgtt6vv63d', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/booking.php', 'localhost', 'Local', '2026-02-18 22:17:29', '2026-02-18 22:17:29', 1, 'all'),
-(82, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/conference.php', 'localhost', 'Local', '2026-02-19 11:44:15', '2026-02-20 10:52:49', 9, 'all'),
+(82, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/booking-confirmation.php?ref=LSH20268184', 'localhost', 'Local', '2026-02-19 11:44:15', '2026-02-21 16:11:54', 37, 'all'),
 (86, 'da2ggsdcrjishlole11qh7g60m', '192.168.2.5', 'mobile', 'Chrome', 'Android', '/submit-review.php', '192.168.2.13', 'Local', '2026-02-19 18:50:14', '2026-02-19 18:50:14', 1, 'all');
 
 -- --------------------------------------------------------
@@ -2050,7 +2159,7 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_value`, `setting_grou
 (17, 'copyright_text', '2026 Rosalyns Beach Hotel. All rights reserved.', 'general', '2026-02-11 11:57:46', NULL, NULL),
 (18, 'currency_symbol', 'MWK', 'general', '2026-01-20 10:16:28', NULL, NULL),
 (19, 'currency_code', 'MWK', 'general', '2026-01-20 10:16:13', NULL, NULL),
-(20, 'site_logo', 'images\\logo\\logo.png', 'general', '2026-02-16 14:26:41', NULL, NULL),
+(20, 'site_logo', 'https://www.rosalynsbeachhotel.com/static/media/logo.068798eab68c159cf5e9.png', 'general', '2026-02-21 16:13:35', NULL, NULL),
 (23, 'site_url', 'https://promanaged-it.com/hotelsmw', 'general', '2026-02-05 12:25:03', NULL, NULL),
 (27, 'check_in_time', '2:00 PM', 'booking', '2026-01-27 12:02:11', NULL, NULL),
 (28, 'check_out_time', '11:00 AM', 'booking', '2026-01-27 12:02:11', NULL, NULL),
@@ -2244,7 +2353,35 @@ INSERT INTO `site_visitors` (`id`, `session_id`, `ip_address`, `user_agent`, `de
 (88, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking-confirmation.php?ref=LSH20264072', NULL, 0, NULL, '2026-02-19 22:25:48'),
 (89, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 10:27:23'),
 (90, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 10:28:35'),
-(91, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 10:52:49');
+(91, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 10:52:49'),
+(92, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/conference.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-20 11:29:53'),
+(93, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php?check_in=2026-02-21&check_out=2026-02-22&guests=2&children=1&room_type=Superior+Suite', NULL, 0, NULL, '2026-02-20 14:23:15'),
+(94, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php?check_in=2026-02-21&check_out=2026-02-22&guests=2&children=1&room_type=Superior+Suite', NULL, 0, NULL, '2026-02-20 14:34:58'),
+(95, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php?check_in=2026-02-21&check_out=2026-02-22&guests=2&children=1&room_type=Superior+Suite', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 14:37:27'),
+(96, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/booking.php?check_in=2026-02-22&check_out=2026-02-24&guests=5&children=1&room_type=VIP+Beach+Front+Villa', NULL, 0, NULL, '2026-02-20 14:40:29'),
+(97, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php?check_in=2026-02-22&check_out=2026-02-24&guests=5&children=1&room_type=VIP+Beach+Front+Villa', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 14:41:51'),
+(98, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php?check_in=2026-02-22&check_out=2026-02-24&guests=5&children=1&room_type=VIP+Beach+Front+Villa', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 14:44:39'),
+(99, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 14:45:11'),
+(100, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 15:08:07'),
+(101, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 15:10:06'),
+(102, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 15:10:33'),
+(103, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 15:38:24'),
+(104, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 15:40:47'),
+(105, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking-confirmation.php?ref=LSH20262821', NULL, 0, NULL, '2026-02-20 15:41:58'),
+(106, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 17:19:30'),
+(107, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 17:25:27'),
+(108, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 17:32:30'),
+(109, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 17:41:11'),
+(110, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 17:41:55'),
+(111, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 17:51:36'),
+(112, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 17:53:37'),
+(113, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-20 18:02:57'),
+(114, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php', 'localhost', 'Local', '/booking-confirmation.php?ref=LSH20261303', NULL, 0, NULL, '2026-02-20 18:05:55'),
+(115, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php?check_in=2026-02-23&check_out=2026-02-25&guests=2&children=0&room_type=VIP+Beach+Front+Villa', NULL, 0, NULL, '2026-02-21 11:50:01'),
+(116, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php?check_in=2026-02-23&check_out=2026-02-25&guests=2&children=0&room_type=VIP+Beach+Front+Villa', 'localhost', 'Local', '/booking-confirmation.php?ref=LSH20263047', NULL, 0, NULL, '2026-02-21 11:50:43'),
+(117, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/booking.php?check_in=2026-02-22&check_out=2026-02-23&guests=5&children=0&room_type=VIP+Beach+Front+Villa', NULL, 0, NULL, '2026-02-21 15:53:44'),
+(118, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/booking.php?check_in=2026-02-23&check_out=2026-02-24&guests=5&children=0&room_type=VIP+Beach+Front+Villa', NULL, 0, NULL, '2026-02-21 16:06:29'),
+(119, '8jfsok15e608t6hj54fj46qr74', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/booking.php?check_in=2026-02-23&check_out=2026-02-24&guests=5&children=0&room_type=VIP+Beach+Front+Villa', 'localhost', 'Local', '/booking-confirmation.php?ref=LSH20268184', NULL, 0, NULL, '2026-02-21 16:11:54');
 
 -- --------------------------------------------------------
 
@@ -2597,7 +2734,8 @@ ALTER TABLE `blocked_dates`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_room_id` (`room_id`),
   ADD KEY `idx_block_date` (`block_date`),
-  ADD KEY `idx_room_date` (`room_id`,`block_date`);
+  ADD KEY `idx_room_date` (`room_id`,`block_date`),
+  ADD KEY `idx_blocked_dates_block_type` (`block_type`);
 
 --
 -- Indexes for table `bookings`
@@ -2615,7 +2753,29 @@ ALTER TABLE `bookings`
   ADD KEY `idx_tentative_bookings` (`status`,`expires_at`),
   ADD KEY `idx_tentative_expires` (`tentative_expires_at`,`status`),
   ADD KEY `idx_is_tentative` (`is_tentative`,`status`),
-  ADD KEY `idx_individual_room_id` (`individual_room_id`);
+  ADD KEY `idx_individual_room_id` (`individual_room_id`),
+  ADD KEY `idx_bookings_final_invoice` (`final_invoice_generated`,`final_invoice_sent_at`);
+
+--
+-- Indexes for table `booking_charges`
+--
+ALTER TABLE `booking_charges`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_booking_charges_booking_id` (`booking_id`),
+  ADD KEY `idx_booking_charges_type` (`charge_type`),
+  ADD KEY `idx_booking_charges_source` (`source_item_id`),
+  ADD KEY `idx_booking_charges_voided` (`voided`),
+  ADD KEY `idx_booking_charges_posted_at` (`posted_at`);
+
+--
+-- Indexes for table `booking_date_adjustments`
+--
+ALTER TABLE `booking_date_adjustments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_booking_date_adjustments_booking_id` (`booking_id`),
+  ADD KEY `idx_booking_date_adjustments_reference` (`booking_reference`),
+  ADD KEY `idx_booking_date_adjustments_timestamp` (`adjustment_timestamp`),
+  ADD KEY `idx_booking_date_adjustments_adjusted_by` (`adjusted_by`);
 
 --
 -- Indexes for table `booking_email_templates`
@@ -2804,7 +2964,14 @@ ALTER TABLE `housekeeping_assignments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_room` (`individual_room_id`),
   ADD KEY `idx_status` (`status`),
-  ADD KEY `idx_due` (`due_date`);
+  ADD KEY `idx_due` (`due_date`),
+  ADD KEY `idx_housekeeping_priority` (`priority`),
+  ADD KEY `idx_housekeeping_status_priority` (`status`,`priority`),
+  ADD KEY `idx_housekeeping_assigned_to` (`assigned_to`),
+  ADD KEY `idx_housekeeping_due_date` (`due_date`),
+  ADD KEY `idx_housekeeping_type` (`assignment_type`),
+  ADD KEY `idx_housekeeping_linked_booking` (`linked_booking_id`),
+  ADD KEY `fk_housekeeping_verified_by` (`verified_by`);
 
 --
 -- Indexes for table `individual_rooms`
@@ -2823,6 +2990,16 @@ ALTER TABLE `individual_room_amenities`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_room` (`individual_room_id`),
   ADD KEY `idx_key` (`amenity_key`);
+
+--
+-- Indexes for table `individual_room_blocked_dates`
+--
+ALTER TABLE `individual_room_blocked_dates`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `idx_individual_room_date` (`individual_room_id`,`block_date`),
+  ADD KEY `idx_individual_room_block_date` (`block_date`),
+  ADD KEY `idx_individual_room_block_type` (`block_type`),
+  ADD KEY `idx_individual_room_blocked_by` (`blocked_by`);
 
 --
 -- Indexes for table `individual_room_photos`
@@ -3136,13 +3313,25 @@ ALTER TABLE `api_usage_logs`
 -- AUTO_INCREMENT for table `blocked_dates`
 --
 ALTER TABLE `blocked_dates`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+
+--
+-- AUTO_INCREMENT for table `booking_charges`
+--
+ALTER TABLE `booking_charges`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `booking_date_adjustments`
+--
+ALTER TABLE `booking_date_adjustments`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `booking_email_templates`
@@ -3166,7 +3355,7 @@ ALTER TABLE `booking_payments`
 -- AUTO_INCREMENT for table `booking_timeline_logs`
 --
 ALTER TABLE `booking_timeline_logs`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `cancellation_log`
@@ -3292,12 +3481,18 @@ ALTER TABLE `housekeeping_assignments`
 -- AUTO_INCREMENT for table `individual_rooms`
 --
 ALTER TABLE `individual_rooms`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `individual_room_amenities`
 --
 ALTER TABLE `individual_room_amenities`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `individual_room_blocked_dates`
+--
+ALTER TABLE `individual_room_blocked_dates`
   MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
@@ -3376,7 +3571,7 @@ ALTER TABLE `password_resets`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `policies`
@@ -3442,7 +3637,7 @@ ALTER TABLE `section_headers`
 -- AUTO_INCREMENT for table `session_logs`
 --
 ALTER TABLE `session_logs`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=92;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=120;
 
 --
 -- AUTO_INCREMENT for table `site_pages`
@@ -3454,13 +3649,13 @@ ALTER TABLE `site_pages`
 -- AUTO_INCREMENT for table `site_settings`
 --
 ALTER TABLE `site_settings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=355;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=341;
 
 --
 -- AUTO_INCREMENT for table `site_visitors`
 --
 ALTER TABLE `site_visitors`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=92;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=120;
 
 --
 -- AUTO_INCREMENT for table `tentative_booking_log`
@@ -3509,6 +3704,19 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`p601229`@`localhost` SQL SECURITY DEFINER VI
 --
 
 --
+-- Constraints for table `booking_charges`
+--
+ALTER TABLE `booking_charges`
+  ADD CONSTRAINT `fk_booking_charges_booking_id` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Constraints for table `booking_date_adjustments`
+--
+ALTER TABLE `booking_date_adjustments`
+  ADD CONSTRAINT `fk_booking_date_adjustments_adjusted_by` FOREIGN KEY (`adjusted_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_booking_date_adjustments_booking_id` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
 -- Constraints for table `booking_payments`
 --
 ALTER TABLE `booking_payments`
@@ -3525,6 +3733,20 @@ ALTER TABLE `booking_timeline_logs`
 --
 ALTER TABLE `cancellation_log`
   ADD CONSTRAINT `fk_cancellation_log_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `housekeeping_assignments`
+--
+ALTER TABLE `housekeeping_assignments`
+  ADD CONSTRAINT `fk_housekeeping_booking` FOREIGN KEY (`linked_booking_id`) REFERENCES `bookings` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_housekeeping_verified_by` FOREIGN KEY (`verified_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `individual_room_blocked_dates`
+--
+ALTER TABLE `individual_room_blocked_dates`
+  ADD CONSTRAINT `fk_irbd_blocked_by` FOREIGN KEY (`blocked_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_irbd_individual_room` FOREIGN KEY (`individual_room_id`) REFERENCES `individual_rooms` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `managed_media_links`

@@ -583,8 +583,9 @@ footer {
 .room-calendar {
     border: 1px solid var(--admin-surface-border);
     border-radius: 12px;
-    overflow: hidden;
     background: #fff;
+    /* Allow tooltips to overflow */
+    overflow: visible;
 }
 
 .room-header {
@@ -663,6 +664,12 @@ footer {
     text-overflow: ellipsis;
 }
 
+/* Booking indicator when used as tooltip trigger - ensure overflow visible for tooltip */
+.booking-indicator.calendar-booking-tooltip-trigger,
+.calendar-booking-tooltip-trigger {
+    overflow: visible;
+}
+
 .booking-indicator.pending { background: #fff3cd; color: #856404; }
 .booking-indicator.confirmed { background: #d1ecf1; color: #0c5460; }
 .booking-indicator.checked-in { background: #d4edda; color: #155724; }
@@ -686,6 +693,282 @@ footer {
     text-transform: uppercase;
     letter-spacing: 0.3px;
     vertical-align: middle;
+}
+
+/* ============================================
+   CALENDAR BOOKING TOOLTIP STYLES
+   ============================================ */
+
+/* Tooltip container - positioned relative to booking indicator */
+.calendar-booking-tooltip-trigger {
+    position: relative;
+    /* Ensure click-through works */
+    cursor: pointer;
+}
+
+/* CSS-only tooltip using data-tooltip attribute (PRIMARY - works without JS) */
+.calendar-booking-tooltip-trigger::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #ffffff;
+    opacity: 0;
+    visibility: hidden;
+    transition: none !important;
+    z-index: 10001;
+    filter: drop-shadow(0 -1px 1px rgba(0, 0, 0, 0.1));
+    pointer-events: none;
+}
+
+.calendar-booking-tooltip-trigger::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 280px;
+    max-width: 320px;
+    background: #ffffff;
+    border: 1px solid var(--admin-surface-border, #eaecef);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    padding: 12px 14px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: none !important;
+    z-index: 10000;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--admin-text, #1d2430);
+    text-align: left;
+    white-space: pre-line;
+}
+
+/* Show CSS-only tooltip on hover/focus - INSTANT display */
+.calendar-booking-tooltip-trigger:hover::after,
+.calendar-booking-tooltip-trigger:focus::after {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto;
+}
+
+.calendar-booking-tooltip-trigger:hover::before,
+.calendar-booking-tooltip-trigger:focus::before {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Hide CSS-only tooltip when JS tooltip content exists (for enhanced version) */
+.calendar-booking-tooltip-trigger.has-js-tooltip::after,
+.calendar-booking-tooltip-trigger.has-js-tooltip::before {
+    display: none;
+}
+
+/* Tooltip inner structure - using attr() for content fallback */
+.calendar-booking-tooltip-trigger .calendar-tooltip-content {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    max-width: 320px;
+    background: #ffffff;
+    border: 1px solid var(--admin-surface-border, #eaecef);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    padding: 12px 14px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: none !important;
+    z-index: 10000;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--admin-text, #1d2430);
+    text-align: left;
+    white-space: normal;
+    display: block;
+}
+
+.calendar-booking-tooltip-trigger:hover .calendar-tooltip-content,
+.calendar-booking-tooltip-trigger:focus .calendar-tooltip-content {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto;
+}
+
+/* Tooltip header */
+.calendar-tooltip-content .tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--admin-surface-border, #eaecef);
+    font-weight: 600;
+}
+
+.calendar-tooltip-content .tooltip-ref {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 14px;
+    color: var(--deep-navy, #0f1d2e);
+}
+
+.calendar-tooltip-content .tooltip-status {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+/* Status colors in tooltip */
+.calendar-tooltip-content .tooltip-status.status-confirmed,
+.calendar-tooltip-content .tooltip-status.status-checked_in,
+.calendar-tooltip-content .tooltip-status.status.checked_in {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.calendar-tooltip-content .tooltip-status.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* Tooltip rows */
+.calendar-tooltip-content .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.calendar-tooltip-content .tooltip-row:last-child {
+    margin-bottom: 0;
+}
+
+.calendar-tooltip-content .tooltip-label {
+    color: var(--admin-muted, #8a92a0);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.calendar-tooltip-content .tooltip-value {
+    color: var(--admin-text, #1d2430);
+    font-weight: 500;
+    text-align: right;
+}
+
+.calendar-tooltip-content .tooltip-value.highlight {
+    color: var(--gold, #8B7355);
+    font-weight: 600;
+}
+
+/* Tooltip footer with amount */
+.calendar-tooltip-content .tooltip-footer {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--admin-surface-border, #eaecef);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.calendar-tooltip-content .tooltip-payment {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.calendar-tooltip-content .tooltip-payment.paid {
+    background: #d4edda;
+    color: #155724;
+}
+
+.calendar-tooltip-content .tooltip-payment.pending,
+.calendar-tooltip-content .tooltip-payment.partial {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.calendar-tooltip-content .tooltip-amount {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--deep-navy, #0f1d2e);
+}
+
+/* Prevent tooltip from going off screen on edges - JS tooltip content */
+.calendar-day:first-child .calendar-booking-tooltip-trigger .calendar-tooltip-content,
+.calendar-day:nth-child(7n+1) .calendar-booking-tooltip-trigger .calendar-tooltip-content {
+    left: 8px;
+    transform: translateX(0);
+}
+
+.calendar-day:first-child .calendar-booking-tooltip-trigger:hover .calendar-tooltip-content,
+.calendar-day:nth-child(7n+1) .calendar-booking-tooltip-trigger:hover .calendar-tooltip-content,
+.calendar-day:first-child .calendar-booking-tooltip-trigger:focus .calendar-tooltip-content,
+.calendar-day:nth-child(7n+1) .calendar-booking-tooltip-trigger:focus .calendar-tooltip-content {
+    transform: translateX(0);
+}
+
+.calendar-day:nth-child(7n) .calendar-booking-tooltip-trigger .calendar-tooltip-content {
+    left: auto;
+    right: 8px;
+    transform: translateX(0);
+}
+
+.calendar-day:nth-child(7n) .calendar-booking-tooltip-trigger:hover .calendar-tooltip-content,
+.calendar-day:nth-child(7n) .calendar-booking-tooltip-trigger:focus .calendar-tooltip-content {
+    transform: translateX(0);
+}
+
+/* Prevent CSS-only tooltip (::after) from going off screen on edges */
+.calendar-day:first-child .calendar-booking-tooltip-trigger::after,
+.calendar-day:nth-child(7n+1) .calendar-booking-tooltip-trigger::after {
+    left: 8px;
+}
+
+.calendar-day:nth-child(7n) .calendar-booking-tooltip-trigger::after {
+    left: auto;
+    right: 8px;
+}
+
+/* Position tooltip arrow (::before) for edge cases */
+.calendar-day:first-child .calendar-booking-tooltip-trigger::before,
+.calendar-day:nth-child(7n+1) .calendar-booking-tooltip-trigger::before {
+    left: 14px;
+}
+
+.calendar-day:nth-child(7n) .calendar-booking-tooltip-trigger::before {
+    left: auto;
+    right: 14px;
+}
+
+/* Focus visible styles for keyboard accessibility */
+.calendar-booking-tooltip-trigger:focus-visible {
+    outline: 2px solid var(--gold, #8B7355);
+    outline-offset: 2px;
+}
+
+/* Ensure tooltip stays above other calendar elements */
+.calendar-day {
+    overflow: visible;
+}
+
+.booking-indicator,
+.calendar-booking-tooltip-trigger {
+    position: relative;
+    z-index: 10;
+}
+
+.booking-indicator:hover,
+.calendar-booking-tooltip-trigger:hover {
+    z-index: 10001;
 }
 
 /* Professional toolbar/buttons used heavily on bookings/rooms */
@@ -1944,4 +2227,237 @@ select.form-control {
     flex-wrap: wrap;
     gap: 4px;
     margin: 0;
+}
+
+/* ============================================
+   ROOM STATUS WIDGET
+   ============================================ */
+.room-status-widget {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-surface-border);
+    border-radius: var(--admin-radius);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.room-status-widget .widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--admin-surface-border);
+    background: #fafbfd;
+}
+
+.room-status-widget .widget-header h3 {
+    margin: 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    color: var(--navy);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.room-status-widget .widget-header h3 i {
+    color: var(--gold);
+}
+
+.room-status-widget .widget-header .btn-outline {
+    background: transparent;
+    border: 1px solid var(--admin-surface-border);
+    color: var(--admin-text);
+    padding: 6px 14px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.room-status-widget .widget-header .btn-outline:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: white;
+}
+
+.room-status-widget .widget-content {
+    padding: 20px;
+}
+
+/* Occupancy Overview */
+.occupancy-overview {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.occupancy-percentage {
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.occupancy-percentage .value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+}
+
+.occupancy-percentage .label {
+    font-size: 11px;
+    color: var(--admin-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.occupancy-bar-mini {
+    flex: 1;
+    height: 12px;
+    background: #f0f0f0;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+}
+
+.occupancy-bar-mini .bar-segment {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.occupancy-bar-mini .bar-segment:hover {
+    opacity: 0.9;
+}
+
+/* Status Cards Mini */
+.status-cards-mini {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.status-mini {
+    background: #f8f9fb;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.status-mini:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.status-mini .count {
+    font-size: 24px;
+    font-weight: 700;
+    display: block;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.status-mini .label {
+    font-size: 10px;
+    color: var(--admin-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Status Colors */
+.status-mini.available { background: rgba(40, 167, 69, 0.1); }
+.status-mini.available .count { color: #28a745; }
+
+.status-mini.occupied { background: rgba(220, 53, 69, 0.1); }
+.status-mini.occupied .count { color: #dc3545; }
+
+.status-mini.cleaning { background: rgba(255, 193, 7, 0.1); }
+.status-mini.cleaning .count { color: #ffc107; }
+
+.status-mini.inspection { background: rgba(23, 162, 184, 0.1); }
+.status-mini.inspection .count { color: #17a2b8; }
+
+.status-mini.maintenance { background: rgba(253, 126, 20, 0.1); }
+.status-mini.maintenance .count { color: #fd7e14; }
+
+.status-mini.out_of_order { background: rgba(108, 117, 125, 0.1); }
+.status-mini.out_of_order .count { color: #6c757d; }
+
+/* Quick Actions Row */
+.quick-actions-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.action-item {
+    background: linear-gradient(135deg, var(--navy) 0%, #2A2A2A 100%);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+    color: white;
+}
+
+.action-item .action-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--gold);
+    display: block;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.action-item .action-label {
+    font-size: 11px;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.action-item .action-label i {
+    font-size: 10px;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .status-cards-mini {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .quick-actions-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .room-status-widget .widget-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .occupancy-overview {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .occupancy-bar-mini {
+        width: 100%;
+    }
+    
+    .status-cards-mini {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .quick-actions-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .action-item .action-value {
+        font-size: 20px;
+    }
 }

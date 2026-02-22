@@ -420,8 +420,11 @@ function getPendingRefunds(): array {
 
 /**
  * Format timeline action type for display
+ * 
+ * @param string $action_type The action type
+ * @return array Array with 'label', 'icon', and 'color' keys
  */
-function formatActionType(string $action_type): string {
+function formatActionType(string $action_type): array {
     $types = [
         'create' => ['label' => 'Created', 'icon' => 'fa-plus-circle', 'color' => '#28a745'],
         'update' => ['label' => 'Updated', 'icon' => 'fa-edit', 'color' => '#17a2b8'],
@@ -434,8 +437,81 @@ function formatActionType(string $action_type): string {
         'conversion' => ['label' => 'Conversion', 'icon' => 'fa-check-double', 'color' => '#28a745'],
         'reminder' => ['label' => 'Reminder', 'icon' => 'fa-bell', 'color' => '#ffc107'],
         'expiry' => ['label' => 'Expired', 'icon' => 'fa-hourglass-end', 'color' => '#dc3545'],
-        'note' => ['label' => 'Note', 'icon' => 'fa-sticky-note', 'color' => '#17a2b8']
+        'note' => ['label' => 'Note', 'icon' => 'fa-sticky-note', 'color' => '#17a2b8'],
+        'date_adjustment' => ['label' => 'Date Adjustment', 'icon' => 'fa-calendar-alt', 'color' => '#f5576c']
     ];
     
     return $types[$action_type] ?? ['label' => ucfirst($action_type), 'icon' => 'fa-circle', 'color' => '#6c757d'];
+}
+
+/**
+ * Get booking date adjustments with formatted display data
+ *
+ * @param int $bookingId Booking ID
+ * @return array List of formatted adjustments
+ */
+function getBookingDateAdjustmentsFormatted(int $bookingId): array {
+    global $pdo;
+    
+    try {
+        $stmt = $pdo->prepare("
+            SELECT
+                id,
+                old_check_in_date,
+                new_check_in_date,
+                old_check_out_date,
+                new_check_out_date,
+                old_number_of_nights,
+                new_number_of_nights,
+                old_total_amount,
+                new_total_amount,
+                amount_delta,
+                adjustment_reason,
+                adjusted_by_name,
+                adjustment_timestamp,
+                metadata
+            FROM booking_date_adjustments
+            WHERE booking_id = ?
+            ORDER BY adjustment_timestamp DESC
+        ");
+        $stmt->execute([$bookingId]);
+        $adjustments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Format each adjustment for display
+        foreach ($adjustments as &$adj) {
+            $adj['nights_delta'] = $adj['new_number_of_nights'] - $adj['old_number_of_nights'];
+            $adj['is_refund'] = $adj['amount_delta'] < 0;
+            
+            // Parse metadata for additional details
+            $metadata = json_decode($adj['metadata'], true) ?: [];
+            $adj['child_supplement_delta'] = $metadata['child_supplement_delta'] ?? 0;
+            $adj['credit_balance'] = $metadata['credit_balance'] ?? null;
+            
+            // Build delta display text
+            $deltaParts = [];
+            if ($adj['amount_delta'] >= 0) {
+                $deltaParts[] = '+$' . number_format($adj['amount_delta'], 2) . ' additional charge';
+            } else {
+                $deltaParts[] = '-$' . number_format(abs($adj['amount_delta']), 2) . ' refund/credit';
+            }
+            
+            // Add credit balance note if applicable
+            if ($adj['credit_balance'] > 0) {
+                $deltaParts[] = '(Credit balance: $' . number_format($adj['credit_balance'], 2) . ')';
+            }
+            
+            $adj['delta_display'] = implode(' ', $deltaParts);
+            
+            // Format old and new dates for display
+            $adj['old_check_in_formatted'] = date('M j, Y', strtotime($adj['old_check_in_date']));
+            $adj['new_check_in_formatted'] = date('M j, Y', strtotime($adj['new_check_in_date']));
+            $adj['old_check_out_formatted'] = date('M j, Y', strtotime($adj['old_check_out_date']));
+            $adj['new_check_out_formatted'] = date('M j, Y', strtotime($adj['new_check_out_date']));
+        }
+        
+        return $adjustments;
+    } catch (PDOException $e) {
+        error_log("getBookingDateAdjustmentsFormatted error: " . $e->getMessage());
+        return [];
+    }
 }

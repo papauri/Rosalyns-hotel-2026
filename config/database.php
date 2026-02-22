@@ -74,6 +74,15 @@ try {
     // Ensure API keys retrievable storage column exists
     ensureApiKeyRetrievableColumn($pdo);
     
+    // Ensure individual room blocked dates table exists
+    ensureIndividualRoomBlockedDatesTable($pdo);
+    
+    // Ensure housekeeping enhancements columns exist (migration 004)
+    ensureHousekeepingEnhancementsColumns($pdo);
+    
+    // Ensure audit log tables exist for housekeeping and maintenance (migration 006)
+    ensureAuditLogTables($pdo);
+    
     error_log("Database Connection Successful!");
     
 } catch (PDOException $e) {
@@ -334,6 +343,234 @@ function ensureOccupancyPolicyColumns(PDO $pdo): void {
 }
 
 /**
+ * Ensure individual room blocked dates table exists for dual-layer blocking.
+ * This allows blocking specific individual rooms on specific dates,
+ * separate from room-type level blocks.
+ */
+function ensureIndividualRoomBlockedDatesTable(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    try {
+        $tableExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $columnExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+
+        $tableExists = function (string $table) use ($tableExistsStmt): bool {
+            $tableExistsStmt->execute([$table]);
+            return (int)$tableExistsStmt->fetchColumn() > 0;
+        };
+
+        $ensureColumn = function (string $table, string $column, string $alterSql) use ($columnExistsStmt, $pdo): void {
+            $columnExistsStmt->execute([$table, $column]);
+            $exists = (int)$columnExistsStmt->fetchColumn() > 0;
+            if (!$exists) {
+                $pdo->exec($alterSql);
+            }
+        };
+
+        // Create individual_room_blocked_dates table if not exists
+        if (!$tableExists('individual_room_blocked_dates')) {
+            $pdo->exec("CREATE TABLE individual_room_blocked_dates (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                individual_room_id INT UNSIGNED NOT NULL,
+                block_date DATE NOT NULL,
+                block_type ENUM('manual', 'maintenance', 'event', 'full') DEFAULT 'manual',
+                reason TEXT NULL,
+                blocked_by INT UNSIGNED DEFAULT NULL,
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY idx_individual_room_date (individual_room_id, block_date),
+                KEY idx_individual_room_block_date (block_date),
+                KEY idx_individual_room_block_type (block_type),
+                KEY idx_individual_room_blocked_by (blocked_by),
+                CONSTRAINT fk_irbd_individual_room FOREIGN KEY (individual_room_id) REFERENCES individual_rooms (id) ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT fk_irbd_blocked_by FOREIGN KEY (blocked_by) REFERENCES admin_users (id) ON DELETE SET NULL ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        }
+
+        // Ensure block_type column exists in blocked_dates table for consistency
+        if ($tableExists('blocked_dates')) {
+            $ensureColumn(
+                'blocked_dates',
+                'block_type',
+                "ALTER TABLE blocked_dates ADD COLUMN block_type ENUM('manual', 'maintenance', 'event', 'full') DEFAULT 'manual' AFTER block_date"
+            );
+            $ensureColumn(
+                'blocked_dates',
+                'idx_blocked_dates_block_type',
+                "ALTER TABLE blocked_dates ADD INDEX idx_blocked_dates_block_type (block_type)"
+            );
+        }
+    } catch (Throwable $e) {
+        error_log('ensureIndividualRoomBlockedDatesTable warning: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Ensure housekeeping enhancements columns exist (migration 004).
+ * This adds priority, assignment_type, recurring settings, and verification workflow to housekeeping.
+ * The function is idempotent - safe to run multiple times.
+ */
+function ensureHousekeepingEnhancementsColumns(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    try {
+        $tableExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $columnExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $indexExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?");
+        $constraintExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?");
+
+        $tableExists = function (string $table) use ($tableExistsStmt): bool {
+            $tableExistsStmt->execute([$table]);
+            return (int)$tableExistsStmt->fetchColumn() > 0;
+        };
+
+        $ensureColumn = function (string $table, string $column, string $alterSql) use ($columnExistsStmt, $pdo): void {
+            $columnExistsStmt->execute([$table, $column]);
+            $exists = (int)$columnExistsStmt->fetchColumn() > 0;
+            if (!$exists) {
+                $pdo->exec($alterSql);
+            }
+        };
+
+        $ensureIndex = function (string $table, string $index, string $createSql) use ($indexExistsStmt, $pdo): void {
+            $indexExistsStmt->execute([$table, $index]);
+            $exists = (int)$indexExistsStmt->fetchColumn() > 0;
+            if (!$exists) {
+                $pdo->exec($createSql);
+            }
+        };
+
+        $ensureConstraint = function (string $table, string $constraint, string $alterSql) use ($constraintExistsStmt, $pdo): void {
+            $constraintExistsStmt->execute([$table, $constraint]);
+            $exists = (int)$constraintExistsStmt->fetchColumn() > 0;
+            if (!$exists) {
+                $pdo->exec($alterSql);
+            }
+        };
+
+        // Only proceed if housekeeping_assignments table exists
+        if (!$tableExists('housekeeping_assignments')) {
+            return;
+        }
+
+        // Add priority column (high, medium, low)
+        $ensureColumn(
+            'housekeeping_assignments',
+            'priority',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN priority ENUM('high', 'medium', 'low') DEFAULT 'medium'"
+        );
+
+        // Add assignment_type column (checkout_cleanup, regular_cleaning, maintenance, deep_clean, turn_down)
+        $ensureColumn(
+            'housekeeping_assignments',
+            'assignment_type',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN assignment_type ENUM('checkout_cleanup', 'regular_cleaning', 'maintenance', 'deep_clean', 'turn_down') DEFAULT 'regular_cleaning'"
+        );
+
+        // Add is_recurring column for recurring tasks
+        $ensureColumn(
+            'housekeeping_assignments',
+            'is_recurring',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN is_recurring TINYINT(1) DEFAULT 0"
+        );
+
+        // Add recurring_pattern column (daily, weekly, monthly)
+        $ensureColumn(
+            'housekeeping_assignments',
+            'recurring_pattern',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN recurring_pattern ENUM('daily', 'weekly', 'monthly') DEFAULT NULL"
+        );
+
+        // Add recurring_end_date for when recurring tasks should stop
+        $ensureColumn(
+            'housekeeping_assignments',
+            'recurring_end_date',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN recurring_end_date DATE DEFAULT NULL"
+        );
+
+        // Add verified_by column for supervisor verification
+        $ensureColumn(
+            'housekeeping_assignments',
+            'verified_by',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN verified_by INT DEFAULT NULL"
+        );
+
+        // Add verified_at column for verification timestamp
+        $ensureColumn(
+            'housekeeping_assignments',
+            'verified_at',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN verified_at DATETIME DEFAULT NULL"
+        );
+
+        // Add estimated_duration in minutes
+        $ensureColumn(
+            'housekeeping_assignments',
+            'estimated_duration',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN estimated_duration INT DEFAULT 30 COMMENT 'Estimated duration in minutes'"
+        );
+
+        // Add actual_duration in minutes
+        $ensureColumn(
+            'housekeeping_assignments',
+            'actual_duration',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN actual_duration INT DEFAULT NULL COMMENT 'Actual duration in minutes'"
+        );
+
+        // Add auto_created flag for automatically created assignments (e.g., checkout cleanup)
+        $ensureColumn(
+            'housekeeping_assignments',
+            'auto_created',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN auto_created TINYINT(1) DEFAULT 0"
+        );
+
+        // Add linked_booking_id for checkout cleanup assignments
+        $ensureColumn(
+            'housekeeping_assignments',
+            'linked_booking_id',
+            "ALTER TABLE housekeeping_assignments ADD COLUMN linked_booking_id BIGINT DEFAULT NULL"
+        );
+
+        // Add indexes for better query performance
+        $ensureIndex('housekeeping_assignments', 'idx_housekeeping_priority',
+            "CREATE INDEX idx_housekeeping_priority ON housekeeping_assignments(priority)");
+        $ensureIndex('housekeeping_assignments', 'idx_housekeeping_status_priority',
+            "CREATE INDEX idx_housekeeping_status_priority ON housekeeping_assignments(status, priority)");
+        $ensureIndex('housekeeping_assignments', 'idx_housekeeping_assigned_to',
+            "CREATE INDEX idx_housekeeping_assigned_to ON housekeeping_assignments(assigned_to)");
+        $ensureIndex('housekeeping_assignments', 'idx_housekeeping_due_date',
+            "CREATE INDEX idx_housekeeping_due_date ON housekeeping_assignments(due_date)");
+        $ensureIndex('housekeeping_assignments', 'idx_housekeeping_type',
+            "CREATE INDEX idx_housekeeping_type ON housekeeping_assignments(assignment_type)");
+
+        // Add foreign key constraint for verified_by
+        $ensureConstraint('housekeeping_assignments', 'fk_housekeeping_verified_by',
+            "ALTER TABLE housekeeping_assignments ADD CONSTRAINT fk_housekeeping_verified_by FOREIGN KEY (verified_by) REFERENCES admin_users(id) ON DELETE SET NULL");
+
+        // Add foreign key constraint for linked_booking_id
+        $ensureConstraint('housekeeping_assignments', 'fk_housekeeping_booking',
+            "ALTER TABLE housekeeping_assignments ADD CONSTRAINT fk_housekeeping_booking FOREIGN KEY (linked_booking_id) REFERENCES bookings(id) ON DELETE SET NULL");
+
+        // Update existing records to have default priority
+        $pdo->exec("UPDATE housekeeping_assignments SET priority = 'medium' WHERE priority IS NULL");
+
+        // Update existing records to have default assignment type
+        $pdo->exec("UPDATE housekeeping_assignments SET assignment_type = 'regular_cleaning' WHERE assignment_type IS NULL");
+
+    } catch (Throwable $e) {
+        error_log('ensureHousekeepingEnhancementsColumns warning: ' . $e->getMessage());
+    }
+}
+
+/**
  * Resolve effective occupancy + children policy for a room type (and optional individual room override).
  */
 function resolveOccupancyPolicy(array $room, ?array $individualRoom = null): array {
@@ -370,12 +607,21 @@ function resolveOccupancyPolicy(array $room, ?array $individualRoom = null): arr
         $triple = 0;
     }
 
-    // Pricing policy: null/non-positive double or triple price means occupancy is not offered
-    if (array_key_exists('price_double_occupancy', $room) && ($room['price_double_occupancy'] === null || (float)$room['price_double_occupancy'] <= 0)) {
-        $double = 0;
+    // Pricing policy: If occupancy pricing is NULL, use base price (allows booking up to max_guests)
+    // Only disable occupancy if explicitly set to 0 (not NULL)
+    if (array_key_exists('price_double_occupancy', $room)) {
+        if ($room['price_double_occupancy'] === '0' || $room['price_double_occupancy'] === 0) {
+            // Explicitly disabled
+            $double = 0;
+        }
+        // NULL or positive value means enabled (NULL will use base price as fallback)
     }
-    if (array_key_exists('price_triple_occupancy', $room) && ($room['price_triple_occupancy'] === null || (float)$room['price_triple_occupancy'] <= 0)) {
-        $triple = 0;
+    if (array_key_exists('price_triple_occupancy', $room)) {
+        if ($room['price_triple_occupancy'] === '0' || $room['price_triple_occupancy'] === 0) {
+            // Explicitly disabled
+            $triple = 0;
+        }
+        // NULL or positive value means enabled (NULL will use base price as fallback)
     }
 
     return [
@@ -1566,6 +1812,311 @@ function getPageLoader(string $page_slug): ?string {
 }
 
 /**
+ * Booking Lifecycle Constants and Helper Functions
+ *
+ * These functions standardize booking status transitions and validation
+ * across the entire application to ensure consistent behavior.
+ */
+
+/**
+ * Get booking statuses that consume room inventory (block availability)
+ *
+ * For room type availability: includes 'pending' as they hold inventory
+ * For individual room availability: only 'confirmed' and 'checked-in' as they have assigned rooms
+ *
+ * @param bool $forIndividualRoom If true, returns stricter list for individual rooms
+ * @return array List of statuses that block availability
+ */
+function getBookingStatusesThatBlockAvailability(bool $forIndividualRoom = false): array {
+    if ($forIndividualRoom) {
+        // Individual rooms are only blocked by confirmed/checked-in bookings
+        // (pending bookings don't have individual rooms assigned yet)
+        return ['confirmed', 'checked-in'];
+    }
+    // Room type availability considers pending bookings as blocking
+    // (they hold a room from the inventory pool)
+    return ['pending', 'confirmed', 'checked-in'];
+}
+
+/**
+ * Get booking statuses that are considered "active" (not cancelled, expired, no-show)
+ *
+ * @return array List of active booking statuses
+ */
+function getActiveBookingStatuses(): array {
+    return ['pending', 'tentative', 'confirmed', 'checked-in', 'checked-out'];
+}
+
+/**
+ * Get booking statuses that are considered "terminal" (cannot transition to other states)
+ *
+ * @return array List of terminal booking statuses
+ */
+function getTerminalBookingStatuses(): array {
+    return ['cancelled', 'expired', 'no-show', 'checked-out'];
+}
+
+/**
+ * Validate if a booking status transition is allowed
+ *
+ * @param string $currentStatus Current booking status
+ * @param string $newStatus Desired new status
+ * @return array ['allowed' => bool, 'reason' => string]
+ */
+function validateBookingStatusTransition(string $currentStatus, string $newStatus): array {
+    // Define valid transitions
+    // NOTE: 'tentative' is NOT allowed from 'confirmed' - once confirmed or paid, cannot revert to tentative
+    $validTransitions = [
+        'pending' => ['tentative', 'confirmed', 'cancelled', 'expired'],
+        'tentative' => ['confirmed', 'cancelled', 'expired'],
+        'confirmed' => ['checked-in', 'cancelled', 'no-show'], // NO 'tentative' - confirmed bookings cannot revert
+        'checked-in' => ['checked-out', 'confirmed'], // Can cancel check-in (revert to confirmed)
+        'checked-out' => [], // Terminal state
+        'cancelled' => [], // Terminal state
+        'expired' => [], // Terminal state
+        'no-show' => [], // Terminal state
+    ];
+    
+    // Same status is always allowed (idempotent)
+    if ($currentStatus === $newStatus) {
+        return ['allowed' => true, 'reason' => ''];
+    }
+    
+    // Check if transition is valid
+    if (!isset($validTransitions[$currentStatus])) {
+        return ['allowed' => false, 'reason' => "Unknown current status: {$currentStatus}"];
+    }
+    
+    if (!in_array($newStatus, $validTransitions[$currentStatus], true)) {
+        return ['allowed' => false, 'reason' => "Cannot transition from '{$currentStatus}' to '{$newStatus}'"];
+    }
+    
+    return ['allowed' => true, 'reason' => ''];
+}
+
+/**
+ * Validate if a booking can be checked in
+ *
+ * @param array $booking Booking record (must include status, payment_status, individual_room_id, check_in_date)
+ * @return array ['allowed' => bool, 'reason' => string]
+ */
+function validateCheckIn(array $booking): array {
+    $requiredFields = ['status', 'payment_status', 'individual_room_id', 'check_in_date'];
+    foreach ($requiredFields as $field) {
+        if (!isset($booking[$field])) {
+            return ['allowed' => false, 'reason' => "Missing required field: {$field}"];
+        }
+    }
+    
+    if ($booking['status'] !== 'confirmed') {
+        return ['allowed' => false, 'reason' => "Booking must be CONFIRMED to check in (current: {$booking['status']})"];
+    }
+    
+    if ($booking['payment_status'] !== 'paid') {
+        return ['allowed' => false, 'reason' => "Booking must be PAID to check in (current: {$booking['payment_status']})"];
+    }
+    
+    if (empty($booking['individual_room_id'])) {
+        return ['allowed' => false, 'reason' => "A room must be assigned before check-in"];
+    }
+    
+    // Date-based validation: check-in only allowed on or after check-in date
+    $check_in_date = new DateTime($booking['check_in_date']);
+    $check_in_date->setTime(0, 0, 0);
+    $today = new DateTime('today');
+    
+    if ($check_in_date > $today) {
+        return ['allowed' => false, 'reason' => "Check-in date has not been reached yet (check-in: {$booking['check_in_date']})"];
+    }
+    
+    return ['allowed' => true, 'reason' => ''];
+}
+
+/**
+ * Validate if a booking can be checked out
+ *
+ * @param array $booking Booking record (must include status, check_out_date)
+ * @return array ['allowed' => bool, 'reason' => string]
+ */
+function validateCheckOut(array $booking): array {
+    $requiredFields = ['status', 'check_out_date'];
+    foreach ($requiredFields as $field) {
+        if (!isset($booking[$field])) {
+            return ['allowed' => false, 'reason' => "Missing required field: {$field}"];
+        }
+    }
+    
+    if ($booking['status'] !== 'checked-in') {
+        return ['allowed' => false, 'reason' => "Booking must be CHECKED-IN to check out (current: {$booking['status']})"];
+    }
+    
+    // Date-based validation: check-out only allowed on or after check-out date
+    // (hotel policy may allow early checkout, but date must not be in the future beyond scheduled checkout)
+    $check_out_date = new DateTime($booking['check_out_date']);
+    $check_out_date->setTime(0, 0, 0);
+    $today = new DateTime('today');
+    
+    // Allow checkout if today is on or after the check-in date (early checkout is OK)
+    // but prevent checkout if check-out date is far in the future (more than 1 day ahead)
+    // This allows same-day checkout and early checkout
+    if ($check_out_date > $today->modify('+1 day')) {
+        return ['allowed' => false, 'reason' => "Check-out date is too far in the future (scheduled: {$booking['check_out_date']})"];
+    }
+    
+    return ['allowed' => true, 'reason' => ''];
+}
+
+/**
+ * Validate if a room can be assigned to a booking
+ *
+ * @param array $booking Booking record (must include status)
+ * @return array ['allowed' => bool, 'reason' => string]
+ */
+function validateRoomAssignment(array $booking): array {
+    if (!isset($booking['status'])) {
+        return ['allowed' => false, 'reason' => "Missing required field: status"];
+    }
+    
+    if ($booking['status'] !== 'confirmed') {
+        return ['allowed' => false, 'reason' => "Rooms can only be assigned to CONFIRMED bookings (current: {$booking['status']})"];
+    }
+    
+    return ['allowed' => true, 'reason' => ''];
+}
+
+/**
+ * Validate if a booking can be cancelled
+ *
+ * Cancellation is only allowed before guest checks in.
+ * Once checked-in, booking cannot be cancelled (must use check-out instead).
+ *
+ * @param array $booking Booking record (must include status)
+ * @return array ['allowed' => bool, 'reason' => string]
+ */
+function validateBookingCancellation(array $booking): array {
+    if (!isset($booking['status'])) {
+        return ['allowed' => false, 'reason' => "Missing required field: status"];
+    }
+    
+    // Block cancellation for checked-in, checked-out, cancelled, no-show bookings
+    $nonCancellableStatuses = ['checked-in', 'checked-out', 'cancelled', 'no-show'];
+    if (in_array($booking['status'], $nonCancellableStatuses, true)) {
+        if ($booking['status'] === 'checked-in') {
+            return ['allowed' => false, 'reason' => "Cannot cancel booking: guest has already checked in (use check-out instead)"];
+        }
+        if ($booking['status'] === 'checked-out') {
+            return ['allowed' => false, 'reason' => "Cannot cancel booking: guest has already checked out"];
+        }
+        if ($booking['status'] === 'cancelled') {
+            return ['allowed' => false, 'reason' => "Booking is already cancelled"];
+        }
+        if ($booking['status'] === 'no-show') {
+            return ['allowed' => false, 'reason' => "Cannot cancel booking: marked as no-show"];
+        }
+    }
+    
+    return ['allowed' => true, 'reason' => ''];
+}
+
+/**
+ * Validate if a booking can be converted to tentative status
+ *
+ * Business rules:
+ * - Only pending bookings can be made tentative (not confirmed, checked-in, checked-out, cancelled)
+ * - Bookings with any payment (paid or partial) cannot be made tentative
+ * - Once confirmed or paid, a booking cannot revert to tentative
+ *
+ * @param array $booking Booking record (must include status, payment_status)
+ * @return array ['allowed' => bool, 'reason' => string]
+ */
+function validateTentativeTransition(array $booking): array {
+    $requiredFields = ['status', 'payment_status'];
+    foreach ($requiredFields as $field) {
+        if (!isset($booking[$field])) {
+            return ['allowed' => false, 'reason' => "Missing required field: {$field}"];
+        }
+    }
+    
+    // Only pending bookings can be made tentative
+    if ($booking['status'] !== 'pending') {
+        $statusMap = [
+            'tentative' => 'Booking is already tentative',
+            'confirmed' => 'Confirmed bookings cannot be made tentative',
+            'checked-in' => 'Checked-in bookings cannot be made tentative',
+            'checked-out' => 'Checked-out bookings cannot be made tentative',
+            'cancelled' => 'Cancelled bookings cannot be made tentative',
+            'no-show' => 'No-show bookings cannot be made tentative',
+            'expired' => 'Expired bookings cannot be made tentative',
+        ];
+        return ['allowed' => false, 'reason' => $statusMap[$booking['status']] ?? "Cannot make booking tentative from current status: {$booking['status']}"];
+    }
+    
+    // Block if any payment exists (paid or partial)
+    if (in_array($booking['payment_status'], ['paid', 'partial'], true)) {
+        return ['allowed' => false, 'reason' => "Bookings with payments cannot be made tentative (current payment status: {$booking['payment_status']})"];
+    }
+    
+    return ['allowed' => true, 'reason' => ''];
+}
+
+/**
+ * Get user-friendly error message for booking actions
+ *
+ * @param string $action Action being attempted
+ * @param string $reason Technical reason from validation
+ * @return string User-friendly error message
+ */
+function getBookingActionErrorMessage(string $action, string $reason): string {
+    $messages = [
+        'check_in' => [
+            'status' => 'Cannot check in: Booking must be confirmed first.',
+            'payment' => 'Cannot check in: Payment must be completed first.',
+            'room' => 'Cannot check in: Please assign a room first.',
+            'date' => 'Cannot check in: Check-in date has not been reached yet.',
+        ],
+        'check_out' => [
+            'status' => 'Cannot check out: Guest must be checked in first.',
+            'date' => 'Cannot check out: Check-out date is too far in the future.',
+        ],
+        'cancel' => [
+            'status' => 'Cannot cancel booking: Invalid status for cancellation.',
+            'checked_in' => 'Cannot cancel booking: Guest has already checked in. Use check-out instead.',
+            'checked_out' => 'Cannot cancel booking: Guest has already checked out.',
+            'cancelled' => 'Booking is already cancelled.',
+            'noshow' => 'Cannot cancel booking: Marked as no-show.',
+        ],
+        'assign_room' => [
+            'status' => 'Cannot assign room: Booking must be confirmed first.',
+        ],
+        'confirm' => [
+            'availability' => 'Cannot confirm: No rooms available for the selected dates.',
+        ],
+        'make_tentative' => [
+            'status' => 'Cannot make tentative: Booking must be in pending status.',
+            'payment' => 'Cannot make tentative: Bookings with payments cannot be made tentative.',
+            'confirmed' => 'Cannot make tentative: Confirmed bookings cannot revert to tentative status.',
+        ],
+    ];
+    
+    // Parse the reason to determine the error type
+    if (strpos($reason, 'CONFIRMED') !== false || strpos($reason, 'confirmed') !== false) {
+        return $messages[$action]['status'] ?? $reason;
+    }
+    if (strpos($reason, 'PAID') !== false || strpos($reason, 'paid') !== false) {
+        return $messages[$action]['payment'] ?? $reason;
+    }
+    if (strpos($reason, 'room') !== false) {
+        return $messages[$action]['room'] ?? $reason;
+    }
+    if (strpos($reason, 'available') !== false) {
+        return $messages[$action]['availability'] ?? $reason;
+    }
+    
+    // Default to the original reason if no specific mapping
+    return $reason;
+}
+
+/**
  * Helper function to check room availability
  * Returns true if room is available, false if booked or blocked
  */
@@ -1596,15 +2147,18 @@ function isRoomAvailable($room_id, $check_in_date, $check_out_date, $exclude_boo
             return false; // Date is blocked
         }
         
-        // Then check for overlapping bookings
+        // Then check for overlapping bookings (use standardized status list)
+        $blockingStatuses = getBookingStatusesThatBlockAvailability(false);
+        $placeholders = str_repeat('?,', count($blockingStatuses) - 1) . '?';
+        
         $sql = "
             SELECT COUNT(*) as bookings
             FROM bookings
             WHERE room_id = ?
-            AND status IN ('pending', 'confirmed', 'checked-in')
+            AND status IN ({$placeholders})
             AND NOT (check_out_date <= ? OR check_in_date >= ?)
         ";
-        $params = [$room_id, $check_in_date, $check_out_date];
+        $params = array_merge([$room_id], $blockingStatuses, [$check_in_date, $check_out_date]);
         
         // Exclude a specific booking (useful when updating existing bookings)
         if ($exclude_booking_id) {
@@ -1616,11 +2170,13 @@ function isRoomAvailable($room_id, $check_in_date, $check_out_date, $exclude_boo
         $stmt->execute($params);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        // Check if number of overlapping bookings is less than available rooms
+        // Check if number of overlapping bookings is less than total capacity
+        // Note: rooms_available is a counter of (total - confirmed), so comparing overlapping (which includes confirmed)
+        // against rooms_available would double-count confirmed bookings. We must compare against total_rooms.
         $overlapping_bookings = $result['bookings'];
-        $rooms_available = $room['rooms_available'];
+        $capacity = (int)($room['total_rooms'] ?? 1);
         
-        return $overlapping_bookings < $rooms_available;
+        return $overlapping_bookings < $capacity;
     } catch (PDOException $e) {
         error_log("Error checking room availability: " . $e->getMessage());
         return false; // Assume unavailable on error
@@ -1674,40 +2230,47 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
             return $result;
         }
         
-        // Check if there are rooms available
-        if ($room['rooms_available'] <= 0) {
+        // Get total capacity
+        $total_capacity = (int)($room['total_rooms'] ?? 1);
+        
+        // Sanity check for capacity
+        if ($total_capacity <= 0) {
             $result['available'] = false;
-            $result['error'] = 'No rooms of this type are currently available';
+            $result['error'] = 'No rooms of this type are currently available (capacity is 0)';
             return $result;
         }
         
-        // Check for blocked dates (both room-specific and global blocks)
+        // Check for blocked dates at room-type level (both room-specific and global blocks)
         $blocked_sql = "
             SELECT
-                id,
-                room_id,
-                block_date,
-                reason as block_type,
-                reason
-            FROM blocked_dates
-            WHERE block_date >= ? AND block_date < ?
-            AND (room_id = ? OR room_id IS NULL)
-            ORDER BY block_date ASC
+                bd.id,
+                bd.room_id,
+                bd.block_date,
+                COALESCE(bd.block_type, 'manual') as block_type,
+                bd.reason,
+                'type' as block_scope,
+                r.name as scope_name
+            FROM blocked_dates bd
+            LEFT JOIN rooms r ON bd.room_id = r.id
+            WHERE bd.block_date >= ? AND bd.block_date < ?
+            AND (bd.room_id = ? OR bd.room_id IS NULL)
+            ORDER BY bd.block_date ASC
         ";
         $blocked_stmt = $pdo->prepare($blocked_sql);
         $blocked_stmt->execute([$check_in_date, $check_out_date, $room_id]);
-        $blocked_dates = $blocked_stmt->fetchAll(PDO::FETCH_ASSOC);
+        $type_blocked_dates = $blocked_stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        if (!empty($blocked_dates)) {
+        if (!empty($type_blocked_dates)) {
             $result['available'] = false;
-            $result['blocked_dates'] = $blocked_dates;
+            $result['blocked_dates'] = $type_blocked_dates;
+            $result['block_scope'] = 'type';
             $result['error'] = 'Selected dates are not available for booking';
             
             // Build blocked dates message
             $blocked_details = [];
-            foreach ($blocked_dates as $blocked) {
+            foreach ($type_blocked_dates as $blocked) {
                 $blocked_date = new DateTime($blocked['block_date']);
-                $room_name = $blocked['room_id'] ? $room['name'] : 'All rooms';
+                $room_name = $blocked['room_id'] ? $blocked['scope_name'] : 'All rooms';
                 $blocked_details[] = sprintf(
                     "%s on %s (%s)",
                     $room_name,
@@ -1719,7 +2282,10 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
             return $result;
         }
         
-        // Check for overlapping bookings
+        // Check for overlapping bookings (use standardized status list)
+        $blockingStatuses = getBookingStatusesThatBlockAvailability(false);
+        $placeholders = str_repeat('?,', count($blockingStatuses) - 1) . '?';
+        
         $sql = "
             SELECT
                 id,
@@ -1730,10 +2296,10 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
                 guest_name
             FROM bookings
             WHERE room_id = ?
-            AND status IN ('pending', 'confirmed', 'checked-in')
+            AND status IN ({$placeholders})
             AND NOT (check_out_date <= ? OR check_in_date >= ?)
         ";
-        $params = [$room_id, $check_in_date, $check_out_date];
+        $params = array_merge([$room_id], $blockingStatuses, [$check_in_date, $check_out_date]);
         
         // Exclude specific booking for updates
         if ($exclude_booking_id) {
@@ -1745,11 +2311,10 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
         $stmt->execute($params);
         $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Check if number of overlapping bookings exceeds available rooms
+        // Check if number of overlapping bookings exceeds total capacity
         $overlapping_bookings = count($conflicts);
-        $rooms_available = $room['rooms_available'];
         
-        if ($overlapping_bookings >= $rooms_available) {
+        if ($overlapping_bookings >= $total_capacity) {
             $result['available'] = false;
             $result['conflicts'] = $conflicts;
             $result['error'] = 'Room is not available for the selected dates';
@@ -1966,24 +2531,37 @@ function validateBookingWithAvailability($data, $exclude_booking_id = null) {
 }
 
 /**
- * Get blocked dates for a specific room or all rooms
- * Returns array of blocked date records
+ * Get blocked dates for a specific room type, individual room, or all
+ * Supports dual-layer blocking: room-type level and individual-room level
+ * Returns array of blocked date records with scope indicator
+ *
+ * @param int|null $room_id Room type ID (rooms table)
+ * @param int|null $individual_room_id Individual room ID (individual_rooms table)
+ * @param string|null $start_date Filter by start date
+ * @param string|null $end_date Filter by end date
+ * @return array Array of blocked date records
  */
-function getBlockedDates($room_id = null, $start_date = null, $end_date = null) {
+function getBlockedDates($room_id = null, $start_date = null, $end_date = null, $individual_room_id = null) {
     global $pdo;
     
     try {
+        $blocked_dates = [];
+        
+        // Get room-type level blocks
         $sql = "
             SELECT
                 bd.id,
                 bd.room_id,
+                NULL as individual_room_id,
                 r.name as room_name,
+                NULL as individual_room_number,
                 bd.block_date,
-                bd.reason as block_type,
+                COALESCE(bd.block_type, 'manual') as block_type,
                 bd.reason,
                 bd.blocked_by as created_by,
                 au.username as created_by_name,
-                bd.created_at
+                bd.created_at,
+                'type' as block_scope
             FROM blocked_dates bd
             LEFT JOIN rooms r ON bd.room_id = r.id
             LEFT JOIN admin_users au ON bd.blocked_by = au.id
@@ -2012,10 +2590,105 @@ function getBlockedDates($room_id = null, $start_date = null, $end_date = null) 
         $stmt->execute($params);
         $blocked_dates = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
+        // Get individual-room level blocks if requested or if no room_id filter
+        if ($individual_room_id !== null || $room_id === null) {
+            $ir_sql = "
+                SELECT
+                    irbd.id,
+                    NULL as room_id,
+                    irbd.individual_room_id,
+                    rt.name as room_name,
+                    ir.room_number as individual_room_number,
+                    irbd.block_date,
+                    irbd.block_type,
+                    irbd.reason,
+                    irbd.blocked_by as created_by,
+                    au.username as created_by_name,
+                    irbd.created_at,
+                    'individual' as block_scope
+                FROM individual_room_blocked_dates irbd
+                INNER JOIN individual_rooms ir ON irbd.individual_room_id = ir.id
+                INNER JOIN rooms rt ON ir.room_type_id = rt.id
+                LEFT JOIN admin_users au ON irbd.blocked_by = au.id
+                WHERE 1=1
+            ";
+            $ir_params = [];
+            
+            if ($individual_room_id !== null) {
+                $ir_sql .= " AND irbd.individual_room_id = ?";
+                $ir_params[] = $individual_room_id;
+            }
+            
+            if ($room_id !== null) {
+                $ir_sql .= " AND ir.room_type_id = ?";
+                $ir_params[] = $room_id;
+            }
+            
+            if ($start_date !== null) {
+                $ir_sql .= " AND irbd.block_date >= ?";
+                $ir_params[] = $start_date;
+            }
+            
+            if ($end_date !== null) {
+                $ir_sql .= " AND irbd.block_date <= ?";
+                $ir_params[] = $end_date;
+            }
+            
+            $ir_sql .= " ORDER BY irbd.block_date ASC, irbd.individual_room_id ASC";
+            
+            $ir_stmt = $pdo->prepare($ir_sql);
+            $ir_stmt->execute($ir_params);
+            $individual_blocked_dates = $ir_stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Merge both types of blocks
+            $blocked_dates = array_merge($blocked_dates, $individual_blocked_dates);
+        }
+        
+        // Sort combined results by date
+        usort($blocked_dates, function($a, $b) {
+            return strcmp($a['block_date'], $b['block_date']);
+        });
+        
         return $blocked_dates;
     } catch (PDOException $e) {
         error_log("Error fetching blocked dates: " . $e->getMessage());
         return [];
+    }
+}
+
+/**
+ * Get blocked dates specifically for an individual room
+ * Returns array of blocked date records for the individual room
+ *
+ * @param int $individual_room_id Individual room ID
+ * @param string|null $start_date Filter by start date
+ * @param string|null $end_date Filter by end date
+ * @return array Array of blocked date records
+ */
+function getIndividualRoomBlockedDates($individual_room_id, $start_date = null, $end_date = null) {
+    return getBlockedDates(null, $start_date, $end_date, $individual_room_id);
+}
+
+/**
+ * Check if a specific individual room is blocked on a given date
+ *
+ * @param int $individual_room_id Individual room ID
+ * @param string $date Date to check (Y-m-d format)
+ * @return bool True if blocked, false otherwise
+ */
+function isIndividualRoomBlocked($individual_room_id, $date) {
+    global $pdo;
+    
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM individual_room_blocked_dates
+            WHERE individual_room_id = ? AND block_date = ?
+        ");
+        $stmt->execute([$individual_room_id, $date]);
+        return (int)$stmt->fetchColumn() > 0;
+    } catch (PDOException $e) {
+        error_log("Error checking individual room block: " . $e->getMessage());
+        return false;
     }
 }
 
@@ -2107,8 +2780,15 @@ function getAvailableDates($room_id, $start_date, $end_date) {
 }
 
 /**
- * Block a specific date for a room or all rooms
+ * Block a specific date for a room type or all rooms
  * Returns true on success, false on failure
+ *
+ * @param int|null $room_id Room type ID (null for all rooms)
+ * @param string $block_date Date to block (Y-m-d format)
+ * @param string $block_type Type of block (manual, maintenance, event, full)
+ * @param string|null $reason Optional reason for the block
+ * @param int|null $created_by Admin user ID who created the block
+ * @return bool True on success, false on failure
  */
 function blockRoomDate($room_id, $block_date, $block_type = 'manual', $reason = null, $created_by = null) {
     global $pdo;
@@ -2129,11 +2809,11 @@ function blockRoomDate($room_id, $block_date, $block_type = 'manual', $reason = 
             // Date already blocked, update instead
             $update_sql = "
                 UPDATE blocked_dates
-                SET reason = ?, blocked_by = ?
+                SET block_type = ?, reason = ?, blocked_by = ?
                 WHERE room_id " . ($room_id === null ? "IS NULL" : "= ?") . "
                 AND block_date = ?
             ";
-            $update_params = [$reason, $created_by];
+            $update_params = [$block_type, $reason, $created_by];
             if ($room_id !== null) {
                 $update_params[] = $room_id;
             }
@@ -2145,11 +2825,11 @@ function blockRoomDate($room_id, $block_date, $block_type = 'manual', $reason = 
         
         // Insert new blocked date
         $sql = "
-            INSERT INTO blocked_dates (room_id, block_date, reason, blocked_by)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO blocked_dates (room_id, block_date, block_type, reason, blocked_by)
+            VALUES (?, ?, ?, ?, ?)
         ";
         $stmt = $pdo->prepare($sql);
-        return $stmt->execute([$room_id, $block_date, $reason, $created_by]);
+        return $stmt->execute([$room_id, $block_date, $block_type, $reason, $created_by]);
     } catch (PDOException $e) {
         error_log("Error blocking room date: " . $e->getMessage());
         return false;
@@ -2157,8 +2837,12 @@ function blockRoomDate($room_id, $block_date, $block_type = 'manual', $reason = 
 }
 
 /**
- * Unblock a specific date for a room or all rooms
+ * Unblock a specific date for a room type or all rooms
  * Returns true on success, false on failure
+ *
+ * @param int|null $room_id Room type ID (null for all rooms)
+ * @param string $block_date Date to unblock (Y-m-d format)
+ * @return bool True on success, false on failure
  */
 function unblockRoomDate($room_id, $block_date) {
     global $pdo;
@@ -2180,8 +2864,15 @@ function unblockRoomDate($room_id, $block_date) {
 }
 
 /**
- * Block multiple dates for a room or all rooms
+ * Block multiple dates for a room type or all rooms
  * Returns number of dates blocked
+ *
+ * @param int|null $room_id Room type ID (null for all rooms)
+ * @param array $dates Array of dates to block (Y-m-d format)
+ * @param string $block_type Type of block (manual, maintenance, event, full)
+ * @param string|null $reason Optional reason for the blocks
+ * @param int|null $created_by Admin user ID who created the blocks
+ * @return int Number of dates successfully blocked
  */
 function blockRoomDates($room_id, $dates, $block_type = 'manual', $reason = null, $created_by = null) {
     $blocked_count = 0;
@@ -2196,14 +2887,132 @@ function blockRoomDates($room_id, $dates, $block_type = 'manual', $reason = null
 }
 
 /**
- * Unblock multiple dates for a room or all rooms
+ * Unblock multiple dates for a room type or all rooms
  * Returns number of dates unblocked
+ *
+ * @param int|null $room_id Room type ID (null for all rooms)
+ * @param array $dates Array of dates to unblock (Y-m-d format)
+ * @return int Number of dates successfully unblocked
  */
 function unblockRoomDates($room_id, $dates) {
     $unblocked_count = 0;
     
     foreach ($dates as $date) {
         if (unblockRoomDate($room_id, $date)) {
+            $unblocked_count++;
+        }
+    }
+    
+    return $unblocked_count;
+}
+
+/**
+ * Block a specific date for an individual room
+ * Returns true on success, false on failure
+ *
+ * @param int $individual_room_id Individual room ID
+ * @param string $block_date Date to block (Y-m-d format)
+ * @param string $block_type Type of block (manual, maintenance, event, full)
+ * @param string|null $reason Optional reason for the block
+ * @param int|null $created_by Admin user ID who created the block
+ * @return bool True on success, false on failure
+ */
+function blockIndividualRoomDate($individual_room_id, $block_date, $block_type = 'manual', $reason = null, $created_by = null) {
+    global $pdo;
+    
+    try {
+        // Check if date is already blocked
+        $check_sql = "
+            SELECT id FROM individual_room_blocked_dates
+            WHERE individual_room_id = ? AND block_date = ?
+        ";
+        $check_stmt = $pdo->prepare($check_sql);
+        $check_stmt->execute([$individual_room_id, $block_date]);
+        
+        if ($check_stmt->fetch()) {
+            // Date already blocked, update instead
+            $update_sql = "
+                UPDATE individual_room_blocked_dates
+                SET block_type = ?, reason = ?, blocked_by = ?
+                WHERE individual_room_id = ? AND block_date = ?
+            ";
+            $update_stmt = $pdo->prepare($update_sql);
+            return $update_stmt->execute([$block_type, $reason, $created_by, $individual_room_id, $block_date]);
+        }
+        
+        // Insert new blocked date
+        $sql = "
+            INSERT INTO individual_room_blocked_dates (individual_room_id, block_date, block_type, reason, blocked_by)
+            VALUES (?, ?, ?, ?, ?)
+        ";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([$individual_room_id, $block_date, $block_type, $reason, $created_by]);
+    } catch (PDOException $e) {
+        error_log("Error blocking individual room date: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Unblock a specific date for an individual room
+ * Returns true on success, false on failure
+ *
+ * @param int $individual_room_id Individual room ID
+ * @param string $block_date Date to unblock (Y-m-d format)
+ * @return bool True on success, false on failure
+ */
+function unblockIndividualRoomDate($individual_room_id, $block_date) {
+    global $pdo;
+    
+    try {
+        $sql = "
+            DELETE FROM individual_room_blocked_dates
+            WHERE individual_room_id = ? AND block_date = ?
+        ";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([$individual_room_id, $block_date]);
+    } catch (PDOException $e) {
+        error_log("Error unblocking individual room date: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Block multiple dates for an individual room
+ * Returns number of dates blocked
+ *
+ * @param int $individual_room_id Individual room ID
+ * @param array $dates Array of dates to block (Y-m-d format)
+ * @param string $block_type Type of block (manual, maintenance, event, full)
+ * @param string|null $reason Optional reason for the blocks
+ * @param int|null $created_by Admin user ID who created the blocks
+ * @return int Number of dates successfully blocked
+ */
+function blockIndividualRoomDates($individual_room_id, $dates, $block_type = 'manual', $reason = null, $created_by = null) {
+    $blocked_count = 0;
+    
+    foreach ($dates as $date) {
+        if (blockIndividualRoomDate($individual_room_id, $date, $block_type, $reason, $created_by)) {
+            $blocked_count++;
+        }
+    }
+    
+    return $blocked_count;
+}
+
+/**
+ * Unblock multiple dates for an individual room
+ * Returns number of dates unblocked
+ *
+ * @param int $individual_room_id Individual room ID
+ * @param array $dates Array of dates to unblock (Y-m-d format)
+ * @return int Number of dates successfully unblocked
+ */
+function unblockIndividualRoomDates($individual_room_id, $dates) {
+    $unblocked_count = 0;
+    
+    foreach ($dates as $date) {
+        if (unblockIndividualRoomDate($individual_room_id, $date)) {
             $unblocked_count++;
         }
     }
@@ -2730,16 +3539,19 @@ function getAvailableIndividualRooms($roomTypeId, $checkIn, $checkOut, $excludeB
         $availableRooms = [];
         
         foreach ($rooms as $room) {
-            // Check for booking conflicts
-            $conflictSql = "
-                SELECT COUNT(*) as count
-                FROM bookings b
-                WHERE b.individual_room_id = ?
-                AND b.status IN ('pending', 'confirmed', 'checked-in')
-                AND NOT (b.check_out_date <= ? OR b.check_in_date >= ?)
-            ";
+            // Check for booking conflicts (use standardized status list for individual rooms)
+                $blockingStatuses = getBookingStatusesThatBlockAvailability(true);
+                $placeholders = str_repeat('?,', count($blockingStatuses) - 1) . '?';
+                
+                $conflictSql = "
+                    SELECT COUNT(*) as count
+                    FROM bookings b
+                    WHERE b.individual_room_id = ?
+                    AND b.status IN ({$placeholders})
+                    AND NOT (b.check_out_date <= ? OR b.check_in_date >= ?)
+                ";
             
-            $params = [$room['id'], $checkIn, $checkOut];
+            $params = array_merge([$room['id']], $blockingStatuses, [$checkIn, $checkOut]);
             
             if ($excludeBookingId) {
                 $conflictSql .= " AND b.id != ?";
@@ -2872,7 +3684,45 @@ function checkIndividualRoomAvailability($individualRoomId, $checkIn, $checkOut,
             return $result;
         }
 
-        // Check for booking conflicts
+        // Check for individual room blocked dates
+        $blockedStmt = $pdo->prepare("
+            SELECT
+                id,
+                individual_room_id,
+                block_date,
+                block_type,
+                reason
+            FROM individual_room_blocked_dates
+            WHERE individual_room_id = ?
+            AND block_date >= ? AND block_date < ?
+            ORDER BY block_date ASC
+        ");
+        $blockedStmt->execute([$individualRoomId, $checkIn, $checkOut]);
+        $blockedDates = $blockedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($blockedDates)) {
+            $result['available'] = false;
+            $result['blocked_dates'] = $blockedDates;
+            $result['error'] = 'Selected room is blocked on the selected dates';
+
+            $blocked_details = [];
+            foreach ($blockedDates as $blocked) {
+                $blocked_date = new DateTime($blocked['block_date']);
+                $blocked_details[] = sprintf(
+                    "%s on %s (%s)",
+                    $room['room_number'],
+                    $blocked_date->format('M j, Y'),
+                    $blocked['block_type']
+                );
+            }
+            $result['blocked_message'] = implode('; ', $blocked_details);
+            return $result;
+        }
+
+        // Check for booking conflicts (use standardized status list for individual rooms)
+        $blockingStatuses = getBookingStatusesThatBlockAvailability(true);
+        $placeholders = str_repeat('?,', count($blockingStatuses) - 1) . '?';
+        
         $sql = "
             SELECT
                 b.id,
@@ -2883,11 +3733,11 @@ function checkIndividualRoomAvailability($individualRoomId, $checkIn, $checkOut,
                 b.guest_name
             FROM bookings b
             WHERE b.individual_room_id = ?
-            AND b.status IN ('pending', 'confirmed', 'checked-in')
+            AND b.status IN ({$placeholders})
             AND NOT (b.check_out_date <= ? OR b.check_in_date >= ?)
         ";
 
-        $params = [$individualRoomId, $checkIn, $checkOut];
+        $params = array_merge([$individualRoomId], $blockingStatuses, [$checkIn, $checkOut]);
         if ($excludeBookingId) {
             $sql .= " AND b.id != ?";
             $params[] = $excludeBookingId;
@@ -3165,14 +4015,38 @@ function assignIndividualRoomToBooking($bookingId, $individualRoomId) {
         $updateStmt = $pdo->prepare("UPDATE bookings SET individual_room_id = ?, child_price_multiplier = ?, child_supplement_total = ?, total_amount = ? WHERE id = ?");
         $updateStmt->execute([$individualRoomId, $childMultiplier, $childSupplement, $newTotal, $bookingId]);
         
-        // Update individual room status if booking is confirmed or checked-in
+        // Update individual room status based on timeline-aware logic
+        // Only set to 'occupied' if check-in date is today or in the past
+        // Future confirmed bookings should keep room as 'available' (reserved but not occupied)
         if (in_array($booking['status'], ['confirmed', 'checked-in'])) {
-            updateIndividualRoomStatus(
-                $individualRoomId,
-                'occupied',
-                'Assigned to ' . $booking['status'] . ' booking: ' . $bookingId,
-                null
-            );
+            $today = date('Y-m-d');
+            $checkInDate = $booking['check_in_date'];
+            
+            if ($checkInDate <= $today) {
+                // Check-in is today or in the past - room is physically occupied
+                updateIndividualRoomStatus(
+                    $individualRoomId,
+                    'occupied',
+                    'Assigned to ' . $booking['status'] . ' booking: ' . $bookingId . ' (check-in: ' . $checkInDate . ')',
+                    null
+                );
+            } else {
+                // Future booking - room remains available (reserved but not occupied)
+                // Ensure room is in available state
+                $currentStatusStmt = $pdo->prepare("SELECT status FROM individual_rooms WHERE id = ?");
+                $currentStatusStmt->execute([$individualRoomId]);
+                $currentStatus = $currentStatusStmt->fetchColumn();
+                
+                if ($currentStatus === 'occupied') {
+                    // Room was incorrectly marked occupied, reset to available
+                    updateIndividualRoomStatus(
+                        $individualRoomId,
+                        'available',
+                        'Future booking assigned (check-in: ' . $checkInDate . ') - room available until then',
+                        null
+                    );
+                }
+            }
         }
         
         $pdo->commit();
@@ -3189,6 +4063,100 @@ function assignIndividualRoomToBooking($bookingId, $individualRoomId) {
         }
         error_log("Error assigning individual room to booking: " . $e->getMessage());
         return false;
+    }
+}
+
+/**
+ * Auto-assign an available individual room to a booking
+ * Uses deterministic selection: first available room ordered by room number
+ *
+ * @param int $bookingId Booking ID
+ * @return array Result with success status and message
+ */
+function autoAssignIndividualRoom($bookingId) {
+    global $pdo;
+    
+    $result = [
+        'success' => false,
+        'message' => '',
+        'assigned_room_id' => null,
+        'assigned_room_number' => null
+    ];
+    
+    try {
+        // Get booking details with room type information
+        $stmt = $pdo->prepare("
+            SELECT b.id, b.room_id, b.check_in_date, b.check_out_date, b.status, b.individual_room_id,
+                   r.name as room_type_name, r.id as room_type_id
+            FROM bookings b
+            LEFT JOIN rooms r ON b.room_id = r.id
+            WHERE b.id = ?
+        ");
+        $stmt->execute([$bookingId]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$booking) {
+            $result['message'] = 'Booking not found';
+            return $result;
+        }
+        
+        // Skip if already has an individual room assigned
+        if (!empty($booking['individual_room_id'])) {
+            $result['success'] = true;
+            $result['message'] = 'Room already assigned';
+            $result['assigned_room_id'] = $booking['individual_room_id'];
+            return $result;
+        }
+        
+        $roomTypeId = (int)($booking['room_type_id'] ?? 0);
+        
+        if ($roomTypeId <= 0) {
+            $result['message'] = 'Invalid room type for booking';
+            return $result;
+        }
+        
+        // Get available individual rooms using existing availability logic
+        $availableRooms = getAvailableIndividualRooms(
+            $roomTypeId,
+            $booking['check_in_date'],
+            $booking['check_out_date'],
+            $bookingId
+        );
+        
+        if (empty($availableRooms)) {
+            $result['message'] = 'No available rooms for the selected dates';
+            return $result;
+        }
+        
+        // Deterministic selection: first by room_number ASC, then by id ASC
+        usort($availableRooms, function($a, $b) {
+            $roomCompare = strnatcmp($a['room_number'] ?? '', $b['room_number'] ?? '');
+            if ($roomCompare !== 0) {
+                return $roomCompare;
+            }
+            return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
+        });
+        
+        $selectedRoom = $availableRooms[0];
+        
+        // Assign the room using existing assignment logic
+        $assigned = assignIndividualRoomToBooking($bookingId, $selectedRoom['id']);
+        
+        if ($assigned) {
+            $result['success'] = true;
+            $result['message'] = 'Room ' . $selectedRoom['room_number'] . ' auto-assigned successfully';
+            $result['assigned_room_id'] = $selectedRoom['id'];
+            $result['assigned_room_number'] = $selectedRoom['room_number'];
+        } else {
+            $result['message'] = 'Failed to assign room (availability changed)';
+        }
+        
+        return $result;
+        
+    } catch (PDOException $e) {
+        error_log("Error auto-assigning individual room: " . $e->getMessage());
+        $result['message'] = 'Database error during auto-assignment';
+        return $result;
     }
 }
 
@@ -3387,4 +4355,1423 @@ function decryptApiKey(string $encryptedKey): ?string {
     $encrypted = substr($data, 16);
     $decrypted = openssl_decrypt($encrypted, 'AES-256-CBC', $encryptionKey, 0, $iv);
     return $decrypted !== false ? $decrypted : null;
+}
+
+// ============================================================================
+// BOOKING CHARGES / FOLIO MANAGEMENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Ensure booking_charges table exists (migration helper)
+ */
+function ensureBookingChargesTable(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    try {
+        $tableExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $columnExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+
+        $tableExistsStmt->execute(['booking_charges']);
+        $tableExists = (int)$tableExistsStmt->fetchColumn() > 0;
+
+        if (!$tableExists) {
+            // Create booking_charges table
+            $pdo->exec("CREATE TABLE booking_charges (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                booking_id INT UNSIGNED NOT NULL,
+                charge_type ENUM('room', 'food', 'drink', 'service', 'minibar', 'custom', 'breakfast', 'room_service', 'laundry', 'other') NOT NULL DEFAULT 'custom',
+                source_item_id INT UNSIGNED NULL COMMENT 'FK to menu item ID if applicable',
+                description VARCHAR(255) NOT NULL COMMENT 'Snapshot of charge description at time of creation',
+                quantity DECIMAL(10,2) NOT NULL DEFAULT 1.000,
+                unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Snapshot of unit price at time of creation',
+                line_subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'quantity * unit_price',
+                vat_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'VAT rate percentage for this line',
+                vat_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'VAT amount for this line',
+                line_total DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'line_subtotal + vat_amount',
+                posted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When charge was posted to folio',
+                added_by INT UNSIGNED NULL COMMENT 'Admin user ID who added the charge',
+                voided TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether charge is voided/reversed',
+                voided_at DATETIME NULL COMMENT 'When charge was voided',
+                void_reason VARCHAR(255) NULL COMMENT 'Reason for voiding',
+                voided_by INT UNSIGNED NULL COMMENT 'Admin user ID who voided the charge',
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_booking_charges_booking_id (booking_id),
+                KEY idx_booking_charges_type (charge_type),
+                KEY idx_booking_charges_source (source_item_id),
+                KEY idx_booking_charges_voided (voided),
+                KEY idx_booking_charges_posted_at (posted_at),
+                CONSTRAINT fk_booking_charges_booking_id FOREIGN KEY (booking_id)
+                    REFERENCES bookings(id) ON DELETE CASCADE ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        }
+
+        // Ensure bookings table has final invoice tracking columns
+        $ensureColumn = function (string $table, string $column, string $alterSql) use ($columnExistsStmt, $pdo): void {
+            $columnExistsStmt->execute([$table, $column]);
+            $exists = (int)$columnExistsStmt->fetchColumn() > 0;
+            if (!$exists) {
+                $pdo->exec($alterSql);
+            }
+        };
+
+        $ensureColumn('bookings', 'final_invoice_generated', "ALTER TABLE bookings ADD COLUMN final_invoice_generated TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether final invoice has been generated at checkout'");
+        $ensureColumn('bookings', 'final_invoice_path', "ALTER TABLE bookings ADD COLUMN final_invoice_path VARCHAR(255) NULL COMMENT 'Path to final invoice file'");
+        $ensureColumn('bookings', 'final_invoice_number', "ALTER TABLE bookings ADD COLUMN final_invoice_number VARCHAR(50) NULL COMMENT 'Final invoice number'");
+        $ensureColumn('bookings', 'final_invoice_sent_at', "ALTER TABLE bookings ADD COLUMN final_invoice_sent_at DATETIME NULL COMMENT 'When final invoice email was sent'");
+        $ensureColumn('bookings', 'checkout_completed_at', "ALTER TABLE bookings ADD COLUMN checkout_completed_at DATETIME NULL COMMENT 'When checkout was completed'");
+        $ensureColumn('bookings', 'folio_charges_total', "ALTER TABLE bookings ADD COLUMN folio_charges_total DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Total of all folio charge lines (including VAT)'");
+
+    } catch (Throwable $e) {
+        error_log('ensureBookingChargesTable warning: ' . $e->getMessage());
+    }
+}
+
+// Initialize booking charges table on connection
+ensureBookingChargesTable($pdo);
+
+/**
+ * Add a charge to a booking folio
+ *
+ * @param int $bookingId Booking ID
+ * @param string $chargeType Type of charge (room, food, drink, service, minibar, custom, etc.)
+ * @param string $description Charge description
+ * @param float $quantity Quantity
+ * @param float $unitPrice Unit price (snapshot at time of creation)
+ * @param int|null $sourceItemId Source menu item ID if applicable
+ * @param int|null $addedBy Admin user ID who added the charge
+ * @return array Result with success status and charge ID
+ */
+function addBookingCharge(int $bookingId, string $chargeType, string $description, float $quantity, float $unitPrice, ?int $sourceItemId = null, ?int $addedBy = null): array {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Get VAT settings
+        $vatEnabled = getSetting('vat_enabled') === '1';
+        $vatRate = $vatEnabled ? (float)getSetting('vat_rate') : 0;
+        
+        // Calculate line totals
+        $lineSubtotal = $quantity * $unitPrice;
+        $vatAmount = $lineSubtotal * ($vatRate / 100);
+        $lineTotal = $lineSubtotal + $vatAmount;
+        
+        // Insert charge
+        $stmt = $pdo->prepare("
+            INSERT INTO booking_charges (
+                booking_id, charge_type, source_item_id, description,
+                quantity, unit_price, line_subtotal, vat_rate, vat_amount, line_total,
+                posted_at, added_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+        ");
+        
+        $stmt->execute([
+            $bookingId,
+            $chargeType,
+            $sourceItemId,
+            $description,
+            $quantity,
+            $unitPrice,
+            $lineSubtotal,
+            $vatRate,
+            $vatAmount,
+            $lineTotal,
+            $addedBy
+        ]);
+        
+        $chargeId = $pdo->lastInsertId();
+        
+        // Recalculate booking financials
+        recalculateBookingFinancials($bookingId);
+        
+        $pdo->commit();
+        
+        return [
+            'success' => true,
+            'charge_id' => $chargeId,
+            'line_total' => $lineTotal
+        ];
+        
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("addBookingCharge error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Failed to add charge: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Add a charge from a menu item (food or drink)
+ * Snapshots the current item name and price
+ *
+ * @param int $bookingId Booking ID
+ * @param string $menuType 'food' or 'drink'
+ * @param int $menuItemId Menu item ID
+ * @param float $quantity Quantity
+ * @param int|null $addedBy Admin user ID
+ * @return array Result with success status
+ */
+function addBookingChargeFromMenu(int $bookingId, string $menuType, int $menuItemId, float $quantity, ?int $addedBy = null): array {
+    global $pdo;
+    
+    try {
+        $table = $menuType === 'food' ? 'food_menu' : 'drink_menu';
+        
+        // Get menu item details (snapshot current name and price)
+        $stmt = $pdo->prepare("SELECT item_name, price, category FROM {$table} WHERE id = ? AND is_available = 1");
+        $stmt->execute([$menuItemId]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$item) {
+            return [
+                'success' => false,
+                'message' => 'Menu item not found or unavailable'
+            ];
+        }
+        
+        $description = $item['item_name'];
+        $unitPrice = (float)$item['price'];
+        $chargeType = $menuType === 'food' ? 'food' : 'drink';
+        
+        return addBookingCharge($bookingId, $chargeType, $description, $quantity, $unitPrice, $menuItemId, $addedBy);
+        
+    } catch (PDOException $e) {
+        error_log("addBookingChargeFromMenu error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Database error: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Void a booking charge (audit-safe reversal)
+ *
+ * @param int $chargeId Charge ID
+ * @param string $voidReason Reason for voiding
+ * @param int|null $voidedBy Admin user ID who voided the charge
+ * @return array Result with success status
+ */
+function voidBookingCharge(int $chargeId, string $voidReason, ?int $voidedBy = null): array {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Get charge details
+        $stmt = $pdo->prepare("SELECT booking_id, voided FROM booking_charges WHERE id = ?");
+        $stmt->execute([$chargeId]);
+        $charge = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$charge) {
+            return [
+                'success' => false,
+                'message' => 'Charge not found'
+            ];
+        }
+        
+        if ($charge['voided']) {
+            return [
+                'success' => false,
+                'message' => 'Charge already voided'
+            ];
+        }
+        
+        // Mark as voided
+        $updateStmt = $pdo->prepare("
+            UPDATE booking_charges
+            SET voided = 1, voided_at = NOW(), void_reason = ?, voided_by = ?
+            WHERE id = ?
+        ");
+        $updateStmt->execute([$voidReason, $voidedBy, $chargeId]);
+        
+        // Recalculate booking financials
+        recalculateBookingFinancials($charge['booking_id']);
+        
+        $pdo->commit();
+        
+        return [
+            'success' => true,
+            'message' => 'Charge voided successfully'
+        ];
+        
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("voidBookingCharge error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Failed to void charge: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Get all charges for a booking (non-voided only by default)
+ *
+ * @param int $bookingId Booking ID
+ * @param bool $includeVoided Include voided charges
+ * @return array List of charges
+ */
+function getBookingCharges(int $bookingId, bool $includeVoided = false): array {
+    global $pdo;
+    
+    try {
+        $voidedFilter = $includeVoided ? '' : 'AND bc.voided = 0';
+        
+        $stmt = $pdo->prepare("
+            SELECT
+                bc.*,
+                CASE
+                    WHEN bc.charge_type = 'food' THEN fm.item_name
+                    WHEN bc.charge_type = 'drink' THEN dm.item_name
+                    ELSE NULL
+                END as source_item_name,
+                CASE
+                    WHEN bc.charge_type = 'food' THEN fm.category
+                    WHEN bc.charge_type = 'drink' THEN dm.category
+                    ELSE NULL
+                END as source_item_category
+            FROM booking_charges bc
+            LEFT JOIN food_menu fm ON bc.charge_type = 'food' AND bc.source_item_id = fm.id
+            LEFT JOIN drink_menu dm ON bc.charge_type = 'drink' AND bc.source_item_id = dm.id
+            WHERE bc.booking_id = ? {$voidedFilter}
+            ORDER BY bc.posted_at ASC, bc.id ASC
+        ");
+        
+        $stmt->execute([$bookingId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+    } catch (PDOException $e) {
+        error_log("getBookingCharges error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get booking folio summary with totals breakdown
+ *
+ * @param int $bookingId Booking ID
+ * @return array Folio summary
+ */
+function getBookingFolioSummary(int $bookingId): array {
+    global $pdo;
+    
+    try {
+        // Get booking base amount
+        $bookingStmt = $pdo->prepare("SELECT total_amount, amount_paid, amount_due FROM bookings WHERE id = ?");
+        $bookingStmt->execute([$bookingId]);
+        $booking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$booking) {
+            return ['error' => 'Booking not found'];
+        }
+        
+        // Get charges summary
+        $chargesStmt = $pdo->prepare("
+            SELECT
+                charge_type,
+                COUNT(*) as item_count,
+                SUM(line_subtotal) as total_subtotal,
+                SUM(vat_amount) as total_vat,
+                SUM(line_total) as total_amount
+            FROM booking_charges
+            WHERE booking_id = ? AND voided = 0
+            GROUP BY charge_type
+            ORDER BY charge_type
+        ");
+        $chargesStmt->execute([$bookingId]);
+        $chargesByType = $chargesStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Get totals
+        $totalsStmt = $pdo->prepare("
+            SELECT
+                SUM(line_subtotal) as folio_subtotal,
+                SUM(vat_amount) as folio_vat,
+                SUM(line_total) as folio_total,
+                COUNT(*) as total_items
+            FROM booking_charges
+            WHERE booking_id = ? AND voided = 0
+        ");
+        $totalsStmt->execute([$bookingId]);
+        $folioTotals = $totalsStmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Get payments
+        $paymentsStmt = $pdo->prepare("
+            SELECT
+                SUM(CASE WHEN payment_status IN ('completed', 'paid') THEN total_amount ELSE 0 END) as total_paid
+            FROM payments
+            WHERE booking_type = 'room' AND booking_id = ? AND deleted_at IS NULL
+        ");
+        $paymentsStmt->execute([$bookingId]);
+        $payments = $paymentsStmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Calculate final totals
+        $baseAmount = (float)$booking['total_amount'];
+        $extrasSubtotal = (float)($folioTotals['folio_subtotal'] ?? 0);
+        $extrasVat = (float)($folioTotals['folio_vat'] ?? 0);
+        $extrasTotal = (float)($folioTotals['folio_total'] ?? 0);
+        
+        $totalSubtotal = $baseAmount + $extrasSubtotal;
+        $totalVat = $extrasVat; // Base amount VAT is calculated separately in bookings
+        $grandTotal = $baseAmount + $extrasTotal;
+        
+        $amountPaid = (float)($payments['total_paid'] ?? 0);
+        $balanceDue = max(0, $grandTotal - $amountPaid);
+        
+        return [
+            'booking_base_amount' => $baseAmount,
+            'extras_subtotal' => $extrasSubtotal,
+            'extras_vat' => $extrasVat,
+            'extras_total' => $extrasTotal,
+            'total_subtotal' => $totalSubtotal,
+            'total_vat' => $totalVat,
+            'grand_total' => $grandTotal,
+            'amount_paid' => $amountPaid,
+            'balance_due' => $balanceDue,
+            'charges_by_type' => $chargesByType,
+            'total_items' => (int)($folioTotals['total_items'] ?? 0)
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("getBookingFolioSummary error: " . $e->getMessage());
+        return ['error' => 'Database error'];
+    }
+}
+
+/**
+ * Recalculate booking financials based on room base + active charges
+ * This is called automatically when charges are added/voided
+ *
+ * @param int $bookingId Booking ID
+ * @return bool Success status
+ */
+function recalculateBookingFinancials(int $bookingId): bool {
+    global $pdo;
+    
+    try {
+        // Get current booking
+        $stmt = $pdo->prepare("SELECT total_amount, vat_rate, vat_amount FROM bookings WHERE id = ?");
+        $stmt->execute([$bookingId]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$booking) {
+            return false;
+        }
+        
+        // Calculate folio charges total
+        $chargesStmt = $pdo->prepare("
+            SELECT
+                SUM(line_subtotal) as charges_subtotal,
+                SUM(vat_amount) as charges_vat,
+                SUM(line_total) as charges_total
+            FROM booking_charges
+            WHERE booking_id = ? AND voided = 0
+        ");
+        $chargesStmt->execute([$bookingId]);
+        $charges = $chargesStmt->fetch(PDO::FETCH_ASSOC);
+        
+        $baseAmount = (float)$booking['total_amount'];
+        $chargesSubtotal = (float)($charges['charges_subtotal'] ?? 0);
+        $chargesVat = (float)($charges['charges_vat'] ?? 0);
+        $chargesTotal = (float)($charges['charges_total'] ?? 0);
+        
+        // Get payments
+        $paymentsStmt = $pdo->prepare("
+            SELECT
+                SUM(CASE WHEN payment_status IN ('completed', 'paid') THEN total_amount ELSE 0 END) as total_paid
+            FROM payments
+            WHERE booking_type = 'room' AND booking_id = ? AND deleted_at IS NULL
+        ");
+        $paymentsStmt->execute([$bookingId]);
+        $payments = $paymentsStmt->fetch(PDO::FETCH_ASSOC);
+        
+        $amountPaid = (float)($payments['total_paid'] ?? 0);
+        
+        // Calculate totals
+        // Note: Base amount already includes VAT from bookings table
+        // Charges have their own VAT calculated
+        $totalAmount = $baseAmount + $chargesSubtotal;
+        $totalVat = (float)$booking['vat_amount'] + $chargesVat;
+        $totalWithVat = $baseAmount + $chargesTotal; // charges_total already includes VAT
+        $amountDue = max(0, $totalWithVat - $amountPaid);
+        
+        // Update booking
+        $updateStmt = $pdo->prepare("
+            UPDATE bookings
+            SET amount_paid = ?,
+                amount_due = ?,
+                folio_charges_total = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        
+        $updateStmt->execute([
+            $amountPaid,
+            $amountDue,
+            $chargesTotal,
+            $bookingId
+        ]);
+        
+        return true;
+        
+    } catch (PDOException $e) {
+        error_log("recalculateBookingFinancials error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get menu items for quick-add to booking folio
+ *
+ * @param string $menuType 'food' or 'drink'
+ * @return array Menu items grouped by category
+ */
+function getMenuItemsForFolio(string $menuType = 'food'): array {
+    global $pdo;
+    
+    try {
+        $table = $menuType === 'food' ? 'food_menu' : 'drink_menu';
+        
+        $stmt = $pdo->query("
+            SELECT id, item_name, description, price, category, is_featured
+            FROM {$table}
+            WHERE is_available = 1
+            ORDER BY category ASC, display_order ASC, item_name ASC
+        ");
+        
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Group by category
+        $grouped = [];
+        foreach ($items as $item) {
+            $category = $item['category'] ?? 'Other';
+            if (!isset($grouped[$category])) {
+                $grouped[$category] = [];
+            }
+            $grouped[$category][] = $item;
+        }
+        
+        return $grouped;
+        
+    } catch (PDOException $e) {
+        error_log("getMenuItemsForFolio error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Ensure booking date adjustments support tables exist
+ */
+function ensureBookingDateAdjustmentsSupport(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    try {
+        $tableExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $columnExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+
+        $tableExists = function (string $table) use ($tableExistsStmt): bool {
+            $tableExistsStmt->execute([$table]);
+            return (int)$tableExistsStmt->fetchColumn() > 0;
+        };
+
+        $ensureColumn = function (string $table, string $column, string $alterSql) use ($columnExistsStmt, $pdo): void {
+            $columnExistsStmt->execute([$table, $column]);
+            $exists = (int)$columnExistsStmt->fetchColumn() > 0;
+            if (!$exists) {
+                $pdo->exec($alterSql);
+            }
+        };
+
+        // Create booking_date_adjustments table if not exists
+        if (!$tableExists('booking_date_adjustments')) {
+            $pdo->exec("CREATE TABLE booking_date_adjustments (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                booking_id INT UNSIGNED NOT NULL,
+                booking_reference VARCHAR(50) NOT NULL,
+                old_check_in_date DATE NOT NULL COMMENT 'Previous check-in date',
+                new_check_in_date DATE NOT NULL COMMENT 'New check-in date',
+                old_check_out_date DATE NOT NULL COMMENT 'Previous check-out date',
+                new_check_out_date DATE NOT NULL COMMENT 'New check-out date',
+                old_number_of_nights INT NOT NULL COMMENT 'Previous number of nights',
+                new_number_of_nights INT NOT NULL COMMENT 'New number of nights',
+                old_total_amount DECIMAL(10,2) NOT NULL COMMENT 'Previous booking total amount',
+                new_total_amount DECIMAL(10,2) NOT NULL COMMENT 'New booking total amount',
+                amount_delta DECIMAL(10,2) NOT NULL COMMENT 'Difference in amount (positive = additional charge, negative = refund)',
+                adjustment_reason TEXT NOT NULL COMMENT 'Reason for the adjustment',
+                adjusted_by INT UNSIGNED NOT NULL COMMENT 'Admin user ID who made the adjustment',
+                adjusted_by_name VARCHAR(255) NOT NULL COMMENT 'Admin user name who made the adjustment',
+                adjustment_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the adjustment was made',
+                ip_address VARCHAR(45) NULL COMMENT 'IP address of the admin making the adjustment',
+                metadata JSON NULL COMMENT 'Additional metadata',
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_booking_date_adjustments_booking_id (booking_id),
+                KEY idx_booking_date_adjustments_reference (booking_reference),
+                KEY idx_booking_date_adjustments_timestamp (adjustment_timestamp),
+                KEY idx_booking_date_adjustments_adjusted_by (adjusted_by),
+                CONSTRAINT fk_booking_date_adjustments_booking_id FOREIGN KEY (booking_id)
+                    REFERENCES bookings(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT fk_booking_date_adjustments_adjusted_by FOREIGN KEY (adjusted_by)
+                    REFERENCES admin_users(id) ON DELETE SET NULL ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        }
+
+    } catch (Throwable $e) {
+        error_log('ensureBookingDateAdjustmentsSupport warning: ' . $e->getMessage());
+    }
+}
+
+// Initialize booking date adjustments support on connection
+ensureBookingDateAdjustmentsSupport($pdo);
+
+/**
+ * Validate if a booking is eligible for date adjustment
+ *
+ * @param array $booking Booking data
+ * @return array Validation result with 'allowed' and 'reason' keys
+ */
+function validateDateAdjustment(array $booking, string $newCheckIn = null, string $newCheckOut = null): array {
+    // Check if booking exists
+    if (empty($booking['id'])) {
+        return [
+            'allowed' => false,
+            'reason' => 'booking_not_found',
+            'message' => 'Booking not found.'
+        ];
+    }
+    
+    // Cannot adjust dates for certain statuses
+    $ineligibleStatuses = ['cancelled', 'checked-out', 'no-show'];
+    
+    if (in_array($booking['status'] ?? '', $ineligibleStatuses)) {
+        return [
+            'allowed' => false,
+            'reason' => 'status_ineligible',
+            'message' => 'Cannot adjust dates for bookings that are cancelled, checked-out, or no-show.'
+        ];
+    }
+    
+    // Validate dates if provided
+    if ($newCheckIn !== null && $newCheckOut !== null) {
+        $checkIn = DateTime::createFromFormat('Y-m-d', $newCheckIn);
+        $checkOut = DateTime::createFromFormat('Y-m-d', $newCheckOut);
+        
+        if (!$checkIn || !$checkOut) {
+            return [
+                'allowed' => false,
+                'reason' => 'invalid_date_format',
+                'message' => 'Invalid date format. Use Y-m-d format.'
+            ];
+        }
+        
+        if ($checkIn >= $checkOut) {
+            return [
+                'allowed' => false,
+                'reason' => 'invalid_date_range',
+                'message' => 'Check-out date must be after check-in date.'
+            ];
+        }
+        
+        // Calculate new number of nights
+        $newNights = $checkIn->diff($checkOut)->days;
+        
+        if ($newNights <= 0) {
+            return [
+                'allowed' => false,
+                'reason' => 'invalid_nights',
+                'message' => 'Booking must be for at least one night.'
+            ];
+        }
+        
+        // Prevent adjusting to past dates (allow today if check-in hasn't happened yet)
+        $today = new DateTime('today');
+        $currentCheckIn = DateTime::createFromFormat('Y-m-d', $booking['check_in_date'] ?? '');
+        
+        // If original check-in is in the past, allow adjustments but warn
+        // If original check-in is today or future, don't allow past dates
+        if ($currentCheckIn && $currentCheckIn >= $today && $checkIn < $today) {
+            return [
+                'allowed' => false,
+                'reason' => 'past_date_not_allowed',
+                'message' => 'Cannot adjust dates to the past. The new check-in date must be today or in the future.'
+            ];
+        }
+        
+        // Validate maximum stay duration (e.g., 30 nights)
+        $maxStayNights = 30;
+        if ($newNights > $maxStayNights) {
+            return [
+                'allowed' => false,
+                'reason' => 'max_stay_exceeded',
+                'message' => "Booking cannot exceed {$maxStayNights} nights. Please contact management for extended stays."
+            ];
+        }
+    }
+    
+    return ['allowed' => true];
+}
+
+/**
+ * Calculate new booking amount based on date changes
+ *
+ * @param array $booking Current booking data
+ * @param string $newCheckIn New check-in date (Y-m-d)
+ * @param string $newCheckOut New check-out date (Y-m-d)
+ * @return array Calculation result with new amount, nights, and error if any
+ */
+function calculateDateAdjustmentAmount(array $booking, string $newCheckIn, string $newCheckOut): array {
+    global $pdo;
+    
+    try {
+        // Validate dates
+        $checkIn = DateTime::createFromFormat('Y-m-d', $newCheckIn);
+        $checkOut = DateTime::createFromFormat('Y-m-d', $newCheckOut);
+        
+        if (!$checkIn || !$checkOut) {
+            return ['error' => 'Invalid date format. Use Y-m-d format.'];
+        }
+        
+        if ($checkIn >= $checkOut) {
+            return ['error' => 'Check-out date must be after check-in date.'];
+        }
+        
+        // Calculate new number of nights
+        $newNights = $checkIn->diff($checkOut)->days;
+        
+        if ($newNights <= 0) {
+            return ['error' => 'Booking must be for at least one night.'];
+        }
+        
+        // Get room rate
+        $stmt = $pdo->prepare("SELECT price_per_night FROM rooms WHERE id = ?");
+        $stmt->execute([$booking['room_id']]);
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$room) {
+            return ['error' => 'Room not found.'];
+        }
+        
+        $pricePerNight = (float)$room['price_per_night'];
+        
+        // Get old values
+        $oldNights = (int)($booking['number_of_nights'] ?? 0);
+        $oldTotalAmount = (float)($booking['total_amount'] ?? 0);
+        $oldChildSupplement = (float)($booking['child_supplement_total'] ?? 0);
+        
+        // Calculate new base room amount
+        $newBaseAmount = $pricePerNight * $newNights;
+        
+        // Calculate child supplement adjustment (proportional to nights change)
+        // Preserve the child supplement by adjusting it proportionally based on night ratio
+        $newChildSupplement = 0.0;
+        if ($oldNights > 0 && $oldChildSupplement > 0) {
+            $nightRatio = $newNights / $oldNights;
+            $newChildSupplement = $oldChildSupplement * $nightRatio;
+        }
+        
+        // Get VAT settings
+        $vatEnabled = getSetting('vat_enabled') === '1';
+        $vatRate = $vatEnabled ? (float)getSetting('vat_rate') : 0;
+        
+        // Calculate VAT on base room amount only (child supplements may have their own VAT treatment)
+        $vatAmount = $newBaseAmount * ($vatRate / 100);
+        $newTotalAmount = $newBaseAmount + $vatAmount + $newChildSupplement;
+        
+        // Calculate delta (includes child supplement changes)
+        $amountDelta = $newTotalAmount - $oldTotalAmount;
+        
+        return [
+            'success' => true,
+            'old_nights' => $oldNights,
+            'new_nights' => $newNights,
+            'nights_delta' => $newNights - $oldNights,
+            'old_total_amount' => $oldTotalAmount,
+            'new_total_amount' => $newTotalAmount,
+            'old_child_supplement' => $oldChildSupplement,
+            'new_child_supplement' => $newChildSupplement,
+            'child_supplement_delta' => $newChildSupplement - $oldChildSupplement,
+            'amount_delta' => $amountDelta,
+            'price_per_night' => $pricePerNight,
+            'vat_rate' => $vatRate,
+            'vat_amount' => $vatAmount
+        ];
+        
+    } catch (Exception $e) {
+        error_log("calculateDateAdjustmentAmount error: " . $e->getMessage());
+        return ['error' => 'Failed to calculate adjustment amount.'];
+    }
+}
+
+/**
+ * Process booking date adjustment with full audit trail and financial impact
+ *
+ * @param int $bookingId Booking ID
+ * @param string $newCheckIn New check-in date (Y-m-d)
+ * @param string $newCheckOut New check-out date (Y-m-d)
+ * @param string $reason Reason for adjustment
+ * @param int $adjustedBy Admin user ID
+ * @param string $adjustedByName Admin user name
+ * @return array Result with success status and details
+ */
+function processBookingDateAdjustment(int $bookingId, string $newCheckIn, string $newCheckOut, string $reason, int $adjustedBy, string $adjustedByName): array {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Get current booking with room and individual room info
+        $stmt = $pdo->prepare("
+            SELECT b.*, r.price_per_night, r.name as room_name, ir.room_number as individual_room_number
+            FROM bookings b
+            JOIN rooms r ON b.room_id = r.id
+            LEFT JOIN individual_rooms ir ON b.individual_room_id = ir.id
+            WHERE b.id = ?
+            FOR UPDATE
+        ");
+        $stmt->execute([$bookingId]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$booking) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Booking not found.'];
+        }
+        
+        // Validate adjustment eligibility (including date validations)
+        $validation = validateDateAdjustment($booking, $newCheckIn, $newCheckOut);
+        if (!$validation['allowed']) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => $validation['message']];
+        }
+        
+        // Calculate new amount
+        $calculation = calculateDateAdjustmentAmount($booking, $newCheckIn, $newCheckOut);
+        if (isset($calculation['error'])) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => $calculation['error']];
+        }
+        
+        // Store old values
+        $oldCheckIn = $booking['check_in_date'];
+        $oldCheckOut = $booking['check_out_date'];
+        $oldNights = (int)$booking['number_of_nights'];
+        $oldTotalAmount = (float)$booking['total_amount'];
+        $oldChildSupplement = (float)($booking['child_supplement_total'] ?? 0);
+        $oldAmountPaid = (float)($booking['amount_paid'] ?? 0);
+        
+        // Check room availability for new dates (excluding current booking)
+        $availabilityCheck = isRoomAvailable($booking['room_id'], $newCheckIn, $newCheckOut, $bookingId);
+        if (!$availabilityCheck) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Room is not available for the selected dates.'];
+        }
+        
+        // If individual room is assigned, check its specific availability
+        if (!empty($booking['individual_room_id'])) {
+            $individualRoomAvailable = isIndividualRoomAvailable($booking['individual_room_id'], $newCheckIn, $newCheckOut, $bookingId);
+            if (!$individualRoomAvailable) {
+                $pdo->rollBack();
+                return ['success' => false, 'message' => 'The assigned individual room is not available for the selected dates. Please select different dates or reassign the room.'];
+            }
+        }
+        
+        // Get folio charges total (additional charges beyond room rate)
+        $folioStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(line_total), 0) as folio_total
+            FROM booking_charges
+            WHERE booking_id = ? AND status != 'voided'
+        ");
+        $folioStmt->execute([$bookingId]);
+        $folioData = $folioStmt->fetch(PDO::FETCH_ASSOC);
+        $folioTotal = (float)($folioData['folio_total'] ?? 0);
+        
+        // Calculate new amount due including folio charges
+        // New total = new room total (with VAT) + child supplement + folio charges
+        $newRoomTotal = $calculation['new_total_amount'];
+        $newTotalWithFolio = $newRoomTotal + $folioTotal;
+        $newAmountDue = $newTotalWithFolio - $oldAmountPaid;
+        
+        // Determine payment status and credit balance
+        $newPaymentStatus = $booking['payment_status'];
+        $creditBalance = 0.0;
+        
+        if ($newAmountDue <= 0.01) {
+            // Fully paid or overpaid (credit)
+            $newPaymentStatus = 'paid';
+            $creditBalance = abs($newAmountDue); // Track credit balance separately
+        } elseif ($oldAmountPaid > 0) {
+            // Partial payment
+            $newPaymentStatus = 'partial';
+        } else {
+            // No payment yet
+            $newPaymentStatus = 'unpaid';
+        }
+        
+        // Update booking with all values
+        $updateStmt = $pdo->prepare("
+            UPDATE bookings
+            SET check_in_date = ?,
+                check_out_date = ?,
+                number_of_nights = ?,
+                total_amount = ?,
+                vat_amount = ?,
+                child_supplement_total = ?,
+                amount_due = ?,
+                payment_status = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        
+        $updateStmt->execute([
+            $newCheckIn,
+            $newCheckOut,
+            $calculation['new_nights'],
+            $newRoomTotal, // Store room total only (folio charges tracked separately)
+            $calculation['vat_amount'],
+            $calculation['new_child_supplement'],
+            max(0, $newAmountDue), // Don't allow negative amount_due (credit tracked in metadata)
+            $newPaymentStatus,
+            $bookingId
+        ]);
+        
+        // Record adjustment in audit table
+        $adjustmentStmt = $pdo->prepare("
+            INSERT INTO booking_date_adjustments (
+                booking_id, booking_reference,
+                old_check_in_date, new_check_in_date,
+                old_check_out_date, new_check_out_date,
+                old_number_of_nights, new_number_of_nights,
+                old_total_amount, new_total_amount,
+                amount_delta, adjustment_reason,
+                adjusted_by, adjusted_by_name,
+                ip_address, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $adjustmentStmt->execute([
+            $bookingId,
+            $booking['booking_reference'],
+            $oldCheckIn,
+            $newCheckIn,
+            $oldCheckOut,
+            $newCheckOut,
+            $oldNights,
+            $calculation['new_nights'],
+            $oldTotalAmount,
+            $newRoomTotal,
+            $calculation['amount_delta'],
+            $reason,
+            $adjustedBy,
+            $adjustedByName,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            json_encode([
+                'room_id' => $booking['room_id'],
+                'room_name' => $booking['room_name'],
+                'individual_room_number' => $booking['individual_room_number'] ?? null,
+                'price_per_night' => $calculation['price_per_night'],
+                'vat_rate' => $calculation['vat_rate'],
+                'old_child_supplement' => $oldChildSupplement,
+                'new_child_supplement' => $calculation['new_child_supplement'],
+                'child_supplement_delta' => $calculation['child_supplement_delta'],
+                'folio_charges_total' => $folioTotal,
+                'credit_balance' => $creditBalance > 0 ? $creditBalance : null
+            ])
+        ]);
+        
+        $adjustmentId = $pdo->lastInsertId();
+        
+        // Log to timeline
+        require_once __DIR__ . '/../includes/booking-timeline.php';
+        
+        $deltaText = $calculation['amount_delta'] >= 0
+            ? '+$' . number_format(abs($calculation['amount_delta']), 2) . ' additional charge'
+            : '-$' . number_format(abs($calculation['amount_delta']), 2) . ' refund/credit';
+        
+        // Add credit note if applicable
+        $creditNote = '';
+        if ($creditBalance > 0.01) {
+            $creditNote = ' (Credit balance: $' . number_format($creditBalance, 2) . ')';
+        }
+        
+        $description = sprintf(
+            "Stay dates adjusted: %s to %s → %s to %s (%d → %d nights, %s)%s",
+            $oldCheckIn,
+            $oldCheckOut,
+            $newCheckIn,
+            $newCheckOut,
+            $oldNights,
+            $calculation['new_nights'],
+            $deltaText,
+            $creditNote
+        );
+        
+        logBookingEvent(
+            $bookingId,
+            $booking['booking_reference'],
+            'Stay dates adjusted',
+            'date_adjustment',
+            $description,
+            json_encode(['old' => ['check_in' => $oldCheckIn, 'check_out' => $oldCheckOut, 'nights' => $oldNights, 'total' => $oldTotalAmount]]),
+            json_encode(['new' => ['check_in' => $newCheckIn, 'check_out' => $newCheckOut, 'nights' => $calculation['new_nights'], 'total' => $newRoomTotal]]),
+            'admin',
+            $adjustedBy,
+            $adjustedByName,
+            [
+                'adjustment_id' => $adjustmentId,
+                'amount_delta' => $calculation['amount_delta'],
+                'child_supplement_delta' => $calculation['child_supplement_delta'],
+                'credit_balance' => $creditBalance > 0 ? $creditBalance : null,
+                'reason' => $reason
+            ]
+        );
+        
+        $pdo->commit();
+        
+        return [
+            'success' => true,
+            'adjustment_id' => $adjustmentId,
+            'calculation' => $calculation,
+            'credit_balance' => $creditBalance > 0 ? $creditBalance : null,
+            'message' => 'Booking dates adjusted successfully.' . ($creditBalance > 0 ? " Guest has a credit balance of $" . number_format($creditBalance, 2) . "." : '')
+        ];
+        
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("processBookingDateAdjustment error: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Failed to process date adjustment: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Get date adjustment history for a booking
+ *
+ * @param int $bookingId Booking ID
+ * @return array List of adjustments
+ */
+function getBookingDateAdjustments(int $bookingId): array {
+    global $pdo;
+    
+    try {
+        $stmt = $pdo->prepare("
+            SELECT * FROM booking_date_adjustments
+            WHERE booking_id = ?
+            ORDER BY adjustment_timestamp DESC
+        ");
+        $stmt->execute([$bookingId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("getBookingDateAdjustments error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Ensure audit log tables exist for housekeeping and maintenance.
+ * This function creates the audit tables if they don't exist.
+ */
+function ensureAuditLogTables(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    try {
+        $tableExistsStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+
+        $tableExists = function (string $table) use ($tableExistsStmt): bool {
+            $tableExistsStmt->execute([$table]);
+            return (int)$tableExistsStmt->fetchColumn() > 0;
+        };
+
+        // Create housekeeping_audit_log table if not exists
+        if (!$tableExists('housekeeping_audit_log')) {
+            $pdo->exec("CREATE TABLE housekeeping_audit_log (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                assignment_id INT UNSIGNED NOT NULL COMMENT 'FK to housekeeping_assignments.id',
+                action ENUM('created', 'updated', 'deleted', 'verified', 'status_changed', 'assigned', 'unassigned', 'priority_changed', 'notes_updated', 'recurring_created') NOT NULL COMMENT 'Type of action performed',
+                old_values JSON NULL COMMENT 'Snapshot of data before change',
+                new_values JSON NULL COMMENT 'Snapshot of data after change',
+                changed_fields JSON NULL COMMENT 'Array of field names that changed',
+                performed_by INT UNSIGNED DEFAULT NULL COMMENT 'Admin user ID who performed the action',
+                performed_by_name VARCHAR(255) DEFAULT NULL COMMENT 'Username for historical accuracy',
+                performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the action was performed',
+                ip_address VARCHAR(45) DEFAULT NULL COMMENT 'IP address of the user (optional, for security)',
+                user_agent VARCHAR(500) DEFAULT NULL COMMENT 'Browser user agent (optional, for context)',
+                PRIMARY KEY (id),
+                KEY idx_housekeeping_audit_assignment (assignment_id),
+                KEY idx_housekeeping_audit_action (action),
+                KEY idx_housekeeping_audit_performed_by (performed_by),
+                KEY idx_housekeeping_audit_performed_at (performed_at),
+                CONSTRAINT fk_housekeeping_audit_assignment FOREIGN KEY (assignment_id) REFERENCES housekeeping_assignments (id) ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT fk_housekeeping_audit_performed_by FOREIGN KEY (performed_by) REFERENCES admin_users (id) ON DELETE SET NULL ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Audit log for housekeeping assignments'");
+        }
+
+        // Create maintenance_audit_log table if not exists
+        if (!$tableExists('maintenance_audit_log')) {
+            $pdo->exec("CREATE TABLE maintenance_audit_log (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                maintenance_id INT UNSIGNED NOT NULL COMMENT 'FK to room_maintenance_schedules.id',
+                action ENUM('created', 'updated', 'deleted', 'verified', 'status_changed', 'assigned', 'unassigned', 'priority_changed', 'notes_updated', 'recurring_created', 'type_changed') NOT NULL COMMENT 'Type of action performed',
+                old_values JSON NULL COMMENT 'Snapshot of data before change',
+                new_values JSON NULL COMMENT 'Snapshot of data after change',
+                changed_fields JSON NULL COMMENT 'Array of field names that changed',
+                performed_by INT UNSIGNED DEFAULT NULL COMMENT 'Admin user ID who performed the action',
+                performed_by_name VARCHAR(255) DEFAULT NULL COMMENT 'Username for historical accuracy',
+                performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the action was performed',
+                ip_address VARCHAR(45) DEFAULT NULL COMMENT 'IP address of the user (optional, for security)',
+                user_agent VARCHAR(500) DEFAULT NULL COMMENT 'Browser user agent (optional, for context)',
+                PRIMARY KEY (id),
+                KEY idx_maintenance_audit_maintenance (maintenance_id),
+                KEY idx_maintenance_audit_action (action),
+                KEY idx_maintenance_audit_performed_by (performed_by),
+                KEY idx_maintenance_audit_performed_at (performed_at),
+                CONSTRAINT fk_maintenance_audit_maintenance FOREIGN KEY (maintenance_id) REFERENCES room_maintenance_schedules (id) ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT fk_maintenance_audit_performed_by FOREIGN KEY (performed_by) REFERENCES admin_users (id) ON DELETE SET NULL ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Audit log for maintenance schedules'");
+        }
+    } catch (Throwable $e) {
+        error_log('ensureAuditLogTables warning: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Calculate changed fields between two arrays.
+ *
+ * @param array $oldData Old data
+ * @param array $newData New data
+ * @return array List of field names that changed
+ */
+function calculateChangedFields(array $oldData, array $newData): array {
+    $changedFields = [];
+    $allKeys = array_unique(array_merge(array_keys($oldData), array_keys($newData)));
+    
+    foreach ($allKeys as $key) {
+        $oldValue = $oldData[$key] ?? null;
+        $newValue = $newData[$key] ?? null;
+        
+        // Compare values (handle JSON encoding for arrays)
+        if (is_array($oldValue)) {
+            $oldValue = json_encode($oldValue);
+        }
+        if (is_array($newValue)) {
+            $newValue = json_encode($newValue);
+        }
+        
+        if ((string)$oldValue !== (string)$newValue) {
+            $changedFields[] = $key;
+        }
+    }
+    
+    return $changedFields;
+}
+
+/**
+ * Log an action for housekeeping assignment.
+ *
+ * @param int $assignmentId Assignment ID
+ * @param string $action Action performed (created, updated, deleted, verified, etc.)
+ * @param array|null $oldData Old data (before change)
+ * @param array|null $newData New data (after change)
+ * @param int|null $performedBy User ID who performed the action
+ * @param string|null $performedByName Username for historical accuracy
+ * @return bool Success status
+ */
+function logHousekeepingAction(int $assignmentId, string $action, ?array $oldData, ?array $newData, ?int $performedBy, ?string $performedByName = null): bool {
+    global $pdo;
+    
+    try {
+        // Ensure audit tables exist
+        ensureAuditLogTables($pdo);
+        
+        // Calculate changed fields
+        $changedFields = null;
+        if ($oldData !== null && $newData !== null) {
+            $changedFields = calculateChangedFields($oldData, $newData);
+        }
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO housekeeping_audit_log (
+                assignment_id, action, old_values, new_values, changed_fields,
+                performed_by, performed_by_name, ip_address, user_agent
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $assignmentId,
+            $action,
+            $oldData !== null ? json_encode($oldData) : null,
+            $newData !== null ? json_encode($newData) : null,
+            $changedFields !== null ? json_encode($changedFields) : null,
+            $performedBy,
+            $performedByName,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+        
+        return true;
+    } catch (Throwable $e) {
+        error_log('logHousekeepingAction error: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Log an action for maintenance schedule.
+ *
+ * @param int $maintenanceId Maintenance ID
+ * @param string $action Action performed (created, updated, deleted, verified, etc.)
+ * @param array|null $oldData Old data (before change)
+ * @param array|null $newData New data (after change)
+ * @param int|null $performedBy User ID who performed the action
+ * @param string|null $performedByName Username for historical accuracy
+ * @return bool Success status
+ */
+function logMaintenanceAction(int $maintenanceId, string $action, ?array $oldData, ?array $newData, ?int $performedBy, ?string $performedByName = null): bool {
+    global $pdo;
+    
+    try {
+        // Ensure audit tables exist
+        ensureAuditLogTables($pdo);
+        
+        // Calculate changed fields
+        $changedFields = null;
+        if ($oldData !== null && $newData !== null) {
+            $changedFields = calculateChangedFields($oldData, $newData);
+        }
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO maintenance_audit_log (
+                maintenance_id, action, old_values, new_values, changed_fields,
+                performed_by, performed_by_name, ip_address, user_agent
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $maintenanceId,
+            $action,
+            $oldData !== null ? json_encode($oldData) : null,
+            $newData !== null ? json_encode($newData) : null,
+            $changedFields !== null ? json_encode($changedFields) : null,
+            $performedBy,
+            $performedByName,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+        
+        return true;
+    } catch (Throwable $e) {
+        error_log('logMaintenanceAction error: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get audit log history for a housekeeping assignment.
+ *
+ * @param int $assignmentId Assignment ID
+ * @return array List of audit log entries
+ */
+function getHousekeepingAuditLog(int $assignmentId): array {
+    global $pdo;
+    
+    try {
+        ensureAuditLogTables($pdo);
+        
+        $stmt = $pdo->prepare("
+            SELECT * FROM housekeeping_audit_log
+            WHERE assignment_id = ?
+            ORDER BY performed_at DESC
+        ");
+        $stmt->execute([$assignmentId]);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Decode JSON fields
+        foreach ($results as &$row) {
+            if ($row['old_values'] !== null) {
+                $row['old_values'] = json_decode($row['old_values'], true);
+            }
+            if ($row['new_values'] !== null) {
+                $row['new_values'] = json_decode($row['new_values'], true);
+            }
+            if ($row['changed_fields'] !== null) {
+                $row['changed_fields'] = json_decode($row['changed_fields'], true);
+            }
+        }
+        
+        return $results;
+    } catch (Throwable $e) {
+        error_log('getHousekeepingAuditLog error: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get audit log history for a maintenance schedule.
+ *
+ * @param int $maintenanceId Maintenance ID
+ * @return array List of audit log entries
+ */
+function getMaintenanceAuditLog(int $maintenanceId): array {
+    global $pdo;
+    
+    try {
+        ensureAuditLogTables($pdo);
+        
+        $stmt = $pdo->prepare("
+            SELECT * FROM maintenance_audit_log
+            WHERE maintenance_id = ?
+            ORDER BY performed_at DESC
+        ");
+        $stmt->execute([$maintenanceId]);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Decode JSON fields
+        foreach ($results as &$row) {
+            if ($row['old_values'] !== null) {
+                $row['old_values'] = json_decode($row['old_values'], true);
+            }
+            if ($row['new_values'] !== null) {
+                $row['new_values'] = json_decode($row['new_values'], true);
+            }
+            if ($row['changed_fields'] !== null) {
+                $row['changed_fields'] = json_decode($row['changed_fields'], true);
+            }
+        }
+        
+        return $results;
+    } catch (Throwable $e) {
+        error_log('getMaintenanceAuditLog error: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get all audit log entries for housekeeping (admin view).
+ *
+ * @param int|null $limit Optional limit
+ * @param int|null $offset Optional offset
+ * @return array List of audit log entries with related data
+ */
+function getAllHousekeepingAuditLogs(?int $limit = null, ?int $offset = null): array {
+    global $pdo;
+    
+    try {
+        ensureAuditLogTables($pdo);
+        
+        $sql = "
+            SELECT hal.*,
+                   ha.individual_room_id,
+                   ir.room_number,
+                   ir.room_name,
+                   ha.status as current_status
+            FROM housekeeping_audit_log hal
+            LEFT JOIN housekeeping_assignments ha ON hal.assignment_id = ha.id
+            LEFT JOIN individual_rooms ir ON ha.individual_room_id = ir.id
+            ORDER BY hal.performed_at DESC
+        ";
+        
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+        
+        $stmt = $pdo->query($sql);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Decode JSON fields
+        foreach ($results as &$row) {
+            if ($row['old_values'] !== null) {
+                $row['old_values'] = json_decode($row['old_values'], true);
+            }
+            if ($row['new_values'] !== null) {
+                $row['new_values'] = json_decode($row['new_values'], true);
+            }
+            if ($row['changed_fields'] !== null) {
+                $row['changed_fields'] = json_decode($row['changed_fields'], true);
+            }
+        }
+        
+        return $results;
+    } catch (Throwable $e) {
+        error_log('getAllHousekeepingAuditLogs error: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get all audit log entries for maintenance (admin view).
+ *
+ * @param int|null $limit Optional limit
+ * @param int|null $offset Optional offset
+ * @return array List of audit log entries with related data
+ */
+function getAllMaintenanceAuditLogs(?int $limit = null, ?int $offset = null): array {
+    global $pdo;
+    
+    try {
+        ensureAuditLogTables($pdo);
+        
+        $sql = "
+            SELECT mal.*,
+                   rms.individual_room_id,
+                   ir.room_number,
+                   ir.room_name,
+                   rms.status as current_status,
+                   rms.title
+            FROM maintenance_audit_log mal
+            LEFT JOIN room_maintenance_schedules rms ON mal.maintenance_id = rms.id
+            LEFT JOIN individual_rooms ir ON rms.individual_room_id = ir.id
+            ORDER BY mal.performed_at DESC
+        ";
+        
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+        
+        $stmt = $pdo->query($sql);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Decode JSON fields
+        foreach ($results as &$row) {
+            if ($row['old_values'] !== null) {
+                $row['old_values'] = json_decode($row['old_values'], true);
+            }
+            if ($row['new_values'] !== null) {
+                $row['new_values'] = json_decode($row['new_values'], true);
+            }
+            if ($row['changed_fields'] !== null) {
+                $row['changed_fields'] = json_decode($row['changed_fields'], true);
+            }
+        }
+        
+        return $results;
+    } catch (Throwable $e) {
+        error_log('getAllMaintenanceAuditLogs error: ' . $e->getMessage());
+        return [];
+    }
 }

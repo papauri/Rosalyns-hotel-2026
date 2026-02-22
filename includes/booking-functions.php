@@ -291,10 +291,10 @@ function checkAvailability(int $roomId, string $checkIn, string $checkOut): arra
         }
         
         $result['room'] = $room;
-        
+
         // Check for blocked dates
         $blockedStmt = $pdo->prepare("
-            SELECT COUNT(*) FROM room_blocked_dates
+            SELECT COUNT(*) FROM blocked_dates
             WHERE block_date >= ? AND block_date < ?
             AND (room_id = ? OR room_id IS NULL)
         ");

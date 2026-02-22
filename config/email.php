@@ -1830,6 +1830,135 @@ function sendBookingCancelledEmail($booking, $cancellation_reason = '') {
 }
 
 /**
+ * Send booking room upgrade email
+ */
+function sendBookingRoomUpgradeEmail($booking) {
+    global $pdo, $email_from_name, $email_from_email, $email_admin_email, $email_site_name, $email_site_url;
+    
+    try {
+        $old_room_name = $booking['old_room_name'] ?? 'Previous Room';
+        $new_room_name = $booking['new_room_name'] ?? 'New Room';
+        $old_total = (float)($booking['old_total'] ?? 0);
+        $new_total = (float)($booking['new_total'] ?? 0);
+        $price_difference = (float)($booking['price_difference'] ?? 0);
+        
+        $currency_symbol = getSetting('currency_symbol');
+        
+        $htmlBody = '
+        <h1 style="color: #8B7355; text-align: center;">Room Upgrade Confirmed</h1>
+        <p>Dear ' . htmlspecialchars($booking['guest_name']) . ',</p>
+        <p>We are pleased to inform you that your booking with <strong>' . htmlspecialchars($email_site_name) . '</strong> has been upgraded to a better room!</p>
+        
+        <div style="background: #f8f9fa; border: 2px solid #8B7355; padding: 20px; margin: 20px 0; border-radius: 10px;">
+            <h2 style="color: #8B7355; margin-top: 0;">Upgrade Details</h2>
+            
+            <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;">
+                <span style="font-weight: bold; color: #1A1A1A;">Booking Reference:</span>
+                <span style="color: #8B7355; font-weight: bold; font-size: 18px;">' . htmlspecialchars($booking['booking_reference']) . '</span>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin: 16px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: bold; color: #666;">Previous Room:</span>
+                    <span style="color: #666; text-decoration: line-through;">' . htmlspecialchars($old_room_name) . '</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: bold; color: #28a745; font-size: 16px;">New Room:</span>
+                    <span style="color: #28a745; font-weight: bold; font-size: 16px;">' . htmlspecialchars($new_room_name) . '</span>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;">
+                <span style="font-weight: bold; color: #1A1A1A;">Check-in Date:</span>
+                <span style="color: #333;">' . date('F j, Y', strtotime($booking['check_in_date'])) . '</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;">
+                <span style="font-weight: bold; color: #1A1A1A;">Check-out Date:</span>
+                <span style="color: #333;">' . date('F j, Y', strtotime($booking['check_out_date'])) . '</span>
+            </div>
+            
+            <div style="background: #e7f3ff; padding: 12px; border-radius: 6px; margin: 16px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: bold; color: #666;">Previous Total:</span>
+                    <span style="color: #666;">' . $currency_symbol . ' ' . number_format($old_total, 0) . '</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: bold; color: #666;">New Total:</span>
+                    <span style="color: #333;">' . $currency_symbol . ' ' . number_format($new_total, 0) . '</span>
+                </div>';
+        
+        if ($price_difference > 0) {
+            $htmlBody .= '
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed #ccc;">
+                    <span style="font-weight: bold; color: #dc3545;">Additional Amount:</span>
+                    <span style="color: #dc3545; font-weight: bold; font-size: 16px;">+' . $currency_symbol . ' ' . number_format($price_difference, 0) . '</span>
+                </div>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">* Please pay the additional amount upon check-in.</p>';
+        } elseif ($price_difference < 0) {
+            $htmlBody .= '
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed #ccc;">
+                    <span style="font-weight: bold; color: #28a745;">Discount Applied:</span>
+                    <span style="color: #28a745; font-weight: bold; font-size: 16px;">-' . $currency_symbol . ' ' . number_format(abs($price_difference), 0) . '</span>
+                </div>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">* A discount has been applied to your booking!</p>';
+        } else {
+            $htmlBody .= '
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed #ccc;">
+                    <span style="font-weight: bold; color: #8B7355;">Price Adjustment:</span>
+                    <span style="color: #8B7355;">No change in total amount</span>
+                </div>';
+        }
+        
+        $htmlBody .= '
+            </div>
+        </div>
+        
+        <div style="background: #d4edda; padding: 15px; border-left: 4px solid #28a745; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #155724; margin-top: 0;"><i class="fas fa-arrow-up"></i> Room Upgraded Successfully!</h3>
+            <p style="color: #155724; margin: 0;">
+                Your room has been upgraded from <strong>' . htmlspecialchars($old_room_name) . '</strong> to <strong>' . htmlspecialchars($new_room_name) . '</strong>.
+                We hope you enjoy your enhanced stay with us!
+            </p>
+        </div>
+        
+        <p>If you have any questions about your upgrade, please contact us at <a href="mailto:' . htmlspecialchars($email_from_email) . '">' . htmlspecialchars($email_from_email) . '</a>.</p>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #1A1A1A;">
+            <p style="color: #666; font-size: 14px;">
+                <strong>The ' . htmlspecialchars($email_site_name) . ' Team</strong><br>
+                <a href="' . htmlspecialchars($email_site_url) . '">' . htmlspecialchars($email_site_url) . '</a>
+            </p>
+        </div>';
+        
+        // Get CC emails
+        $ccEmails = getCCEmails();
+        
+        // Send email with CC
+        $emailResult = sendEmailWithCC(
+            $booking['guest_email'],
+            $booking['guest_name'],
+            'Room Upgraded - ' . htmlspecialchars($email_site_name) . ' [' . $booking['booking_reference'] . ']',
+            $htmlBody,
+            '',
+            $ccEmails
+        );
+        
+        return [
+            'success' => $emailResult['success'],
+            'message' => $emailResult['message']
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Send Room Upgrade Email Error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
+}
+
+/**
  * Send email with CC recipients
  */
 function sendEmailWithCC($to, $toName, $subject, $htmlBody, $textBody = '', $ccEmails = []) {
@@ -2878,6 +3007,11 @@ function getHotelLogoUrl() {
     $logo_url = getSetting('logo_url', '');
     $site_url = getSetting('site_url', '');
     
+    // Fallback to default logo if not set
+    if (empty($logo_url)) {
+        $logo_url = 'images/logo/logo.png';
+    }
+    
     // If logo is a relative path, make it absolute
     if (!empty($logo_url) && strpos($logo_url, 'http') !== 0) {
         $logo_url = rtrim($site_url, '/') . '/' . ltrim($logo_url, '/');
@@ -2907,9 +3041,10 @@ function wrapEmailTemplate($content, $title = '') {
     $accent_color = '#8B7355';
     $light_bg = '#f8f9fa';
     
+    // Logo HTML - BIG and VISIBLE
     $logo_html = '';
     if (!empty($logo_url)) {
-        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($site_name) . '" style="max-width: 180px; height: auto; margin-bottom: 15px;">';
+        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($site_name) . '" style="max-width: 250px; height: auto; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;">';
     }
     
     $html = '<!DOCTYPE html>
