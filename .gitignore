@@ -46,3 +46,4 @@ composer.lock
 # Node modules (if using)
 node_modules/
 package-lock.json
+*.sql

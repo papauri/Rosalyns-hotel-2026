@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Feb 21, 2026 at 11:31 PM
+-- Generation Time: Feb 22, 2026 at 11:56 AM
 -- Server version: 8.0.44-cll-lve
 -- PHP Version: 8.4.17
 
@@ -123,7 +123,8 @@ INSERT INTO `admin_activity_log` (`id`, `user_id`, `username`, `action`, `detail
 (41, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-18 08:57:22'),
 (42, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-18 11:44:31'),
 (43, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-18 21:45:54'),
-(44, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-19 22:22:25');
+(44, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-19 22:22:25'),
+(45, 2, 'receptionist', 'login_success', 'Role: receptionist', '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', '2026-02-22 01:56:50');
 
 -- --------------------------------------------------------
 
@@ -151,7 +152,7 @@ CREATE TABLE `admin_users` (
 
 INSERT INTO `admin_users` (`id`, `username`, `email`, `password_hash`, `full_name`, `role`, `is_active`, `last_login`, `created_at`, `updated_at`, `failed_login_attempts`) VALUES
 (1, 'admin', 'johnpaulchirwa@gmail.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'System Administrator', 'admin', 1, '2026-02-19 22:22:25', '2026-01-20 19:08:40', '2026-02-19 22:22:25', 0),
-(2, 'receptionist', 'reception@liwondesunhotel.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'Front Desk', 'receptionist', 1, '2026-02-17 22:52:20', '2026-01-20 19:08:40', '2026-02-17 22:52:20', 0);
+(2, 'receptionist', 'reception@liwondesunhotel.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'Front Desk', 'receptionist', 1, '2026-02-22 01:56:50', '2026-01-20 19:08:40', '2026-02-22 01:56:50', 0);
 
 -- --------------------------------------------------------
 
@@ -1141,7 +1142,11 @@ CREATE TABLE `hotel_gallery` (
 
 INSERT INTO `hotel_gallery` (`id`, `title`, `description`, `image_url`, `video_path`, `video_type`, `category`, `is_active`, `display_order`, `created_at`, `updated_at`) VALUES
 (9, 'Rosalyn\'s Beach Hotel', '', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(18).35e879243a9ccdd6669e.jpeg', NULL, NULL, 'exterior', 1, 1, '2026-02-15 22:05:37', '2026-02-17 11:24:52'),
-(10, 'Rosalyn\'s Beach Hotel', '', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.36.41%20(1).9dcda0cf8d98e649c98a.jpeg', NULL, NULL, 'facilities', 1, 2, '2026-02-15 22:05:37', '2026-02-17 11:25:03');
+(10, 'Rosalyn\'s Beach Hotel', '', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.36.41%20(1).9dcda0cf8d98e649c98a.jpeg', NULL, NULL, 'facilities', 1, 2, '2026-02-15 22:05:37', '2026-02-17 11:25:03'),
+(11, 'Pool', 'Luxury pool', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(2).da074be04e999b56828a.jpeg', NULL, NULL, 'exterior', 1, 3, '2026-02-22 11:11:37', '2026-02-22 11:11:37'),
+(12, 'Outdoor', 'Outdoor chilling', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(14).e3534199c47be9e4b39f.jpeg', NULL, NULL, 'exterior', 1, 4, '2026-02-22 11:12:23', '2026-02-22 11:12:33'),
+(13, 'Coffee Bar', 'Coffee Bar', 'https://www.rosalynsbeachhotel.com/static/media/DSC06307%20(1).1885c56188a87f218187.jpg', NULL, NULL, 'general', 1, 5, '2026-02-22 11:13:05', '2026-02-22 11:14:32'),
+(14, 'Special Occasions', 'Special Occasions', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(24).97b0f95811c598fa167d.jpeg', NULL, NULL, 'general', 1, 6, '2026-02-22 11:14:59', '2026-02-22 11:14:59');
 
 -- --------------------------------------------------------
 
@@ -1172,6 +1177,40 @@ CREATE TABLE `housekeeping_assignments` (
   `auto_created` tinyint(1) DEFAULT '0',
   `linked_booking_id` int UNSIGNED DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `housekeeping_assignments`
+--
+
+INSERT INTO `housekeeping_assignments` (`id`, `individual_room_id`, `status`, `due_date`, `assigned_to`, `created_by`, `notes`, `completed_at`, `created_at`, `updated_at`, `priority`, `assignment_type`, `is_recurring`, `recurring_pattern`, `recurring_end_date`, `verified_by`, `verified_at`, `estimated_duration`, `actual_duration`, `auto_created`, `linked_booking_id`) VALUES
+(1, 6, 'in_progress', '2026-02-22', 2, 1, '', NULL, '2026-02-22 10:52:08', '2026-02-22 10:52:08', 'high', 'deep_clean', 0, NULL, NULL, NULL, NULL, 30, NULL, 0, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `housekeeping_audit_log`
+--
+
+CREATE TABLE `housekeeping_audit_log` (
+  `id` int UNSIGNED NOT NULL,
+  `assignment_id` int UNSIGNED NOT NULL COMMENT 'FK to housekeeping_assignments.id',
+  `action` enum('created','updated','deleted','verified','status_changed','assigned','unassigned','priority_changed','notes_updated','recurring_created') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Type of action performed',
+  `old_values` json DEFAULT NULL COMMENT 'Snapshot of data before change',
+  `new_values` json DEFAULT NULL COMMENT 'Snapshot of data after change',
+  `changed_fields` json DEFAULT NULL COMMENT 'Array of field names that changed',
+  `performed_by` int UNSIGNED DEFAULT NULL COMMENT 'Admin user ID who performed the action',
+  `performed_by_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Username for historical accuracy',
+  `performed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the action was performed',
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'IP address of the user (optional, for security)',
+  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Browser user agent (optional, for context)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Audit log for housekeeping assignments';
+
+--
+-- Dumping data for table `housekeeping_audit_log`
+--
+
+INSERT INTO `housekeeping_audit_log` (`id`, `assignment_id`, `action`, `old_values`, `new_values`, `changed_fields`, `performed_by`, `performed_by_name`, `performed_at`, `ip_address`, `user_agent`) VALUES
+(1, 1, 'created', NULL, '{\"notes\": \"\", \"status\": \"in_progress\", \"due_date\": \"2026-02-22\", \"priority\": \"high\", \"assigned_to\": 2, \"verified_at\": null, \"completed_at\": null, \"is_recurring\": 0, \"assignment_type\": \"deep_clean\", \"recurring_pattern\": null, \"estimated_duration\": 30, \"individual_room_id\": 6, \"recurring_end_date\": null}', NULL, 1, 'admin', '2026-02-22 10:52:08', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36');
 
 -- --------------------------------------------------------
 
@@ -1214,7 +1253,7 @@ INSERT INTO `individual_rooms` (`id`, `room_type_id`, `room_number`, `room_name`
 (3, 2, '2A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 3, '2026-02-11 12:06:30', '2026-02-20 15:25:53'),
 (4, 2, '2B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 4, '2026-02-11 12:06:30', '2026-02-20 15:26:03'),
 (5, 2, '3A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 5, '2026-02-11 12:06:30', '2026-02-20 15:26:07'),
-(6, 2, '3B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 6, '2026-02-11 12:06:30', '2026-02-20 15:26:10'),
+(6, 2, '3B', 'Superior Suite', NULL, NULL, 'cleaning', NULL, NULL, NULL, NULL, NULL, 'in_progress', NULL, NULL, NULL, NULL, NULL, 1, 6, '2026-02-11 12:06:30', '2026-02-22 10:52:08'),
 (7, 2, '4A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 7, '2026-02-11 12:06:30', '2026-02-20 15:26:13'),
 (8, 2, '4B', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 8, '2026-02-11 12:06:30', '2026-02-20 15:26:16'),
 (9, 2, '5A', 'Superior Suite', NULL, NULL, 'available', NULL, NULL, NULL, NULL, NULL, 'pending', NULL, NULL, NULL, NULL, NULL, 1, 9, '2026-02-11 12:06:30', '2026-02-20 15:26:18'),
@@ -1299,6 +1338,34 @@ CREATE TABLE `individual_room_pictures_archive` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `maintenance_audit_log`
+--
+
+CREATE TABLE `maintenance_audit_log` (
+  `id` int UNSIGNED NOT NULL,
+  `maintenance_id` int UNSIGNED NOT NULL COMMENT 'FK to room_maintenance_schedules.id',
+  `action` enum('created','updated','deleted','verified','status_changed','assigned','unassigned','priority_changed','notes_updated','recurring_created','type_changed') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Type of action performed',
+  `old_values` json DEFAULT NULL COMMENT 'Snapshot of data before change',
+  `new_values` json DEFAULT NULL COMMENT 'Snapshot of data after change',
+  `changed_fields` json DEFAULT NULL COMMENT 'Array of field names that changed',
+  `performed_by` int UNSIGNED DEFAULT NULL COMMENT 'Admin user ID who performed the action',
+  `performed_by_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Username for historical accuracy',
+  `performed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the action was performed',
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'IP address of the user (optional, for security)',
+  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Browser user agent (optional, for context)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Audit log for maintenance schedules';
+
+--
+-- Dumping data for table `maintenance_audit_log`
+--
+
+INSERT INTO `maintenance_audit_log` (`id`, `maintenance_id`, `action`, `old_values`, `new_values`, `changed_fields`, `performed_by`, `performed_by_name`, `performed_at`, `ip_address`, `user_agent`) VALUES
+(1, 2, 'created', NULL, '{\"title\": \"Plumbing\", \"status\": \"pending\", \"due_date\": \"2026-02-23\", \"end_date\": \"2026-02-23T00:17\", \"priority\": \"urgent\", \"block_room\": 1, \"created_by\": 1, \"start_date\": \"2026-02-22T00:17\", \"assigned_to\": 2, \"description\": \"\", \"verified_at\": null, \"verified_by\": null, \"auto_created\": 0, \"completed_at\": null, \"is_recurring\": 0, \"maintenance_type\": \"repair\", \"linked_booking_id\": null, \"recurring_pattern\": null, \"estimated_duration\": 60, \"individual_room_id\": 11, \"recurring_end_date\": null}', NULL, 1, 'admin', '2026-02-22 01:27:37', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'),
+(2, 3, 'created', NULL, '{\"title\": \"Plumbing\", \"status\": \"pending\", \"due_date\": \"2026-02-23\", \"end_date\": \"2026-02-23T00:17\", \"priority\": \"urgent\", \"block_room\": 1, \"created_by\": 1, \"start_date\": \"2026-02-22T00:17\", \"assigned_to\": 2, \"description\": \"\", \"verified_at\": null, \"verified_by\": null, \"auto_created\": 0, \"completed_at\": null, \"is_recurring\": 0, \"maintenance_type\": \"repair\", \"linked_booking_id\": null, \"recurring_pattern\": null, \"estimated_duration\": 60, \"individual_room_id\": 11, \"recurring_end_date\": null}', NULL, 1, 'admin', '2026-02-22 01:28:54', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `managed_media_catalog`
 --
 
@@ -1338,7 +1405,7 @@ INSERT INTO `managed_media_catalog` (`id`, `title`, `description`, `media_type`,
 (5, 'Kasupe Room', 'Small meeting room suitable for business meetings and presentations. Includes basic presentation equipment.', 'image', 'upload', 'images/conference/kasupe.jpeg', NULL, 'Kasupe Room', 'Small meeting room suitable for business meetings and presentations. Includes basic presentation equipment.', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 2, 1, 2, 'conference_rooms.image_path', 2, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (6, 'Gwape Room', 'Meeting room with nice views. Good for training sessions and medium-sized gatherings.', 'image', 'upload', 'images/conference/lakeside-room.jpg', NULL, 'Gwape Room', 'Meeting room with nice views. Good for training sessions and medium-sized gatherings.', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 3, 1, 3, 'conference_rooms.image_path', 3, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (7, 'Valentines Day Celebrations', 'Love is in the Sun', 'image', 'upload', 'images/events/valentines.png', NULL, 'Valentines Day', 'Love is in the Sun', 'events.image_path', 'events', 'events_overview', 'event', 15, 1, 0, 'events.image_path', 15, NULL, '2026-02-16 13:10:31', '2026-02-16 13:12:55'),
-(8, 'VIP Beach Front Villa (Image)', 'Spacious room with work area', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-06-30%20at%2018.38.03.f4a12059d4216a3061ab.jpeg', NULL, 'VIP Beach Front Villa', 'Spacious room with work area', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 2, 1, 1, 'rooms.image_url', 2, NULL, '2026-02-16 13:10:31', '2026-02-17 14:05:25'),
+(8, 'Superior Suite (Image)', 'Comfortable room with private bathroom', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-10%20at%2019.27.57%20(13).60ab649ff39cf3dd7a51.jpeg', NULL, 'Superior Suite', 'Comfortable room with private bathroom', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 2, 1, 2, 'rooms.image_url', 2, NULL, '2026-02-16 13:10:31', '2026-02-22 11:07:08'),
 (9, 'Superior Suite (Image)', 'Comfortable room with private bathroom', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-10%20at%2019.27.57%20(13).60ab649ff39cf3dd7a51.jpeg', NULL, 'Superior Suite', 'Comfortable room with private bathroom', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 4, 1, 2, 'rooms.image_url', 4, NULL, '2026-02-16 13:10:31', '2026-02-17 14:07:33'),
 (10, 'Family Room (Image)', 'Simple, affordable accommodation', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-10%20at%2019.27.57%20(4).281ec13c11228d49a15e.jpeg', NULL, 'Family Room', 'Simple, affordable accommodation', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 5, 1, 3, 'rooms.image_url', 5, NULL, '2026-02-16 13:10:31', '2026-02-17 14:07:18'),
 (11, 'Fine Dining Restaurant', 'World-class cuisine', 'image', 'upload', 'images/hotel-exterior-1024x572.jpg', NULL, 'Fine Dining Restaurant', 'World-class cuisine', 'gallery.image_url', 'room', 'room_gallery', 'room', NULL, 1, 2, 'gallery.image_url', 2, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
@@ -1388,7 +1455,11 @@ INSERT INTO `managed_media_catalog` (`id`, `title`, `description`, `media_type`,
 (64, 'Gym Personal Training #4', 'We offer basic gym equipment for cardio and strength training. Available to all hotel guests.', 'image', 'url', 'https://media.gettyimages.com/id/1773192171/photo/smiling-young-woman-leaning-on-barbell-at-health-club.jpg?s=1024x1024&w=gi&k=20&c=pzLyu0hPJmPgKV4TTs1sOld-TSvZ-uCt18LCsR4vsYU=', NULL, 'Personal training image', 'Fitness Facilities Available', 'gym_content.personal_training_image_path', 'gym', 'gym_training', 'gym_content', 4, 1, 2, 'gym_content.personal_training_image_path', 4, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (65, 'Welcome #1', NULL, 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(18).35e879243a9ccdd6669e.jpeg', NULL, 'Rosalyn\'s Beach Hotel', NULL, 'welcome.image_path', 'index', 'hero', 'welcome', 1, 1, 1, 'welcome.image_path', 1, NULL, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (66, 'Site Logo', 'Logo from site settings', 'image', 'url', 'https://picsart.onelink.me/VgrZ/h7qtg7vx', NULL, 'Site logo', 'Site logo', 'site_settings.site_logo', 'global', 'branding', 'site_setting', 20, 1, 0, 'site_settings.site_logo', 20, NULL, '2026-02-16 13:10:31', '2026-02-16 13:51:17'),
-(67, 'Experience Luxury at Rosalyn\'s Beach Hotel (Hero Image)', '', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(23).d8f7b3a34a1674bc3a8d.jpeg', NULL, NULL, NULL, 'page_hero.index.image', 'index', 'hero', 'page_hero', 8, 1, 0, 'page_heroes.hero_image_path', 8, NULL, '2026-02-16 14:41:33', '2026-02-17 11:10:23');
+(67, 'Experience Luxury at Rosalyn\'s Beach Hotel (Hero Image)', '', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(23).d8f7b3a34a1674bc3a8d.jpeg', NULL, NULL, NULL, 'page_hero.index.image', 'index', 'hero', 'page_hero', 8, 1, 0, 'page_heroes.hero_image_path', 8, NULL, '2026-02-16 14:41:33', '2026-02-17 11:10:23'),
+(68, 'Pool (Image)', 'Luxury pool', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(2).da074be04e999b56828a.jpeg', NULL, 'Pool', 'Luxury pool', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 11, 1, 3, 'hotel_gallery.image_url', 11, NULL, '2026-02-22 11:11:37', '2026-02-22 11:11:37'),
+(69, 'Outdoor (Image)', 'Outdoor chilling', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(14).e3534199c47be9e4b39f.jpeg', NULL, 'Outdoor', 'Outdoor chilling', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 12, 1, 4, 'hotel_gallery.image_url', 12, NULL, '2026-02-22 11:12:23', '2026-02-22 11:12:33'),
+(70, 'Coffee Bar (Image)', 'Coffee Bar', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/DSC06307%20(1).1885c56188a87f218187.jpg', NULL, 'Coffee Bar', 'Coffee Bar', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 13, 1, 5, 'hotel_gallery.image_url', 13, NULL, '2026-02-22 11:13:05', '2026-02-22 11:14:32'),
+(71, 'Special Occasions (Image)', 'Special Occasions', 'image', 'url', 'https://www.rosalynsbeachhotel.com/static/media/WhatsApp%20Image%202024-10-02%20at%2009.32.56%20(24).97b0f95811c598fa167d.jpeg', NULL, 'Special Occasions', 'Special Occasions', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 14, 1, 6, 'hotel_gallery.image_url', 14, NULL, '2026-02-22 11:15:00', '2026-02-22 11:15:00');
 
 -- --------------------------------------------------------
 
@@ -1481,7 +1552,7 @@ INSERT INTO `managed_media_links` (`id`, `media_catalog_id`, `source_table`, `so
 (3, 5, 'conference_rooms', '2', 'image_path', '', 'image', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 2, 'card_image', 2, 1, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (4, 6, 'conference_rooms', '3', 'image_path', '', 'image', 'conference_rooms.image_path', 'conference', 'conference_rooms', 'conference_room', 3, 'card_image', 3, 1, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
 (5, 7, 'events', '15', 'image_path', '', 'image', 'events.image_path', 'events', 'events_overview', 'event', 15, 'event_card_image', 0, 0, '2026-02-16 13:10:31', '2026-02-20 11:27:57'),
-(6, 8, 'rooms', '2', 'image_url', '', 'image', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 2, 'featured_image', 1, 1, '2026-02-16 13:10:31', '2026-02-17 14:05:25'),
+(6, 8, 'rooms', '2', 'image_url', '', 'image', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 2, 'featured_image', 2, 1, '2026-02-16 13:10:31', '2026-02-22 11:07:08'),
 (7, 9, 'rooms', '4', 'image_url', '', 'image', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 4, 'featured_image', 2, 1, '2026-02-16 13:10:31', '2026-02-17 14:07:33'),
 (8, 10, 'rooms', '5', 'image_url', '', 'image', 'rooms.image_url', 'rooms-gallery', 'rooms_collection', 'room', 5, 'featured_image', 3, 1, '2026-02-16 13:10:31', '2026-02-17 14:07:18'),
 (9, 11, 'gallery', '2', 'image_url', '', 'image', 'gallery.image_url', 'room', 'room_gallery', 'room', NULL, 'room_gallery_image', 2, 1, '2026-02-16 13:10:31', '2026-02-16 13:10:31'),
@@ -1539,7 +1610,11 @@ INSERT INTO `managed_media_links` (`id`, `media_catalog_id`, `source_table`, `so
 (70, 44, 'page_heroes', '3', 'hero_image_path', 'page_hero_media', 'image', 'page_hero.events.image', 'events', 'hero', 'page_hero', 3, NULL, 0, 1, '2026-02-17 11:10:23', '2026-02-17 11:10:23'),
 (71, 45, 'page_heroes', '4', 'hero_image_path', 'page_hero_media', 'image', 'page_hero.rooms-showcase.image', 'rooms-showcase', 'hero', 'page_hero', 4, NULL, 0, 1, '2026-02-17 11:10:23', '2026-02-17 11:10:23'),
 (72, 46, 'page_heroes', '6', 'hero_image_path', 'page_hero_media', 'image', 'page_hero.rooms-gallery.image', 'rooms-gallery', 'hero', 'page_hero', 6, NULL, 0, 1, '2026-02-17 11:10:24', '2026-02-17 11:10:24'),
-(73, 47, 'page_heroes', '7', 'hero_image_path', 'page_hero_media', 'image', 'page_hero.gym.image', 'gym', 'hero', 'page_hero', 7, NULL, 0, 1, '2026-02-17 11:10:24', '2026-02-17 11:10:24');
+(73, 47, 'page_heroes', '7', 'hero_image_path', 'page_hero_media', 'image', 'page_hero.gym.image', 'gym', 'hero', 'page_hero', 7, NULL, 0, 1, '2026-02-17 11:10:24', '2026-02-17 11:10:24'),
+(74, 68, 'hotel_gallery', '11', 'image_url', '', 'image', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 11, 'gallery_image', 3, 1, '2026-02-22 11:11:37', '2026-02-22 11:11:37'),
+(75, 69, 'hotel_gallery', '12', 'image_url', '', 'image', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 12, 'gallery_image', 4, 1, '2026-02-22 11:12:23', '2026-02-22 11:12:33'),
+(76, 70, 'hotel_gallery', '13', 'image_url', '', 'image', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 13, 'gallery_image', 5, 1, '2026-02-22 11:13:05', '2026-02-22 11:14:32'),
+(77, 71, 'hotel_gallery', '14', 'image_url', '', 'image', 'index_hotel_gallery', 'index', 'hotel_gallery', 'hotel_gallery', 14, 'gallery_image', 6, 1, '2026-02-22 11:15:00', '2026-02-22 11:15:00');
 
 -- --------------------------------------------------------
 
@@ -1740,16 +1815,22 @@ CREATE TABLE `payments` (
   `cc_emails` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Additional CC email addresses for payment receipt',
   `receipt_number` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Sequential receipt number for payments',
   `processed_by` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Admin user who processed the payment',
-  `deleted_at` timestamp NULL DEFAULT NULL COMMENT 'Soft delete timestamp'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='All payment transactions for room and conference bookings';
+  `deleted_at` timestamp NULL DEFAULT NULL COMMENT 'Soft delete timestamp',
+  `original_payment_id` int UNSIGNED DEFAULT NULL COMMENT 'Reference to original payment being refunded',
+  `refund_reason` enum('early_checkout','late_checkout_charge','cancellation','service_issue','overpayment','other') COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Reason for refund or adjustment',
+  `refund_status` enum('pending','processing','completed','failed') COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Status of refund processing',
+  `refund_amount` decimal(10,2) DEFAULT '0.00' COMMENT 'Amount being refunded (for refund type payments)',
+  `refund_date_processed` timestamp NULL DEFAULT NULL COMMENT 'When refund was processed',
+  `refund_notes` text COLLATE utf8mb4_unicode_ci COMMENT 'Additional notes about refund'
+) ;
 
 --
 -- Dumping data for table `payments`
 --
 
-INSERT INTO `payments` (`id`, `payment_reference`, `booking_type`, `booking_id`, `conference_id`, `booking_reference`, `payment_date`, `payment_amount`, `vat_rate`, `vat_amount`, `total_amount`, `payment_method`, `payment_type`, `payment_reference_number`, `payment_status`, `invoice_generated`, `invoice_number`, `amount`, `status`, `transaction_id`, `invoice_path`, `notes`, `recorded_by`, `created_at`, `updated_at`, `cc_emails`, `receipt_number`, `processed_by`, `deleted_at`) VALUES
-(13, 'PAY-2026-000036', 'room', 36, NULL, 'LSH20263047', '2026-02-21', 920000.00, 16.50, 151800.00, 1071800.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001002', 0.00, 'completed', NULL, 'invoices/INV-2026-001002.html', NULL, 1, '2026-02-21 12:12:07', '2026-02-21 15:37:45', NULL, NULL, NULL, NULL),
-(14, 'PAY-2026-000037', 'room', 37, NULL, 'LSH20268184', '2026-02-21', 250000.00, 16.50, 41250.00, 291250.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001003', 0.00, 'completed', NULL, 'invoices/INV-2026-001003.html', NULL, 1, '2026-02-21 16:15:06', '2026-02-21 16:15:09', NULL, NULL, NULL, NULL);
+INSERT INTO `payments` (`id`, `payment_reference`, `booking_type`, `booking_id`, `conference_id`, `booking_reference`, `payment_date`, `payment_amount`, `vat_rate`, `vat_amount`, `total_amount`, `payment_method`, `payment_type`, `payment_reference_number`, `payment_status`, `invoice_generated`, `invoice_number`, `amount`, `status`, `transaction_id`, `invoice_path`, `notes`, `recorded_by`, `created_at`, `updated_at`, `cc_emails`, `receipt_number`, `processed_by`, `deleted_at`, `original_payment_id`, `refund_reason`, `refund_status`, `refund_amount`, `refund_date_processed`, `refund_notes`) VALUES
+(13, 'PAY-2026-000036', 'room', 36, NULL, 'LSH20263047', '2026-02-21', 920000.00, 16.50, 151800.00, 1071800.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001002', 0.00, 'completed', NULL, 'invoices/INV-2026-001002.html', NULL, 1, '2026-02-21 12:12:07', '2026-02-21 15:37:45', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL),
+(14, 'PAY-2026-000037', 'room', 37, NULL, 'LSH20268184', '2026-02-21', 250000.00, 16.50, 41250.00, 291250.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001006', 0.00, 'completed', NULL, 'invoices/INV-2026-001006.pdf', NULL, 1, '2026-02-21 16:15:06', '2026-02-22 11:31:57', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -1957,6 +2038,13 @@ CREATE TABLE `room_maintenance_log` (
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Log of room status changes for housekeeping';
 
+--
+-- Dumping data for table `room_maintenance_log`
+--
+
+INSERT INTO `room_maintenance_log` (`id`, `individual_room_id`, `status_from`, `status_to`, `reason`, `performed_by`, `created_at`) VALUES
+(1, 6, 'available', 'cleaning', 'Housekeeping assignment active', 1, '2026-02-22 10:52:08');
+
 -- --------------------------------------------------------
 
 --
@@ -1970,14 +2058,34 @@ CREATE TABLE `room_maintenance_schedules` (
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `status` enum('planned','in_progress','completed','cancelled') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'planned',
   `priority` enum('low','medium','high','urgent') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'medium',
+  `maintenance_type` enum('repair','replacement','inspection','upgrade','emergency') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'repair' COMMENT 'Type of maintenance work',
+  `is_recurring` tinyint(1) DEFAULT '0' COMMENT 'Whether this is a recurring maintenance task',
+  `recurring_pattern` enum('daily','weekly','monthly') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Pattern for recurring tasks',
+  `recurring_end_date` date DEFAULT NULL COMMENT 'End date for recurring tasks (NULL = no end)',
+  `estimated_duration` int DEFAULT '60' COMMENT 'Estimated duration in minutes',
+  `actual_duration` int DEFAULT NULL COMMENT 'Actual duration in minutes (filled when completed)',
+  `completed_at` timestamp NULL DEFAULT NULL COMMENT 'When maintenance was marked completed',
+  `verified_by` int UNSIGNED DEFAULT NULL COMMENT 'Admin user who verified the work',
+  `verified_at` timestamp NULL DEFAULT NULL COMMENT 'When maintenance was verified',
+  `linked_booking_id` int UNSIGNED DEFAULT NULL COMMENT 'Booking ID affected by this maintenance',
+  `auto_created` tinyint(1) DEFAULT '0' COMMENT 'Whether this was auto-created by the system',
   `block_room` tinyint(1) DEFAULT '1',
   `start_date` datetime NOT NULL,
   `end_date` datetime NOT NULL,
+  `due_date` date DEFAULT NULL COMMENT 'Due date for maintenance completion (cannot be in the past)',
   `assigned_to` int UNSIGNED DEFAULT NULL,
   `created_by` int UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `room_maintenance_schedules`
+--
+
+INSERT INTO `room_maintenance_schedules` (`id`, `individual_room_id`, `title`, `description`, `status`, `priority`, `maintenance_type`, `is_recurring`, `recurring_pattern`, `recurring_end_date`, `estimated_duration`, `actual_duration`, `completed_at`, `verified_by`, `verified_at`, `linked_booking_id`, `auto_created`, `block_room`, `start_date`, `end_date`, `due_date`, `assigned_to`, `created_by`, `created_at`, `updated_at`) VALUES
+(2, 11, 'Plumbing', '', '', 'urgent', 'repair', 0, NULL, NULL, 60, NULL, NULL, NULL, NULL, NULL, 0, 1, '2026-02-22 00:17:00', '2026-02-23 00:17:00', '2026-02-23', 2, 1, '2026-02-22 01:27:37', '2026-02-22 01:27:37'),
+(3, 11, 'Plumbing', '', '', 'urgent', 'repair', 0, NULL, NULL, 60, NULL, NULL, NULL, NULL, NULL, 0, 1, '2026-02-22 00:17:00', '2026-02-23 00:17:00', '2026-02-23', 2, 1, '2026-02-22 01:28:54', '2026-02-22 01:28:54');
 
 -- --------------------------------------------------------
 
@@ -2160,7 +2268,7 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_value`, `setting_grou
 (18, 'currency_symbol', 'MWK', 'general', '2026-01-20 10:16:28', NULL, NULL),
 (19, 'currency_code', 'MWK', 'general', '2026-01-20 10:16:13', NULL, NULL),
 (20, 'site_logo', 'https://www.rosalynsbeachhotel.com/static/media/logo.068798eab68c159cf5e9.png', 'general', '2026-02-21 16:13:35', NULL, NULL),
-(23, 'site_url', 'https://promanaged-it.com/hotelsmw', 'general', '2026-02-05 12:25:03', NULL, NULL),
+(23, 'site_url', 'https://promanaged-it.com/rosalyns', 'general', '2026-02-22 11:55:29', NULL, NULL),
 (27, 'check_in_time', '2:00 PM', 'booking', '2026-01-27 12:02:11', NULL, NULL),
 (28, 'check_out_time', '11:00 AM', 'booking', '2026-01-27 12:02:11', NULL, NULL),
 (29, 'booking_change_policy', 'If you need to make any changes, please contact us at least 48 hours before your arrival.', 'booking', '2026-01-27 12:02:11', NULL, NULL),
@@ -2232,7 +2340,8 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_value`, `setting_grou
 (306, 'whatsapp_hotel_notifications', '1', NULL, '2026-02-18 21:43:20', NULL, NULL),
 (307, 'whatsapp_admin_numbers', '', NULL, '2026-02-18 21:43:20', NULL, NULL),
 (308, 'whatsapp_confirmed_template', 'booking_confirmed', NULL, '2026-02-18 21:43:20', NULL, NULL),
-(309, 'whatsapp_cancelled_template', 'booking_cancelled', NULL, '2026-02-18 21:43:20', NULL, NULL);
+(309, 'whatsapp_cancelled_template', 'booking_cancelled', NULL, '2026-02-18 21:43:20', NULL, NULL),
+(341, 'logo_url', 'https://promanaged-it.com/hotelsmw/images/logo/logo.png', NULL, '2026-02-22 01:43:36', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -2974,6 +3083,16 @@ ALTER TABLE `housekeeping_assignments`
   ADD KEY `fk_housekeeping_verified_by` (`verified_by`);
 
 --
+-- Indexes for table `housekeeping_audit_log`
+--
+ALTER TABLE `housekeeping_audit_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_housekeeping_audit_assignment` (`assignment_id`),
+  ADD KEY `idx_housekeeping_audit_action` (`action`),
+  ADD KEY `idx_housekeeping_audit_performed_by` (`performed_by`),
+  ADD KEY `idx_housekeeping_audit_performed_at` (`performed_at`);
+
+--
 -- Indexes for table `individual_rooms`
 --
 ALTER TABLE `individual_rooms`
@@ -3017,6 +3136,16 @@ ALTER TABLE `individual_room_pictures_archive`
   ADD KEY `individual_room_id` (`individual_room_id`),
   ADD KEY `picture_type` (`picture_type`),
   ADD KEY `display_order` (`display_order`);
+
+--
+-- Indexes for table `maintenance_audit_log`
+--
+ALTER TABLE `maintenance_audit_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_maintenance_audit_maintenance` (`maintenance_id`),
+  ADD KEY `idx_maintenance_audit_action` (`action`),
+  ADD KEY `idx_maintenance_audit_performed_by` (`performed_by`),
+  ADD KEY `idx_maintenance_audit_performed_at` (`performed_at`);
 
 --
 -- Indexes for table `managed_media_catalog`
@@ -3114,7 +3243,10 @@ ALTER TABLE `payments`
   ADD KEY `idx_payment_date` (`payment_date`),
   ADD KEY `idx_payment_status` (`payment_status`),
   ADD KEY `idx_recorded_by` (`recorded_by`),
-  ADD KEY `idx_conference_id` (`conference_id`);
+  ADD KEY `idx_conference_id` (`conference_id`),
+  ADD KEY `idx_refund_original_payment` (`original_payment_id`),
+  ADD KEY `idx_refund_status` (`refund_status`),
+  ADD KEY `idx_refund_reason` (`refund_reason`);
 
 --
 -- Indexes for table `policies`
@@ -3196,7 +3328,12 @@ ALTER TABLE `room_maintenance_schedules`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_room` (`individual_room_id`),
   ADD KEY `idx_status` (`status`),
-  ADD KEY `idx_dates` (`start_date`,`end_date`);
+  ADD KEY `idx_dates` (`start_date`,`end_date`),
+  ADD KEY `idx_due_date` (`due_date`),
+  ADD KEY `idx_recurring` (`is_recurring`,`recurring_pattern`),
+  ADD KEY `idx_assigned_status` (`assigned_to`,`status`),
+  ADD KEY `fk_maintenance_verified_by` (`verified_by`),
+  ADD KEY `fk_maintenance_linked_booking` (`linked_booking_id`);
 
 --
 -- Indexes for table `section_headers`
@@ -3289,7 +3426,7 @@ ALTER TABLE `about_us`
 -- AUTO_INCREMENT for table `admin_activity_log`
 --
 ALTER TABLE `admin_activity_log`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- AUTO_INCREMENT for table `admin_users`
@@ -3469,13 +3606,19 @@ ALTER TABLE `gym_packages`
 -- AUTO_INCREMENT for table `hotel_gallery`
 --
 ALTER TABLE `hotel_gallery`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `housekeeping_assignments`
 --
 ALTER TABLE `housekeeping_assignments`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `housekeeping_audit_log`
+--
+ALTER TABLE `housekeeping_audit_log`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `individual_rooms`
@@ -3508,10 +3651,16 @@ ALTER TABLE `individual_room_pictures_archive`
   MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `maintenance_audit_log`
+--
+ALTER TABLE `maintenance_audit_log`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
 -- AUTO_INCREMENT for table `managed_media_catalog`
 --
 ALTER TABLE `managed_media_catalog`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 
 --
 -- AUTO_INCREMENT for table `managed_media_groups_archive`
@@ -3529,7 +3678,7 @@ ALTER TABLE `managed_media_items_archive`
 -- AUTO_INCREMENT for table `managed_media_links`
 --
 ALTER TABLE `managed_media_links`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
 
 --
 -- AUTO_INCREMENT for table `menu_categories`
@@ -3571,7 +3720,7 @@ ALTER TABLE `password_resets`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `policies`
@@ -3619,13 +3768,13 @@ ALTER TABLE `room_maintenance_blocks`
 -- AUTO_INCREMENT for table `room_maintenance_log`
 --
 ALTER TABLE `room_maintenance_log`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `room_maintenance_schedules`
 --
 ALTER TABLE `room_maintenance_schedules`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `section_headers`
@@ -3649,7 +3798,7 @@ ALTER TABLE `site_pages`
 -- AUTO_INCREMENT for table `site_settings`
 --
 ALTER TABLE `site_settings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=341;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=342;
 
 --
 -- AUTO_INCREMENT for table `site_visitors`
@@ -3742,6 +3891,13 @@ ALTER TABLE `housekeeping_assignments`
   ADD CONSTRAINT `fk_housekeeping_verified_by` FOREIGN KEY (`verified_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL;
 
 --
+-- Constraints for table `housekeeping_audit_log`
+--
+ALTER TABLE `housekeeping_audit_log`
+  ADD CONSTRAINT `fk_housekeeping_audit_assignment` FOREIGN KEY (`assignment_id`) REFERENCES `housekeeping_assignments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_housekeeping_audit_performed_by` FOREIGN KEY (`performed_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
 -- Constraints for table `individual_room_blocked_dates`
 --
 ALTER TABLE `individual_room_blocked_dates`
@@ -3749,10 +3905,30 @@ ALTER TABLE `individual_room_blocked_dates`
   ADD CONSTRAINT `fk_irbd_individual_room` FOREIGN KEY (`individual_room_id`) REFERENCES `individual_rooms` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Constraints for table `maintenance_audit_log`
+--
+ALTER TABLE `maintenance_audit_log`
+  ADD CONSTRAINT `fk_maintenance_audit_maintenance` FOREIGN KEY (`maintenance_id`) REFERENCES `room_maintenance_schedules` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_maintenance_audit_performed_by` FOREIGN KEY (`performed_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
 -- Constraints for table `managed_media_links`
 --
 ALTER TABLE `managed_media_links`
   ADD CONSTRAINT `fk_media_link_catalog` FOREIGN KEY (`media_catalog_id`) REFERENCES `managed_media_catalog` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `payments`
+--
+ALTER TABLE `payments`
+  ADD CONSTRAINT `fk_refund_original_payment` FOREIGN KEY (`original_payment_id`) REFERENCES `payments` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Constraints for table `room_maintenance_schedules`
+--
+ALTER TABLE `room_maintenance_schedules`
+  ADD CONSTRAINT `fk_maintenance_linked_booking` FOREIGN KEY (`linked_booking_id`) REFERENCES `bookings` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_maintenance_verified_by` FOREIGN KEY (`verified_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
