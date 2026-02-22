@@ -4,6 +4,12 @@
  * Allows users to set a new password using a valid reset token
  */
 
+// Include base URL override (if configured) before auto-detection
+$override_file = __DIR__ . '/../config/base-url-override.php';
+if (file_exists($override_file)) {
+    require_once $override_file;
+}
+
 // Include base URL configuration for proper redirects
 require_once __DIR__ . '/../config/base-url.php';
 
@@ -11,7 +17,7 @@ session_start();
 
 // If already logged in, redirect to dashboard
 if (isset($_SESSION['admin_user_id'])) {
-    header('Location: ' . BASE_URL . 'admin/dashboard.php');
+    header('Location: dashboard.php');
     exit;
 }
 
@@ -111,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
                 // Don't block reset if logging fails
             }
             
-            header('Location: ' . BASE_URL . 'admin/login.php?reset=success');
+            header('Location: login.php?reset=success');
             exit;
         } catch (PDOException $e) {
             error_log("Password reset error: " . $e->getMessage());

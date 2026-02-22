@@ -19,7 +19,7 @@ $paymentId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if (!$paymentId) {
     $_SESSION['alert'] = ['type' => 'error', 'message' => 'Payment ID is required'];
-    header('Location: ' . BASE_URL . 'admin/payments.php');
+    header('Location: payments.php');
     exit;
 }
 
@@ -63,7 +63,7 @@ $payment = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$payment) {
     $_SESSION['alert'] = ['type' => 'info', 'message' => 'Payment not found. It may have been deleted or does not exist.'];
-    header('Location: ' . BASE_URL . 'admin/payments.php');
+    header('Location: payments.php');
     exit;
 }
 

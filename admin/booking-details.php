@@ -14,7 +14,7 @@ $user = [
 $booking_id = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT);
 
 if (!$booking_id) {
-    header('Location: ' . BASE_URL . 'admin/dashboard.php');
+    header('Location: dashboard.php');
     exit;
 }
 
@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['charge_action'])) {
         $folio_summary = getBookingFolioSummary($booking_id);
         
         // Redirect to prevent form resubmission
-        header('Location: ' . BASE_URL . 'admin/booking-details.php?id=' . $booking_id . '#folio');
+        header('Location: booking-details.php?id=' . $booking_id . '#folio');
         exit;
         
     } catch (Exception $e) {
@@ -179,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['invoice_action'])) {
                 break;
         }
         
-        header('Location: ' . BASE_URL . 'admin/booking-details.php?id=' . $booking_id . '#invoices');
+        header('Location: booking-details.php?id=' . $booking_id . '#invoices');
         exit;
         
     } catch (Exception $e) {
@@ -430,7 +430,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_action'])) {
         error_log("Booking action error: " . $e->getMessage());
     }
     
-    header('Location: ' . BASE_URL . "admin/booking-details.php?id=$booking_id");
+    header('Location: booking-details.php?id=' . $booking_id);
     exit;
 }
 
@@ -464,7 +464,7 @@ try {
 
     if (!$booking) {
         $_SESSION['error_message'] = 'Booking not found.';
-        header('Location: ' . BASE_URL . 'admin/dashboard.php');
+        header('Location: dashboard.php');
         exit;
     }
 
@@ -510,7 +510,7 @@ try {
 
 } catch (PDOException $e) {
     $_SESSION['error_message'] = 'Unable to load booking details.';
-    header('Location: ' . BASE_URL . 'admin/dashboard.php');
+    header('Location: dashboard.php');
     exit;
 }
 
@@ -526,7 +526,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_note'])) {
             logBookingNote($booking_id, $booking['booking_reference'], $note_text, $user['id'], $user['full_name']);
             
             $_SESSION['success_message'] = 'Note added successfully.';
-            header('Location: ' . BASE_URL . "admin/booking-details.php?id=$booking_id");
+            header('Location: booking-details.php?id=' . $booking_id);
             exit;
         } catch (PDOException $e) {
             $error_message = 'Failed to add note.';
@@ -573,7 +573,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['adjust_dates'])) {
         }
     }
     
-    header('Location: ' . BASE_URL . "admin/booking-details.php?id=$booking_id");
+    header('Location: booking-details.php?id=' . $booking_id);
     exit;
 }
 
@@ -626,7 +626,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
             $_SESSION['success_message'] = 'Payment status updated.';
         }
         
-        header('Location: ' . BASE_URL . "admin/booking-details.php?id=$booking_id");
+        header('Location: booking-details.php?id=' . $booking_id);
         exit;
     } catch (PDOException $e) {
         $error_message = 'Failed to update payment status: ' . $e->getMessage();

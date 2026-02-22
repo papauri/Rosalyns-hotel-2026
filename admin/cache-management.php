@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = true;
                 
                 // Redirect to force fresh read of database
-                header('Location: ' . BASE_URL . 'admin/cache-management.php?msg=' . urlencode($message));
+                header('Location: cache-management.php?msg=' . urlencode($message));
                 exit;
                 break;
                 

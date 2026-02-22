@@ -9,7 +9,7 @@ require_once __DIR__ . '/../includes/validation.php';
 
 $booking_id = intval($_GET['id'] ?? 0);
 if ($booking_id <= 0) {
-    header('Location: ' . BASE_URL . 'admin/bookings.php');
+    header('Location: bookings.php');
     exit;
 }
 
@@ -35,7 +35,7 @@ try {
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$booking) {
-        header('Location: ' . BASE_URL . 'admin/bookings.php');
+        header('Location: bookings.php');
         exit;
     }
 } catch (PDOException $e) {

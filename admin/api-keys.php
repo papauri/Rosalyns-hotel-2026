@@ -6,7 +6,7 @@
 require_once 'admin-init.php';
 
 if (($_SESSION['admin_role'] ?? '') !== 'admin') {
-    header('Location: ' . BASE_URL . 'admin/dashboard.php');
+    header('Location: dashboard.php');
     exit;
 }
 

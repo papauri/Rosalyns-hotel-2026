@@ -9,7 +9,7 @@ require_once 'admin-init.php';
 
 // Require access to user management module
 if (!hasPermission($user['id'], 'user_management')) {
-    header('Location: ' . BASE_URL . 'admin/dashboard.php?error=access_denied');
+    header('Location: dashboard.php?error=access_denied');
     exit;
 }
 
