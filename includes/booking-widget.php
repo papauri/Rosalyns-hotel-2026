@@ -7,8 +7,8 @@
  * Can be included on any page that needs booking functionality
  */
 
-// Get base URL for form action
-$base_url = getSetting('base_url', '');
+// Get base URL for form action - use BASE_URL constant which properly detects subdirectory
+$base_url = defined('BASE_URL') ? BASE_URL : '';
 
 // Check if booking system is enabled
 if (!function_exists('isBookingEnabled')) {
