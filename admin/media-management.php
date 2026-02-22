@@ -132,6 +132,41 @@ function mm_sync_page_hero_media(PDO $pdo): void {
     }
 }
 
+function mm_sync_about_us_media(PDO $pdo): void {
+    if (!function_exists('upsertManagedMediaForSource')) {
+        return;
+    }
+
+    try {
+        $stmt = $pdo->query("SELECT id, title, image_url FROM about_us WHERE section_type = 'main' AND is_active = 1 AND image_url IS NOT NULL AND image_url != '' ORDER BY display_order ASC, id ASC");
+        $aboutItems = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return;
+    }
+
+    foreach ($aboutItems as $about) {
+        $aboutId = (int)($about['id'] ?? 0);
+        if ($aboutId <= 0) {
+            continue;
+        }
+
+        $aboutTitle = trim((string)($about['title'] ?? '')) ?: 'About Us Section';
+        $aboutImageUrl = trim((string)($about['image_url'] ?? ''));
+
+        if ($aboutImageUrl !== '') {
+            upsertManagedMediaForSource('about_us', $aboutId, 'image_url', $aboutImageUrl, [
+                'title' => $aboutTitle . ' (About Us Image)',
+                'placement_key' => 'about_us.main.image',
+                'section_key' => 'about',
+                'entity_type' => 'about_us',
+                'entity_id' => $aboutId,
+                'source_context' => 'about_us_media',
+                'display_order' => 0,
+            ]);
+        }
+    }
+}
+
 function mm_propagate_media_to_sources(PDO $pdo, int $catalogId, ?string $mediaUrl, bool $deleteMode = false): void {
     $linksStmt = $pdo->prepare("SELECT source_table, source_record_id, source_column, source_context FROM managed_media_links WHERE media_catalog_id = ?");
     $linksStmt->execute([$catalogId]);
@@ -353,6 +388,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $items = [];
 try {
     mm_sync_page_hero_media($pdo);
+    mm_sync_about_us_media($pdo);
     $stmt = $pdo->query("SELECT c.*, GROUP_CONCAT(CONCAT(l.source_table, ':', l.source_column, ':', l.source_record_id, IF(l.source_context IS NULL OR l.source_context = '', '', CONCAT(':', l.source_context))) ORDER BY l.source_table, l.source_column, l.source_record_id SEPARATOR ' | ') AS source_links FROM managed_media_catalog c LEFT JOIN managed_media_links l ON l.media_catalog_id = c.id GROUP BY c.id ORDER BY COALESCE(c.page_slug, ''), COALESCE(c.section_key, ''), c.display_order ASC, c.id ASC");
     $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {

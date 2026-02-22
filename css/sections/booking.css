@@ -277,6 +277,112 @@
 }
 
 /* ============================================
+   ENHANCED BOOKING SUMMARY STYLES
+   New structured layout with sections and badges
+   ============================================ */
+
+/* Booking Type Badge */
+.summary-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.summary-badge.badge-standard {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.15), rgba(40, 167, 69, 0.08));
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.summary-badge.badge-tentative {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 193, 7, 0.08));
+    color: #856404;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.summary-badge i {
+    font-size: 16px;
+}
+
+/* Summary Sections */
+.summary-section {
+    margin-bottom: 20px;
+}
+
+.summary-section:last-child {
+    margin-bottom: 0;
+}
+
+.summary-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-primary, #8B7355);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(139, 115, 85, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.summary-section h4 i {
+    font-size: 14px;
+    color: var(--gold, #C9A961);
+}
+
+/* Summary Total Section */
+.summary-total {
+    background: linear-gradient(135deg, rgba(139, 115, 85, 0.06), rgba(201, 169, 97, 0.04));
+    padding: 16px;
+    border-radius: 12px;
+    margin-top: 20px;
+    border: 1px solid rgba(139, 115, 85, 0.15);
+}
+
+.summary-row--total {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+}
+
+.summary-row--total span:first-child {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-primary, #1A1A1A);
+}
+
+.summary-row--total span:last-child {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--color-primary, #8B7355), var(--gold, #C9A961));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.summary-note {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--color-text-secondary, #6B5740);
+    text-align: center;
+    font-style: italic;
+}
+
+.summary-note i {
+    color: var(--gold, #C9A961);
+    margin-right: 4px;
+}
+
+/* ============================================
    BOOKING FORM CARD LAYOUT - Premium Structure
    Ensures summary, button, and footer are cohesive
    ============================================ */

@@ -1046,34 +1046,65 @@ try {
 
             <!-- Booking Summary -->
             <div class="booking-summary" id="bookingSummary">
-                <h3>Booking Summary</h3>
-                <div class="summary-row">
-                    <span>Room:</span>
-                    <span id="summaryRoom">-</span>
+                <h3><i class="fas fa-receipt"></i> Booking Summary</h3>
+                
+                <!-- Booking Type Badge -->
+                <div class="summary-badge" id="summaryBookingTypeBadge">
+                    <i class="fas fa-check-circle"></i> <span id="summaryBookingType">Standard Booking</span>
                 </div>
-                <div class="summary-row">
-                    <span>Check-in:</span>
-                    <span id="summaryCheckIn">-</span>
+                
+                <div class="summary-section">
+                    <h4><i class="fas fa-bed"></i> Room Details</h4>
+                    <div class="summary-row">
+                        <span>Room:</span>
+                        <span id="summaryRoom">-</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Occupancy Type:</span>
+                        <span id="summaryOccupancyType">-</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Rate per Night:</span>
+                        <span id="summaryRatePerNight">-</span>
+                    </div>
                 </div>
-                <div class="summary-row">
-                    <span>Check-out:</span>
-                    <span id="summaryCheckOut">-</span>
+                
+                <div class="summary-section">
+                    <h4><i class="fas fa-calendar-alt"></i> Stay Details</h4>
+                    <div class="summary-row">
+                        <span>Check-in:</span>
+                        <span id="summaryCheckIn">-</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Check-out:</span>
+                        <span id="summaryCheckOut">-</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Number of Nights:</span>
+                        <span id="summaryNights">-</span>
+                    </div>
                 </div>
-                <div class="summary-row">
-                    <span>Number of Nights:</span>
-                    <span id="summaryNights">-</span>
+                
+                <div class="summary-section">
+                    <h4><i class="fas fa-users"></i> Guest Details</h4>
+                    <div class="summary-row">
+                        <span>Guests:</span>
+                        <span id="summaryGuests">-</span>
+                    </div>
+                    <div class="summary-row" id="summaryChildChargeRow" style="display:none;">
+                        <span>Child Supplement:</span>
+                        <span id="summaryChildCharge">-</span>
+                    </div>
                 </div>
-                <div class="summary-row">
-                    <span>Guests:</span>
-                    <span id="summaryGuests">-</span>
-                </div>
-                <div class="summary-row" id="summaryChildChargeRow" style="display:none;">
-                    <span>Child Supplement:</span>
-                    <span id="summaryChildCharge">-</span>
-                </div>
-                <div class="summary-row">
-                    <span>Total Amount:</span>
-                    <span id="summaryTotal">-</span>
+                
+                <div class="summary-section summary-total">
+                    <div class="summary-row summary-row--total">
+                        <span>Total Amount:</span>
+                        <span id="summaryTotal">-</span>
+                    </div>
+                    <div class="summary-note" id="summaryNote">
+                        <i class="fas fa-info-circle"></i> Payment details will be provided upon confirmation
+                    </div>
                 </div>
             </div>
 
@@ -1285,19 +1316,37 @@ try {
             
             // If room is pre-selected, initialize with that room
             if (preselectedRoomId) {
-                selectedRoomId = preselectedRoomId;
-                selectedRoomPrice = preselectedRoomPrice;
-                selectedRoomName = preselectedRoomName;
-                selectedRoomMaxGuests = preselectedRoomMaxGuests;
-                updateGuestOptions(preselectedRoomMaxGuests);
-                updateOccupancyPrices(preselectedRoomId);
+                // Find the pre-selected room option and call selectRoom to ensure consistent initialization
+                const preselectedRoomOption = document.querySelector(`.room-option[data-room-id="${preselectedRoomId}"]`);
+                if (preselectedRoomOption) {
+                    // Call selectRoom to ensure all room-specific settings are applied
+                    selectRoom(preselectedRoomOption);
+                } else {
+                    // Fallback if room option not found (shouldn't happen with proper data)
+                    selectedRoomId = preselectedRoomId;
+                    selectedRoomPrice = preselectedRoomPrice;
+                    selectedRoomName = preselectedRoomName;
+                    selectedRoomMaxGuests = preselectedRoomMaxGuests;
+                    updateGuestOptions(preselectedRoomMaxGuests);
+                    updateOccupancyPrices(preselectedRoomId);
+                    
+                    // Set number of guests to max capacity for pre-selected room
+                    const guestSelect = document.getElementById('number_of_guests');
+                    guestSelect.value = preselectedRoomMaxGuests;
+                    
+                    // Update price based on guest count (occupancy is auto-determined)
+                    updatePriceBasedOnGuestCount();
+                    
+                    // Apply blocked dates for pre-selected room
+                    applyBlockedDatesToCalendars(preselectedRoomId);
+                }
                 
-                // Set number of guests to max capacity for pre-selected room
-                const guestSelect = document.getElementById('number_of_guests');
-                guestSelect.value = preselectedRoomMaxGuests;
-                
-                // Update price based on guest count (occupancy is auto-determined)
-                updatePriceBasedOnGuestCount();
+                // Trigger availability check for pre-selected room if dates are provided
+                if (heroCheckIn && heroCheckOut) {
+                    setTimeout(() => {
+                        performAvailabilityCheck();
+                    }, 200);
+                }
             }
             
             // Add booking type change listeners
@@ -1661,6 +1710,8 @@ try {
             const childChargeRow = document.getElementById('summaryChildChargeRow');
             const childChargeEl = document.getElementById('summaryChildCharge');
             const summaryGuests = document.getElementById('summaryGuests');
+            const bookingTypeBadge = document.getElementById('summaryBookingTypeBadge');
+            const bookingTypeText = document.getElementById('summaryBookingType');
 
             if (selectedRoomId && checkIn && checkOut) {
                 const checkInDate = new Date(checkIn);
@@ -1700,23 +1751,51 @@ try {
                     const childSupplement = childGuests > 0 ? (childPerNight * childGuests * nights) : 0;
                     const total = baseTotal + childSupplement;
                     
-                    document.getElementById('summaryRoom').textContent = selectedRoomName + ' (' + (occupancyType === 'single' ? 'Single' : occupancyType === 'double' ? 'Double' : 'Triple') + ' Occupancy)';
-                    document.getElementById('summaryCheckIn').textContent = checkInDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    document.getElementById('summaryCheckOut').textContent = checkOutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    // Update booking type badge
+                    const selectedBookingType = document.querySelector('input[name="booking_type"]:checked');
+                    if (selectedBookingType && bookingTypeBadge && bookingTypeText) {
+                        const isTentative = selectedBookingType.value === 'tentative';
+                        bookingTypeBadge.className = 'summary-badge ' + (isTentative ? 'badge-tentative' : 'badge-standard');
+                        bookingTypeText.textContent = isTentative ? 'Tentative Booking' : 'Standard Booking';
+                        bookingTypeBadge.innerHTML = isTentative
+                            ? '<i class="fas fa-clock"></i> <span id="summaryBookingType">Tentative Booking</span>'
+                            : '<i class="fas fa-check-circle"></i> <span id="summaryBookingType">Standard Booking</span>';
+                    }
+                    
+                    // Update room details section
+                    document.getElementById('summaryRoom').textContent = selectedRoomName;
+                    document.getElementById('summaryOccupancyType').textContent =
+                        occupancyType === 'single' ? 'Single (1 Guest)' :
+                        occupancyType === 'double' ? 'Double (2 Guests)' :
+                        'Triple (3 Guests)';
+                    document.getElementById('summaryRatePerNight').textContent = currencySymbol + pricePerNight.toLocaleString() + '/night';
+                    
+                    // Update stay details section
+                    document.getElementById('summaryCheckIn').textContent = checkInDate.toLocaleDateString('en-US', {
+                        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                    });
+                    document.getElementById('summaryCheckOut').textContent = checkOutDate.toLocaleDateString('en-US', {
+                        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                    });
                     document.getElementById('summaryNights').textContent = nights + (nights === 1 ? ' night' : ' nights');
+                    
+                    // Update guest details section
                     if (summaryGuests) {
                         summaryGuests.textContent = `${adults} adult${adults === 1 ? '' : 's'}${childGuests > 0 ? ` + ${childGuests} child${childGuests === 1 ? '' : 'ren'}` : ''}`;
                     }
 
+                    // Update child supplement
                     if (childChargeRow && childChargeEl) {
                         if (childGuests > 0) {
                             childChargeRow.style.display = '';
-                            childChargeEl.textContent = currencySymbol + childSupplement.toLocaleString();
+                            childChargeEl.textContent = currencySymbol + childSupplement.toLocaleString() + ` (${childGuests} × ${currencySymbol}${childPerNight.toLocaleString()}/night × ${nights} nights)`;
                         } else {
                             childChargeRow.style.display = 'none';
                             childChargeEl.textContent = '-';
                         }
                     }
+                    
+                    // Update total
                     document.getElementById('summaryTotal').textContent = currencySymbol + total.toLocaleString();
                     
                     document.getElementById('bookingSummary').style.display = 'block';
@@ -1821,6 +1900,9 @@ try {
             if (selectedOption) {
                 selectedOption.closest('.booking-type-option').classList.add('selected');
             }
+            
+            // Update summary to reflect booking type change
+            updateSummary();
         }
 
         // Room Category Filter Tabs for booking page
@@ -2357,14 +2439,15 @@ try {
             const adultsInt = totalGuestsInt - childGuests;
             const childValid = childGuests >= 0 && childGuests < totalGuestsInt;
 
-            // Check instant validation fields
+            // Check instant validation fields - only validate if user has interacted
             const nameInput = document.getElementById('guest_name');
             const emailInput = document.getElementById('guest_email');
             const phoneInput = document.getElementById('guest_phone');
             
-            const nameValid = nameInput && nameInput.classList.contains('is-valid');
-            const emailValid = emailInput && emailInput.classList.contains('is-valid');
-            const phoneValid = phoneInput && phoneInput.classList.contains('is-valid');
+            // Consider field valid if it has is-valid class OR if it's empty and not touched yet
+            const nameValid = !nameInput || (nameInput.value.trim() === '' && !nameInput.classList.contains('is-invalid')) || nameInput.classList.contains('is-valid');
+            const emailValid = !emailInput || (emailInput.value.trim() === '' && !emailInput.classList.contains('is-invalid')) || emailInput.classList.contains('is-valid');
+            const phoneValid = !phoneInput || (phoneInput.value.trim() === '' && !phoneInput.classList.contains('is-invalid')) || phoneInput.classList.contains('is-valid');
 
             // Check availability status for selected room
             let availabilityValid = true;
@@ -2376,19 +2459,36 @@ try {
                 }
             }
 
-            if (selectedRoomId && checkIn && checkOut && numGuests && childValid && adultsInt >= 1 && nameValid && emailValid && phoneValid && availabilityValid) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Booking';
-                submitBtn.style.opacity = '1';
-            } else {
-                submitBtn.disabled = true;
-                if (!availabilityValid) {
-                    submitBtn.innerHTML = '<i class="fas fa-ban"></i> Room Unavailable';
+            // Determine button state based on all validations
+            let btnText = '<i class="fas fa-calendar-check"></i> Complete All Fields';
+            let btnDisabled = true;
+            
+            if (!availabilityValid) {
+                btnText = '<i class="fas fa-ban"></i> Room Unavailable';
+                btnDisabled = true;
+            } else if (selectedRoomId && checkIn && checkOut && numGuests && childValid && adultsInt >= 1) {
+                // Required fields are filled - check contact fields
+                const hasContactInfo = nameInput.value.trim() !== '' || emailInput.value.trim() !== '' || phoneInput.value.trim() !== '';
+                
+                if (hasContactInfo) {
+                    // User has started filling contact info - validate it
+                    if (nameValid && emailValid && phoneValid) {
+                        btnText = '<i class="fas fa-check-circle"></i> Confirm Booking';
+                        btnDisabled = false;
+                    } else {
+                        btnText = '<i class="fas fa-exclamation-circle"></i> Please Fix Contact Details';
+                        btnDisabled = true;
+                    }
                 } else {
-                    submitBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Complete All Fields';
+                    // Contact fields are still empty - allow submission (browser validation will handle required fields)
+                    btnText = '<i class="fas fa-check-circle"></i> Confirm Booking';
+                    btnDisabled = false;
                 }
-                submitBtn.style.opacity = '0.6';
             }
+            
+            submitBtn.disabled = btnDisabled;
+            submitBtn.innerHTML = btnText;
+            submitBtn.style.opacity = btnDisabled ? '0.6' : '1';
         };
     </script>
 

@@ -6,11 +6,17 @@ require_once 'includes/video-display.php';
 require_once 'includes/section-headers.php';
 
 // Helper: resolve image URL (supports relative and absolute URLs)
-function resolveImageUrl($path) {
+function resolveImageUrl($path, $timestamp = null) {
     if (!$path) return '';
     $trimmed = trim($path);
     if (stripos($trimmed, 'http://') === 0 || stripos($trimmed, 'https://') === 0) {
-        return $trimmed; // external URL
+        $url = $trimmed; // external URL
+        // Add cache-busting parameter for external URLs if timestamp provided
+        if ($timestamp !== null) {
+            $separator = (strpos($url, '?') !== false) ? '&' : '?';
+            $url .= $separator . 'v=' . $timestamp;
+        }
+        return $url;
     }
     return $trimmed; // relative path as-is
 }
@@ -228,7 +234,10 @@ foreach ($footer_links_raw as $link) {
             <div class="editorial-about-grid">
                 <div class="editorial-about-image">
                     <?php if (!empty($about_content['image_url'])): ?>
-                    <img src="<?php echo htmlspecialchars(resolveImageUrl($about_content['image_url'])); ?>" alt="<?php echo htmlspecialchars($site_name); ?> - Luxury Exterior" width="1200" height="1500" loading="lazy" decoding="async">
+                    <?php
+                    $imageUrl = resolveImageUrl($about_content['image_url'], !empty($about_content['updated_at']) ? strtotime($about_content['updated_at']) : null);
+                    ?>
+                    <img src="<?php echo htmlspecialchars($imageUrl); ?>" alt="<?php echo htmlspecialchars($site_name); ?> - Luxury Exterior" width="1200" height="1500" loading="lazy" decoding="async">
                     <?php endif; ?>
                 </div>
                 <div class="editorial-about-content">
