@@ -227,8 +227,8 @@ foreach ($footer_links_raw as $link) {
         <div class="editorial-about-container">
             <div class="editorial-about-grid">
                 <div class="editorial-about-image">
-                    <?php if (!empty($about_content['image_url'])): ?>
-                    <img src="<?php echo htmlspecialchars(resolveImageUrl($about_content['image_url'])); ?>" alt="<?php echo htmlspecialchars($site_name); ?> - Luxury Exterior" width="1200" height="1500" loading="lazy" decoding="async">
+                    <?php if (!empty($about_content['main_image_url'])): ?>
+                    <img src="<?php echo htmlspecialchars(resolveImageUrl($about_content['main_image_url'])); ?>" alt="<?php echo htmlspecialchars($site_name); ?> - Luxury Exterior" width="1200" height="1500" loading="lazy" decoding="async">
                     <?php else: ?>
                     <img src="images/hotel_gallery/Outside2.png" alt="<?php echo htmlspecialchars($site_name); ?> - Luxury Exterior" width="1200" height="1500" loading="lazy" decoding="async">
                     <?php endif; ?>

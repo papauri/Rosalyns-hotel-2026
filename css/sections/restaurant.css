@@ -480,6 +480,10 @@
     margin-bottom: 0.95rem;
 }
 
+.menu-content-panels {
+    display: block;
+}
+
 .menu-tab {
     border: 1px solid rgba(139, 115, 85, 0.28);
     background: #fff;
@@ -898,3 +902,169 @@
         border-width: 2px;
     }
 }
+
+/* ============================================
+   MENU DISPLAY DIAGNOSTICS & FALLBACKS
+   ============================================ */
+
+/* CRITICAL: Ensure menu content is always visible */
+.menu-content-panels {
+    display: block !important;
+    min-height: 200px;
+    width: 100%;
+}
+
+/* CRITICAL: Ensure active menu panels are visible */
+.menu-panel.active {
+    display: block !important;
+    animation: menuFadeIn 0.32s ease;
+}
+
+/* Fallback: Ensure menu panels have content even when empty */
+.menu-panel:empty::before {
+    content: "Loading menu content...";
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Ensure menu categories wrapper is visible */
+.menu-categories-wrapper {
+    display: block !important;
+    opacity: 1 !important;
+    min-height: 100px;
+}
+
+/* Ensure menu tabs are visible */
+.menu-tabs {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-bottom: 1rem;
+}
+
+.menu-tab {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.48rem;
+}
+
+/* Ensure menu items grid is visible */
+.menu-items-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.85rem;
+}
+
+/* Ensure menu items are visible */
+.menu-item {
+    display: block !important;
+    background: #fff;
+    border: 1px solid rgba(139, 115, 85, 0.18);
+    border-radius: 14px;
+    padding: 0.95rem;
+}
+
+/* Empty state styling - make sure it's visible */
+.menu-empty-state {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--color-text-secondary, #4A5568);
+    min-height: 200px;
+}
+
+.menu-empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--color-primary, #8B7355);
+}
+
+.menu-empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-text-primary, #1A1A1A);
+}
+
+.menu-empty-state p {
+    max-width: 400px;
+    line-height: 1.6;
+}
+
+.menu-empty-admin-hint {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #856404;
+}
+
+/* Loading state - ensure visible when active */
+.menu-loading.active {
+    display: flex !important;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes menuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes menuSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================
+   DIAGNOSTIC HELP - Uncomment to debug
+   ============================================ */
+
+/* Uncomment these rules to highlight menu sections for debugging */
+/*
+.menu-content-panels {
+    outline: 2px solid red !important;
+    background: rgba(255, 0, 0, 0.05) !important;
+}
+
+.menu-panel {
+    outline: 2px solid blue !important;
+    background: rgba(0, 0, 255, 0.05) !important;
+}
+
+.menu-panel.active {
+    outline: 2px solid green !important;
+    background: rgba(0, 255, 0, 0.05) !important;
+}
+
+.menu-tabs {
+    outline: 2px solid orange !important;
+}
+
+.menu-tab {
+    outline: 1px solid purple !important;
+}
+*/
+
+/* ============================================
+   CSS VERSION & CACHE BUSTING
+   ============================================ */
+
+/* Version: 1.2.0 - Menu Display Fix */
+/* Last Updated: 2026-02-22 */
+/* Changes: Added !important rules for menu visibility, diagnostic styles */

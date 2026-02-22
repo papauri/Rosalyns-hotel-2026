@@ -17,10 +17,18 @@
     --header-shadow: 0 12px 34px rgba(24, 21, 18, 0.08);
     --header-glow: linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(187, 145, 90, 0.28), rgba(0, 0, 0, 0));
 
-    --header-nav-color: var(--color-lux-ink, #231F1C);
+    /* Light colors for transparent header over dark hero */
+    --header-nav-color: var(--color-white, #FFFFFF);
+    --header-nav-color-secondary: color-mix(in srgb, var(--color-white, #FFFFFF) 85%, rgba(255, 255, 255, 0.7) 15%);
     --header-nav-hover: var(--color-lux-gold, #B18247);
-    --header-nav-hover-bg: color-mix(in srgb, var(--color-lux-gold, #B18247) 12%, transparent 88%);
+    --header-nav-hover-bg: color-mix(in srgb, var(--color-lux-gold, #B18247) 18%, rgba(255, 255, 255, 0.08) 82%);
     --header-focus: color-mix(in srgb, var(--color-lux-gold, #B18247) 70%, #ffffff 30%);
+    
+    /* Dark colors for scrolled header with light background */
+    --header-nav-color-scrolled: var(--color-lux-ink, #231F1C);
+    --header-nav-color-secondary-scrolled: color-mix(in srgb, var(--color-lux-ink, #231F1C) 65%, #ffffff 35%);
+    --header-nav-hover-scrolled: var(--color-lux-gold, #B18247);
+    --header-nav-hover-bg-scrolled: color-mix(in srgb, var(--color-lux-gold, #B18247) 12%, transparent 88%);
 }
 
 /* ============================================
@@ -302,19 +310,18 @@
     position: relative;
     width: 46px;
     height: 46px;
-    background-color: #efe3d6;
+    background-color: rgba(255, 255, 255, 0.12);
     background-image:
-        radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0) 58%),
-        linear-gradient(155deg, rgba(251, 248, 244, 0.96) 0%, rgba(236, 225, 214, 0.98) 100%);
-    border: 1px solid color-mix(in srgb, var(--color-lux-clay-500, #8F7660) 44%, transparent 56%);
+        radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 58%),
+        linear-gradient(155deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     cursor: pointer;
     padding: 0;
     border-radius: 14px;
     color: var(--header-nav-color);
     box-shadow:
-        0 10px 22px rgba(23, 18, 13, 0.16),
-        inset 0 1px 0 rgba(255, 255, 255, 0.74),
-        inset 0 -1px 0 rgba(120, 89, 58, 0.2);
+        0 8px 24px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
     transition:
         background var(--header-transition-fast),
         transform var(--header-transition-fast),
@@ -322,6 +329,8 @@
         border-color var(--header-transition-fast),
         color var(--header-transition-fast);
     flex-shrink: 0;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .header__toggle::before {
@@ -329,7 +338,7 @@
     position: absolute;
     inset: 3px;
     border-radius: 11px;
-    border: 1px solid color-mix(in srgb, var(--color-lux-clay-300, #C8B39F) 34%, transparent 66%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     pointer-events: none;
 }
 
@@ -338,7 +347,7 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 54%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 54%);
     pointer-events: none;
 }
 
@@ -399,7 +408,7 @@
     position: absolute;
     width: 100%;
     height: 2.6px;
-    background: color-mix(in srgb, var(--color-lux-ink, #231F1C) 88%, #3b2f24 12%);
+    background: var(--color-white, #FFFFFF);
     left: 0;
     border-radius: 999px;
     z-index: 2;
@@ -483,7 +492,7 @@
     bottom: 0;
     width: 100%;
     max-width: 420px;
-    color: var(--header-nav-color);
+    color: var(--header-nav-color-scrolled);
     background:
         linear-gradient(160deg, color-mix(in srgb, var(--color-surface, #FBF8F4) 83%, #ffffff 17%) 0%, color-mix(in srgb, var(--color-lux-clay-50, #F3ECE4) 84%, var(--color-surface, #FBF8F4) 16%) 100%);
     box-shadow: 18px 0 38px rgba(25, 20, 16, 0.2);
@@ -532,7 +541,7 @@
     font-family: var(--font-serif, 'Cormorant Garamond', Georgia, serif);
     font-size: var(--text-lg, 1.125rem);
     font-weight: var(--font-semibold, 600);
-    color: var(--header-nav-color);
+    color: var(--header-nav-color-scrolled);
     margin: 0;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -550,13 +559,13 @@
     cursor: pointer;
     padding: 0;
     border-radius: var(--radius-md, 8px);
-    color: color-mix(in srgb, var(--header-nav-color) 75%, #ffffff 25%);
+    color: color-mix(in srgb, var(--header-nav-color-scrolled) 75%, #ffffff 25%);
     transition: all var(--header-transition);
 }
 
 .header__mobile-close:hover {
-    color: var(--header-nav-color);
-    background: var(--header-nav-hover-bg);
+    color: var(--header-nav-color-scrolled);
+    background: var(--header-nav-hover-bg-scrolled);
 }
 
 .header__mobile-close:focus-visible {
@@ -578,7 +587,7 @@
     font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.24em;
-    color: color-mix(in srgb, var(--header-nav-color) 58%, #ffffff 42%);
+    color: color-mix(in srgb, var(--header-nav-color-scrolled) 58%, #ffffff 42%);
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -622,7 +631,7 @@
     font-family: var(--font-sans, 'Jost', sans-serif);
     font-size: clamp(1rem, 0.98rem + 0.14vw, 1.08rem);
     font-weight: var(--font-medium, 500);
-    color: var(--header-nav-color);
+    color: var(--header-nav-color-scrolled);
     text-decoration: none;
     padding: 0.9rem 0.95rem;
     border-radius: var(--radius-md, 8px);
@@ -634,9 +643,9 @@
 }
 
 .header__mobile-link:hover {
-    background: var(--header-nav-hover-bg);
-    color: var(--header-nav-hover);
-    border-color: color-mix(in srgb, var(--header-nav-hover) 24%, transparent 76%);
+    background: var(--header-nav-hover-bg-scrolled);
+    color: var(--header-nav-hover-scrolled);
+    border-color: color-mix(in srgb, var(--header-nav-hover-scrolled) 24%, transparent 76%);
 }
 
 .header__mobile-link:focus-visible {
@@ -939,6 +948,51 @@
 .header.header--scrolled::before,
 .header.header--scrolled::after {
     opacity: 1;
+}
+
+/* Switch to dark text colors when scrolled (light background) */
+.header.header--scrolled .header__logo {
+    color: var(--header-nav-color-scrolled);
+}
+
+.header.header--scrolled .header__logo:hover,
+.header.header--scrolled .header__logo:focus {
+    color: var(--header-nav-hover-scrolled);
+}
+
+.header.header--scrolled .header__logo-kicker {
+    color: var(--header-nav-color-secondary-scrolled);
+}
+
+.header.header--scrolled .header__menu-link {
+    color: var(--header-nav-color-scrolled);
+}
+
+.header.header--scrolled .header__menu-link:hover {
+    color: var(--header-nav-hover-scrolled);
+    background: var(--header-nav-hover-bg-scrolled);
+}
+
+.header.header--scrolled .header__menu-link--active {
+    color: var(--header-nav-hover-scrolled);
+    background: color-mix(in srgb, var(--header-nav-hover-scrolled) 16%, transparent 84%);
+}
+
+.header.header--scrolled .header__toggle {
+    background-color: #efe3d6;
+    background-image:
+        radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0) 58%),
+        linear-gradient(155deg, rgba(251, 248, 244, 0.96) 0%, rgba(236, 225, 214, 0.98) 100%);
+    border-color: color-mix(in srgb, var(--color-lux-clay-500, #8F7660) 44%, transparent 56%);
+    color: var(--header-nav-color-scrolled);
+    box-shadow:
+        0 10px 22px rgba(23, 18, 13, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.74),
+        inset 0 -1px 0 rgba(120, 89, 58, 0.2);
+}
+
+.header.header--scrolled .header__toggle-line {
+    background: color-mix(in srgb, var(--color-lux-ink, #231F1C) 88%, #3b2f24 12%);
 }
 
 

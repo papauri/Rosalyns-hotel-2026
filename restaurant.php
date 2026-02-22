@@ -190,10 +190,18 @@ $current_origin = $menu_protocol . '://' . $menu_host;
 $menu_view_setting = (string)getSetting('restaurant_menu_url', '');
 $menu_pdf_setting = (string)getSetting('restaurant_menu_pdf_url', '');
 
-$menu_page_fallback = $current_origin . siteUrl('menu-pdf.php');
+// Always use the correct fallback - menu-pdf.php is in root, not /api/
+$menu_page_fallback = siteUrl('menu-pdf.php');
 
-if ($is_local_env) {
-    // In local/dev, always use current environment URL to avoid stale cross-site DB settings.
+// Check if stored settings point to non-existent paths and ignore them
+$invalid_paths = ['/api/menu-pdf.php', 'api/menu-pdf.php', '/api/menu-pdf'];
+
+if ($is_local_env || 
+    in_array($menu_view_setting, $invalid_paths) || 
+    in_array($menu_pdf_setting, $invalid_paths) ||
+    strpos($menu_view_setting, '/api/') !== false ||
+    strpos($menu_pdf_setting, '/api/') !== false) {
+    // In local/dev or if settings point to invalid paths, use correct fallback
     $menu_view_url = $menu_page_fallback;
     $menu_pdf_url = $menu_page_fallback;
 } else {
@@ -204,6 +212,14 @@ if ($is_local_env) {
     $menu_pdf_candidate = buildValidatedMenuLink($menu_pdf_setting, $menu_view_url);
     $menu_pdf_candidate = enforceMenuHost($menu_pdf_candidate, $menu_host);
     $menu_pdf_url = $menu_pdf_candidate !== '' ? $menu_pdf_candidate : $menu_view_url;
+}
+
+// Final safety check - ensure URLs are valid
+if (empty($menu_view_url) || strpos($menu_view_url, '/api/menu-pdf') !== false) {
+    $menu_view_url = $menu_page_fallback;
+}
+if (empty($menu_pdf_url) || strpos($menu_pdf_url, '/api/menu-pdf') !== false) {
+    $menu_pdf_url = $menu_page_fallback;
 }
 
 // QR image – same URL for prod/uat/local (content is already correct),
@@ -550,20 +566,29 @@ try {
         
         // Fetch menu data via AJAX
         async function fetchMenuData(menuType) {
+            console.log('[MENU DEBUG] Fetching menu data for type:', menuType);
             showLoading();
             
             try {
-                const response = await fetch(`restaurant.php?ajax=menu&menu_type=${menuType}`);
+                const url = `restaurant.php?ajax=menu&menu_type=${menuType}`;
+                console.log('[MENU DEBUG] Fetching from:', url);
+                
+                const response = await fetch(url);
+                console.log('[MENU DEBUG] Response status:', response.status);
+                
                 const data = await response.json();
+                console.log('[MENU DEBUG] Response data:', data);
                 
                 if (data.success) {
                     menuData = data;
+                    console.log('[MENU DEBUG] Menu data loaded successfully, categories:', Object.keys(data.categories || {}));
                     renderMenu(data);
                 } else {
+                    console.error('[MENU DEBUG] Menu load failed:', data.error);
                     showError(data.error || 'Failed to load menu');
                 }
             } catch (error) {
-                console.error('Error fetching menu:', error);
+                console.error('[MENU DEBUG] Error fetching menu:', error);
                 showError('An error occurred while loading the menu');
             } finally {
                 hideLoading();
@@ -601,9 +626,12 @@ try {
         
         // Render menu
         function renderMenu(data) {
+            console.log('[MENU DEBUG] Rendering menu, data:', data);
             const categories = Object.values(data.categories);
+            console.log('[MENU DEBUG] Categories to render:', categories);
             
             if (categories.length === 0) {
+                console.warn('[MENU DEBUG] No categories found, showing empty state');
                 menuTabs.innerHTML = '';
                 const adminHint = data.admin_hint
                     ? `<p class="menu-empty-admin-hint">${escapeHtml(data.admin_hint)}</p>`
@@ -636,6 +664,7 @@ try {
             `).join('');
             
             // Render menu content
+            console.log('[MENU DEBUG] Rendering menu content HTML...');
             menuContent.innerHTML = categories.map((cat, index) => `
                 <div
                     class="menu-panel ${index === 0 ? 'active' : ''}"
@@ -653,6 +682,10 @@ try {
                     </div>
                 </div>
             `).join('');
+            
+            console.log('[MENU DEBUG] Menu content HTML set, checking elements...');
+            console.log('[MENU DEBUG] menuContent.innerHTML length:', menuContent.innerHTML.length);
+            console.log('[MENU DEBUG] menuContent children:', menuContent.children.length);
             
             // Set current category to first one
             currentCategory = categories[0].slug;
@@ -753,6 +786,13 @@ try {
         
         // Load default menu on page load
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('[MENU DEBUG] DOM loaded, initializing menu...');
+            console.log('[MENU DEBUG] DOM elements found:', {
+                menuContent: !!menuContent,
+                menuTabs: !!menuTabs,
+                menuLoading: !!menuLoading,
+                menuCategoriesWrapper: !!menuCategoriesWrapper
+            });
             fetchMenuData('food');
         });
         
