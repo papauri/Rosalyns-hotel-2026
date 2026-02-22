@@ -1232,6 +1232,7 @@ foreach ($assignments as $a) {
                     <td><?php echo htmlspecialchars(mb_strimwidth($row['notes'] ?? '', 0, 30, '...')); ?></td>
                     <td>
                         <button class="btn btn-info btn-sm" type="button" onclick='editAssignment(<?php echo json_encode($row); ?>)'><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-secondary btn-sm" type="button" onclick='viewAuditLog(<?php echo $row['id']; ?>, "<?php echo htmlspecialchars($row['room_number'] . ' ' . ($row['room_name'] ?? '')); ?>")' title="View History"><i class="fas fa-history"></i></button>
                         <?php if ($row['status'] === 'completed'): ?>
                         <form method="POST" style="display:inline;">
                             <input type="hidden" name="action" value="verify_assignment">
@@ -1365,6 +1366,8 @@ foreach ($assignments as $a) {
     </div>
 <?php renderAdminModalEnd(); ?>
 
+<?php renderAdminModalScript(); ?>
+
 <script>
     // Set minimum date to today
     document.addEventListener('DOMContentLoaded', function() {
@@ -1453,14 +1456,17 @@ foreach ($assignments as $a) {
     }
     
     // Update selected room IDs when form is submitted
-    document.getElementById('bulkAssignForm').addEventListener('submit', function() {
-        const selectedIds = Array.from(document.querySelectorAll('.room-checkbox:checked')).map(cb => cb.value);
-        document.getElementById('selectedRoomIds').value = JSON.stringify(selectedIds);
-        if (selectedIds.length === 0) {
-            alert('Please select at least one room');
-            return false;
-        }
-    });
+    const bulkAssignForm = document.getElementById('bulkAssignForm');
+    if (bulkAssignForm) {
+        bulkAssignForm.addEventListener('submit', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.room-checkbox:checked')).map(cb => cb.value);
+            document.getElementById('selectedRoomIds').value = JSON.stringify(selectedIds);
+            if (selectedIds.length === 0) {
+                alert('Please select at least one room');
+                return false;
+            }
+        });
+    }
     
     bindAdminModal('assignmentModal');
     bindAdminModal('auditLogModal');
@@ -1471,7 +1477,11 @@ foreach ($assignments as $a) {
         openAdminModal('auditLogModal');
         
         // Fetch audit log via AJAX
-        fetch('api/get-housekeeping-audit.php?id=' + encodeURIComponent(assignmentId))
+        fetch('api/get-housekeeping-audit.php?id=' + encodeURIComponent(assignmentId), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -1548,8 +1558,6 @@ foreach ($assignments as $a) {
         closeAdminModal('auditLogModal');
     }
 </script>
-
-<?php renderAdminModalScript(); ?>
 
 <?php require_once 'includes/admin-footer.php'; ?>
 </body>

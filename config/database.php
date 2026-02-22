@@ -5496,7 +5496,8 @@ function calculateChangedFields(array $oldData, array $newData): array {
  * @param string|null $performedByName Username for historical accuracy
  * @return bool Success status
  */
-function logHousekeepingAction(int $assignmentId, string $action, ?array $oldData, ?array $newData, ?int $performedBy, ?string $performedByName = null): bool {
+if (!function_exists('logHousekeepingAction')) {
+    function logHousekeepingAction(int $assignmentId, string $action, ?array $oldData, ?array $newData, ?int $performedBy, ?string $performedByName = null): bool {
     global $pdo;
     
     try {
@@ -5533,6 +5534,7 @@ function logHousekeepingAction(int $assignmentId, string $action, ?array $oldDat
         error_log('logHousekeepingAction error: ' . $e->getMessage());
         return false;
     }
+    }
 }
 
 /**
@@ -5546,7 +5548,8 @@ function logHousekeepingAction(int $assignmentId, string $action, ?array $oldDat
  * @param string|null $performedByName Username for historical accuracy
  * @return bool Success status
  */
-function logMaintenanceAction(int $maintenanceId, string $action, ?array $oldData, ?array $newData, ?int $performedBy, ?string $performedByName = null): bool {
+if (!function_exists('logMaintenanceAction')) {
+    function logMaintenanceAction(int $maintenanceId, string $action, ?array $oldData, ?array $newData, ?int $performedBy, ?string $performedByName = null): bool {
     global $pdo;
     
     try {
@@ -5583,6 +5586,7 @@ function logMaintenanceAction(int $maintenanceId, string $action, ?array $oldDat
         error_log('logMaintenanceAction error: ' . $e->getMessage());
         return false;
     }
+    }
 }
 
 /**
@@ -5591,7 +5595,8 @@ function logMaintenanceAction(int $maintenanceId, string $action, ?array $oldDat
  * @param int $assignmentId Assignment ID
  * @return array List of audit log entries
  */
-function getHousekeepingAuditLog(int $assignmentId): array {
+if (!function_exists('getHousekeepingAuditLog')) {
+    function getHousekeepingAuditLog(int $assignmentId): array {
     global $pdo;
     
     try {
@@ -5623,6 +5628,7 @@ function getHousekeepingAuditLog(int $assignmentId): array {
         error_log('getHousekeepingAuditLog error: ' . $e->getMessage());
         return [];
     }
+    }
 }
 
 /**
@@ -5631,7 +5637,8 @@ function getHousekeepingAuditLog(int $assignmentId): array {
  * @param int $maintenanceId Maintenance ID
  * @return array List of audit log entries
  */
-function getMaintenanceAuditLog(int $maintenanceId): array {
+if (!function_exists('getMaintenanceAuditLog')) {
+    function getMaintenanceAuditLog(int $maintenanceId): array {
     global $pdo;
     
     try {
@@ -5662,6 +5669,7 @@ function getMaintenanceAuditLog(int $maintenanceId): array {
     } catch (Throwable $e) {
         error_log('getMaintenanceAuditLog error: ' . $e->getMessage());
         return [];
+    }
     }
 }
 

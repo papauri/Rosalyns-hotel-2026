@@ -50,4 +50,8 @@ if ($_required_permission !== null && !hasPermission($user['id'], $_required_per
     header('Location: dashboard.php?error=access_denied');
     exit;
 }
+
+// ---- Audit Functions ----
+// Load audit logging functions for housekeeping and maintenance
+require_once __DIR__ . '/includes/audit-functions.php';
 ?>

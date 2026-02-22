@@ -1624,6 +1624,8 @@ try {
     </div>
 <?php renderAdminModalEnd(); ?>
 
+<?php renderAdminModalScript(); ?>
+
 <script>
     // Set minimum date to today
     document.addEventListener('DOMContentLoaded', function() {
@@ -1744,14 +1746,17 @@ try {
     }
     
     // Update selected room IDs when form is submitted
-    document.getElementById('bulkAssignForm').addEventListener('submit', function() {
-        const selectedIds = Array.from(document.querySelectorAll('.room-checkbox:checked')).map(cb => cb.value);
-        document.getElementById('selectedRoomIds').value = JSON.stringify(selectedIds);
-        if (selectedIds.length === 0) {
-            alert('Please select at least one room');
-            return false;
-        }
-    });
+    const bulkAssignForm = document.getElementById('bulkAssignForm');
+    if (bulkAssignForm) {
+        bulkAssignForm.addEventListener('submit', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.room-checkbox:checked')).map(cb => cb.value);
+            document.getElementById('selectedRoomIds').value = JSON.stringify(selectedIds);
+            if (selectedIds.length === 0) {
+                alert('Please select at least one room');
+                return false;
+            }
+        });
+    }
     
     function toDatetimeLocal(value) {
         if (!value) return '';
@@ -1767,7 +1772,11 @@ try {
         openAdminModal('auditLogModal');
         
         // Fetch audit log via AJAX
-        fetch('api/get-maintenance-audit.php?id=' + encodeURIComponent(maintenanceId))
+        fetch('api/get-maintenance-audit.php?id=' + encodeURIComponent(maintenanceId), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -1845,8 +1854,6 @@ try {
         closeAdminModal('auditLogModal');
     }
 </script>
-
-<?php renderAdminModalScript(); ?>
 
 <?php require_once 'includes/admin-footer.php'; ?>
 </body>

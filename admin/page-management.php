@@ -457,7 +457,9 @@ try {
             </div>
         </form>
     <?php renderAdminModalEnd(); ?>
-
+    
+    <?php renderAdminModalScript(); ?>
+    
     <script>
     // ── Edit Modal ─────────────────────────────────────────
     function openEditModal(page) {
@@ -527,5 +529,4 @@ try {
         document.getElementById('orderForm').submit();
     }
     </script>
-    <?php renderAdminModalScript(); ?>
 <?php require_once 'includes/admin-footer.php'; ?>

@@ -206,7 +206,7 @@ function getInvoiceLogoUrl() {
 }
 
 /**
- * Build HTML content for invoice
+ * Build HTML content for invoice - Stunning State-of-the-Art PDF Design
  */
 function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address, $phone_number, $address, $currency_symbol) {
     global $pdo;
@@ -218,7 +218,7 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
     $logo_url = getInvoiceLogoUrl();
     $logo_html = '';
     if (!empty($logo_url)) {
-        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($site_name) . '" style="max-width: 280px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;">';
+        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($site_name) . '" style="max-width: 200px; height: auto; display: block;">';
     }
     $childGuests = (int)($booking['child_guests'] ?? 0);
     $adultGuests = (int)($booking['adult_guests'] ?? max(1, ((int)($booking['number_of_guests'] ?? 1)) - $childGuests));
@@ -345,112 +345,216 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
         }
     }
     
+    // Payment status styling
+    $statusColor = $balanceDue <= 0 ? '#2E7D32' : '#C62828';
+    $statusBgColor = $balanceDue <= 0 ? '#E8F5E9' : '#FFEBEE';
+    $statusText = $balanceDue <= 0 ? 'PAID IN FULL' : 'PARTIAL PAYMENT';
+    
+    // Build charges table rows
+    $chargesTableRows = '';
+    // Room charge row
+    $chargesTableRows .= '
+        <tr>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; color: #424242;">Room Accommodation</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: center; color: #616161;">' . $booking['number_of_nights'] . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; color: #616161;">' . $currency_symbol . ' ' . number_format($roomSubtotal / max(1, $booking['number_of_nights']), 2) . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; font-weight: 500; color: #424242;">' . $currency_symbol . ' ' . number_format($roomSubtotal, 2) . '</td>
+        </tr>';
+    
+    // Child supplement row
+    if ($childGuests > 0) {
+        $chargesTableRows .= '
+        <tr>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; color: #424242;">Child Supplement (' . $childGuests . ' child' . ($childGuests > 1 ? 'ren' : '') . ')</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: center; color: #616161;">' . $childGuests . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; color: #616161;">' . $currency_symbol . ' ' . number_format($childSupplementTotal / max(1, $childGuests), 2) . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; font-weight: 500; color: #424242;">' . $currency_symbol . ' ' . number_format($childSupplementTotal, 2) . '</td>
+        </tr>';
+    }
+    
+    // Folio charges rows
+    foreach ($folioCharges as $charge) {
+        $chargesTableRows .= '
+        <tr>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; color: #424242;">' . htmlspecialchars($charge['description']) . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: center; color: #616161;">' . number_format($charge['quantity'], 0) . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; color: #616161;">' . $currency_symbol . ' ' . number_format($charge['unit_price'], 2) . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; font-weight: 500; color: #424242;">' . $currency_symbol . ' ' . number_format($charge['line_total'], 2) . '</td>
+        </tr>';
+    }
+    
+    // Build payments table
+    $paymentsTableHTML = '';
+    if (!empty($payments)) {
+        $paymentsTableHTML = '<div style="margin-top: 25px;">
+            <h3 style="color: #8B7355; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Payment History</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #F5F5F5;">
+                        <th style="padding: 10px 8px; text-align: left; font-size: 11px; color: #757575; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Date</th>
+                        <th style="padding: 10px 8px; text-align: left; font-size: 11px; color: #757575; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Method</th>
+                        <th style="padding: 10px 8px; text-align: right; font-size: 11px; color: #757575; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        foreach ($payments as $payment) {
+            $paymentsTableHTML .= '
+                    <tr>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #E0E0E0; color: #424242;">' . date('M j, Y', strtotime($payment['payment_date'])) . '</td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #E0E0E0; color: #616161;">' . ucfirst(str_replace('_', ' ', $payment['payment_method'])) . '</td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; color: #424242;">' . $currency_symbol . ' ' . number_format($payment['total_amount'], 2) . '</td>
+                    </tr>';
+        }
+        
+        $paymentsTableHTML .= '
+                </tbody>
+            </table>
+        </div>';
+    }
+
     return '
-    <div class="invoice-container">
-        <div class="invoice-header" style="text-align: center;">
-            ' . $logo_html . '
-            <h1 style="color: #8B7355; margin: 0 0 10px 0; font-size: 32px;">PAYMENT RECEIPT / INVOICE</h1>
-            <p style="margin: 5px 0; font-size: 18px;">' . htmlspecialchars($site_name) . '</p>
-            <p style="margin: 5px 0;">Invoice Number: <strong>' . htmlspecialchars($invoice_number) . '</strong></p>
-            <p style="margin: 5px 0;">Date: ' . date('F j, Y') . '</p>
+    <!-- STUNNING MODERN INVOICE DESIGN -->
+    <div style="font-family: Helvetica, Arial, sans-serif; color: #333; max-width: 100%;">
+        
+        <!-- HEADER SECTION -->
+        <div style="background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%); padding: 30px 25px; margin: -15px -15px 0 -15px;">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="vertical-align: middle; width: 50%;">
+                        ' . $logo_html . '
+                    </td>
+                    <td style="vertical-align: middle; text-align: right; width: 50%;">
+                        <h1 style="color: #8B7355; font-size: 28px; margin: 0 0 8px 0; font-weight: 300; letter-spacing: 3px;">INVOICE</h1>
+                        <p style="color: #FFFFFF; font-size: 13px; margin: 0; opacity: 0.9;">' . htmlspecialchars($invoice_number) . '</p>
+                        <p style="color: #FFFFFF; font-size: 12px; margin: 5px 0 0 0; opacity: 0.7;">Issued: ' . date('F j, Y') . '</p>
+                    </td>
+                </tr>
+            </table>
         </div>
         
-        <div class="invoice-body">
-            <div class="invoice-details">
-                <h3 style="color: #1A1A1A; border-bottom: 2px solid #8B7355; padding-bottom: 10px; margin-bottom: 20px;">Guest Information</h3>
-                
-                <div class="invoice-row">
-                    <span class="invoice-label">Guest Name:</span>
-                    <span class="invoice-value">' . htmlspecialchars($booking['guest_name']) . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Email:</span>
-                    <span class="invoice-value">' . htmlspecialchars($booking['guest_email']) . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Phone:</span>
-                    <span class="invoice-value">' . htmlspecialchars($booking['guest_phone']) . '</span>
-                </div>
-            </div>
-            
-            <div class="invoice-details">
-                <h3 style="color: #1A1A1A; border-bottom: 2px solid #8B7355; padding-bottom: 10px; margin-bottom: 20px;">Booking Details</h3>
-                
-                <div class="invoice-row">
-                    <span class="invoice-label">Booking Reference:</span>
-                    <span class="invoice-value" style="color: #8B7355; font-weight: bold; font-size: 16px;">' . htmlspecialchars($booking['booking_reference']) . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Room Type:</span>
-                    <span class="invoice-value">' . htmlspecialchars($booking['room_name']) . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Check-in Date:</span>
-                    <span class="invoice-value">' . $check_in . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Check-out Date:</span>
-                    <span class="invoice-value">' . $check_out . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Number of Nights:</span>
-                    <span class="invoice-value">' . $booking['number_of_nights'] . ' night' . ($booking['number_of_nights'] != 1 ? 's' : '') . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Number of Guests:</span>
-                    <span class="invoice-value">' . $booking['number_of_guests'] . ' guest' . ($booking['number_of_guests'] != 1 ? 's' : '') . '</span>
-                </div>
-                <div class="invoice-row">
-                    <span class="invoice-label">Guest Split:</span>
-                    <span class="invoice-value">' . $adultGuests . ' adult' . ($adultGuests === 1 ? '' : 's') . ($childGuests > 0 ? (' + ' . $childGuests . ' child' . ($childGuests === 1 ? '' : 'ren')) : '') . '</span>
-                </div>
-                ' . ($childGuests > 0 ? ('<div class="invoice-row">
-                    <span class="invoice-label">Child Supplement (' . number_format($childMultiplier, 2) . '%):</span>
-                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($childSupplementTotal, 2) . '</span>
-                </div>') : '') . '
-            </div>
-            
-            ' . $folioItemsHTML . '
-            
-            <div class="total-section">
-                <div class="invoice-row">
-                    <span class="invoice-label">Room Stay Amount:</span>
-                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($roomSubtotal, 2) . '</span>
-                </div>
-                ' . ($childGuests > 0 ? ('<div class="invoice-row">
-                    <span class="invoice-label">Child Supplement:</span>
-                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($childSupplementTotal, 2) . '</span>
-                </div>') : '') . '
-                ' . (!empty($folioCharges) ? ('<div class="invoice-row">
-                    <span class="invoice-label">Extras / Folio Charges:</span>
-                    <span class="invoice-value">' . $currency_symbol . ' ' . number_format($extrasSubtotal, 2) . '</span>
-                </div>') : '') . '
-                ' . $vatSectionHTML . '
-                <div class="total-row">
-                    <span>Total Amount' . ($vatEnabled ? ' (incl. VAT)' : '') . ':</span>
-                    <span>' . $currency_symbol . ' ' . number_format($totalWithVat, 2) . '</span>
-                </div>
-                <p style="margin: 15px 0 0 0; color: #666; font-size: 14px;">
-                    <strong>Payment Status:</strong> <span style="color: ' . ($balanceDue <= 0 ? '#28a745' : '#dc3545') . '; font-weight: bold;">' . ($balanceDue <= 0 ? 'PAID' : 'PARTIAL') . '</span>
-                </p>
-                <p style="margin: 5px 0; color: #666; font-size: 14px;">
-                    <strong>Amount Paid:</strong> ' . $currency_symbol . ' ' . number_format($amountPaid, 2) . '
-                </p>
-                ' . ($balanceDue > 0 ? '<p style="margin: 5px 0; color: #dc3545; font-size: 14px;">
-                    <strong>Balance Due:</strong> ' . $currency_symbol . ' ' . number_format($balanceDue, 2) . '
-                </p>' : '') . '
-            </div>
-            
-            ' . $paymentDetailsHTML . '
+        <!-- STATUS BANNER -->
+        <div style="background: ' . $statusBgColor . '; padding: 12px 25px; margin: 0 -15px 25px -15px; text-align: center;">
+            <span style="color: ' . $statusColor . '; font-weight: 600; font-size: 14px; letter-spacing: 2px;">✓ ' . $statusText . '</span>
         </div>
         
-        <div class="footer">
-            <p style="margin: 10px 0;"><strong>' . htmlspecialchars($site_name) . '</strong></p>
-            <p style="margin: 5px 0;">' . htmlspecialchars($address) . '</p>
-            <p style="margin: 5px 0;">Email: ' . htmlspecialchars($email_address) . ' | Phone: ' . htmlspecialchars($phone_number) . '</p>
-            <p style="margin: 15px 0 0 0; color: #999; font-size: 12px;">
-                Thank you for your payment! We look forward to welcoming you.
-            </p>
+        <!-- GUEST & HOTEL INFO -->
+        <table style="width: 100%; margin-bottom: 30px;">
+            <tr>
+                <td style="width: 50%; vertical-align: top; padding-right: 20px;">
+                    <div style="background: #FAFAFA; border-left: 4px solid #8B7355; padding: 20px;">
+                        <h3 style="color: #8B7355; font-size: 11px; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Billed To</h3>
+                        <p style="margin: 0 0 5px 0; font-size: 16px; font-weight: 600; color: #212121;">' . htmlspecialchars($booking['guest_name']) . '</p>
+                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #616161;">' . htmlspecialchars($booking['guest_email']) . '</p>
+                        <p style="margin: 0; font-size: 12px; color: #616161;">' . htmlspecialchars($booking['guest_phone']) . '</p>
+                    </div>
+                </td>
+                <td style="width: 50%; vertical-align: top; padding-left: 20px;">
+                    <div style="background: #FAFAFA; border-left: 4px solid #8B7355; padding: 20px;">
+                        <h3 style="color: #8B7355; font-size: 11px; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">From</h3>
+                        <p style="margin: 0 0 5px 0; font-size: 16px; font-weight: 600; color: #212121;">' . htmlspecialchars($site_name) . '</p>
+                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #616161;">' . htmlspecialchars($address) . '</p>
+                        <p style="margin: 0; font-size: 12px; color: #616161;">' . htmlspecialchars($email_address) . '</p>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        
+        <!-- BOOKING DETAILS -->
+        <div style="background: #F8F6F3; border-radius: 8px; padding: 20px 25px; margin-bottom: 30px;">
+            <h3 style="color: #8B7355; font-size: 11px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Booking Details</h3>
+            <table style="width: 100%;">
+                <tr>
+                    <td style="width: 25%; padding: 8px 0;">
+                        <span style="font-size: 10px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Reference</span>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 600; color: #8B7355;">' . htmlspecialchars($booking['booking_reference']) . '</p>
+                    </td>
+                    <td style="width: 25%; padding: 8px 0;">
+                        <span style="font-size: 10px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Room Type</span>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 500; color: #424242;">' . htmlspecialchars($booking['room_name']) . '</p>
+                    </td>
+                    <td style="width: 25%; padding: 8px 0;">
+                        <span style="font-size: 10px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Check-in</span>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 500; color: #424242;">' . $check_in . '</p>
+                    </td>
+                    <td style="width: 25%; padding: 8px 0;">
+                        <span style="font-size: 10px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Check-out</span>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 500; color: #424242;">' . $check_out . '</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="width: 25%; padding: 8px 0;">
+                        <span style="font-size: 10px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Nights</span>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 500; color: #424242;">' . $booking['number_of_nights'] . '</p>
+                    </td>
+                    <td style="width: 25%; padding: 8px 0;">
+                        <span style="font-size: 10px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Guests</span>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 500; color: #424242;">' . $adultGuests . ' Adult' . ($childGuests > 0 ? ', ' . $childGuests . ' Child' . ($childGuests > 1 ? 'ren' : '') : '') . '</p>
+                    </td>
+                    <td colspan="2" style="width: 50%; padding: 8px 0;"></td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- CHARGES TABLE -->
+        <div style="margin-bottom: 25px;">
+            <h3 style="color: #8B7355; font-size: 11px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Itemized Charges</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #8B7355;">
+                        <th style="padding: 12px 8px; text-align: left; font-size: 11px; color: #FFFFFF; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Description</th>
+                        <th style="padding: 12px 8px; text-align: center; font-size: 11px; color: #FFFFFF; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; width: 60px;">Qty</th>
+                        <th style="padding: 12px 8px; text-align: right; font-size: 11px; color: #FFFFFF; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; width: 90px;">Unit Price</th>
+                        <th style="padding: 12px 8px; text-align: right; font-size: 11px; color: #FFFFFF; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; width: 100px;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ' . $chargesTableRows . '
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- TOTALS SECTION -->
+        <table style="width: 100%; margin-bottom: 30px;">
+            <tr>
+                <td style="width: 60%;"></td>
+                <td style="width: 40%;">
+                    <div style="background: #FAFAFA; border: 1px solid #E0E0E0; border-radius: 4px; padding: 15px 20px;">
+                        <table style="width: 100%;">
+                            <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #616161;">Subtotal:</td>
+                                <td style="padding: 6px 0; font-size: 13px; text-align: right; color: #424242;">' . $currency_symbol . ' ' . number_format($subtotal, 2) . '</td>
+                            </tr>' . ($vatEnabled && $vatAmount > 0 ? '
+                            <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #616161;">VAT (' . number_format($vatRate, 2) . '%):</td>
+                                <td style="padding: 6px 0; font-size: 13px; text-align: right; color: #424242;">' . $currency_symbol . ' ' . number_format($vatAmount, 2) . '</td>
+                            </tr>' : '') . '
+                            <tr style="border-top: 2px solid #8B7355;">
+                                <td style="padding: 12px 0 6px 0; font-size: 15px; font-weight: 600; color: #212121;">Total Amount:</td>
+                                <td style="padding: 12px 0 6px 0; font-size: 15px; font-weight: 600; text-align: right; color: #8B7355;">' . $currency_symbol . ' ' . number_format($totalWithVat, 2) . '</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #616161;">Amount Paid:</td>
+                                <td style="padding: 6px 0; font-size: 13px; text-align: right; color: #2E7D32; font-weight: 500;">' . $currency_symbol . ' ' . number_format($amountPaid, 2) . '</td>
+                            </tr>' . ($balanceDue > 0 ? '
+                            <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #C62828; font-weight: 600;">Balance Due:</td>
+                                <td style="padding: 6px 0; font-size: 13px; text-align: right; color: #C62828; font-weight: 600;">' . $currency_symbol . ' ' . number_format($balanceDue, 2) . '</td>
+                            </tr>' : '') . '
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        
+        ' . $paymentsTableHTML . '
+        
+        <!-- FOOTER -->
+        <div style="margin-top: 40px; padding-top: 25px; border-top: 2px solid #E0E0E0; text-align: center;">
+            <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #212121;">' . htmlspecialchars($site_name) . '</p>
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #757575;">' . htmlspecialchars($address) . '</p>
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #757575;">Tel: ' . htmlspecialchars($phone_number) . ' | Email: ' . htmlspecialchars($email_address) . '</p>
+            <p style="margin: 20px 0 0 0; font-size: 11px; color: #9E9E9E; font-style: italic;">Thank you for choosing ' . htmlspecialchars($site_name) . '. We look forward to welcoming you!</p>
         </div>
     </div>';
 }
@@ -619,68 +723,112 @@ function sendInvoiceEmailToGuestWithCC($booking, $invoice_file, $cc_recipients =
         
         $currency_symbol = getSetting('currency_symbol');
         
-        // Prepare email content
+        // Get logo for email
+        $logo_url = getInvoiceLogoUrl();
+        $logo_html_email = '';
+        if (!empty($logo_url)) {
+            $logo_html_email = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($email_site_name) . '" style="max-width: 180px; height: auto; display: block; margin: 0 auto 15px auto;">';
+        }
+        
+        // Prepare email content - Stunning State-of-the-Art Design
         $htmlBody = '
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="color: #8B7355; margin: 0; font-size: 32px;">✓ PAYMENT CONFIRMED</h1>
-                <p style="color: white; margin: 10px 0 0 0; font-size: 18px;">Thank you for your payment!</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #F5F5F5;">
+            <div style="font-family: Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #FFFFFF; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%); padding: 40px 30px; text-align: center;">
+                    ' . $logo_html_email . '
+                    <h1 style="color: #8B7355; margin: 0 0 10px 0; font-size: 28px; font-weight: 300; letter-spacing: 4px;">PAYMENT CONFIRMED</h1>
+                    <p style="color: #FFFFFF; margin: 0; font-size: 16px; opacity: 0.9;">Thank you for your payment</p>
+                </div>
+                
+                <!-- SUCCESS BANNER -->
+                <div style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); padding: 20px 30px; text-align: center;">
+                    <span style="color: #2E7D32; font-size: 18px; font-weight: 600;">✓ Your booking is confirmed</span>
+                </div>
+                
+                <!-- CONTENT -->
+                <div style="padding: 40px 30px;">
+                    
+                    <p style="margin: 0 0 20px 0; font-size: 16px; color: #424242; line-height: 1.6;">
+                        Dear <strong>' . htmlspecialchars($booking['guest_name']) . '</strong>,
+                    </p>
+                    
+                    <p style="margin: 0 0 30px 0; font-size: 15px; color: #616161; line-height: 1.7;">
+                        We are pleased to confirm that your payment has been received. Your booking reference is <span style="color: #8B7355; font-weight: 600;">' . htmlspecialchars($booking['booking_reference']) . '</span>. Please find your detailed invoice attached to this email.
+                    </p>
+                    
+                    <!-- BOOKING DETAILS CARD -->
+                    <div style="background: #FAFAFA; border-radius: 12px; padding: 25px; margin: 0 0 30px 0; border: 1px solid #E0E0E0;">
+                        <h3 style="color: #8B7355; font-size: 12px; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 600;">Booking Summary</h3>
+                        
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #E0E0E0;">
+                                    <span style="font-size: 11px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Room Type</span>
+                                    <p style="margin: 5px 0 0 0; font-size: 15px; font-weight: 600; color: #212121;">' . htmlspecialchars($room['name']) . '</p>
+                                </td>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #E0E0E0;">
+                                    <span style="font-size: 11px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Guests</span>
+                                    <p style="margin: 5px 0 0 0; font-size: 15px; font-weight: 600; color: #212121;">' . (int)$booking['number_of_guests'] . '</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #E0E0E0;">
+                                    <span style="font-size: 11px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Check-in</span>
+                                    <p style="margin: 5px 0 0 0; font-size: 15px; font-weight: 500; color: #424242;">' . date('F j, Y', strtotime($booking['check_in_date'])) . '</p>
+                                </td>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #E0E0E0;">
+                                    <span style="font-size: 11px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 0.5px;">Check-out</span>
+                                    <p style="margin: 5px 0 0 0; font-size: 15px; font-weight: 500; color: #424242;">' . date('F j, Y', strtotime($booking['check_out_date'])) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <!-- TOTAL -->
+                        <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #8B7355; text-align: center;">
+                            <span style="font-size: 12px; color: #9E9E9E; text-transform: uppercase; letter-spacing: 1px;">Total Amount Paid</span>
+                            <p style="margin: 8px 0 0 0; font-size: 28px; font-weight: 600; color: #8B7355;">' . $currency_symbol . ' ' . number_format($booking['total_amount'], 2) . '</p>
+                        </div>
+                    </div>
+                    
+                    <!-- NEXT STEPS -->
+                    <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); border-radius: 12px; padding: 25px; margin: 0 0 30px 0;">
+                        <h3 style="color: #1565C0; font-size: 14px; margin: 0 0 15px 0; font-weight: 600;">📋 Important Information</h3>
+                        <ul style="margin: 0; padding-left: 20px; color: #1565C0;">
+                            <li style="margin-bottom: 8px; font-size: 14px; line-height: 1.5;">Check-in time: <strong>' . getSetting('check_in_time', '2:00 PM') . '</strong></li>
+                            <li style="margin-bottom: 8px; font-size: 14px; line-height: 1.5;">Check-out time: <strong>' . getSetting('check_out_time', '11:00 AM') . '</strong></li>
+                            <li style="margin-bottom: 0; font-size: 14px; line-height: 1.5;">Please bring a valid ID for registration</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- CONTACT -->
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <p style="margin: 0 0 10px 0; font-size: 14px; color: #616161;">
+                            Questions? Contact us at 
+                            <a href="mailto:' . htmlspecialchars($email_from_email) . '" style="color: #8B7355; text-decoration: none; font-weight: 600;">' . htmlspecialchars($email_from_email) . '</a>
+                        </p>
+                    </div>
+                    
+                </div>
+                
+                <!-- FOOTER -->
+                <div style="background: #1A1A1A; padding: 30px; text-align: center;">
+                    <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: 600; color: #FFFFFF;">' . htmlspecialchars($email_site_name) . '</p>
+                    <p style="margin: 0 0 5px 0; font-size: 13px; color: #9E9E9E;">' . htmlspecialchars(getSetting('address_line1') . ', ' . getSetting('address_line2')) . '</p>
+                    <p style="margin: 0 0 20px 0; font-size: 13px; color: #9E9E9E;">' . htmlspecialchars(getSetting('address_country')) . '</p>
+                    <a href="' . htmlspecialchars($email_site_url) . '" style="display: inline-block; background: #8B7355; color: #FFFFFF; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-size: 14px; font-weight: 600;">Visit Our Website</a>
+                </div>
+                
             </div>
-            
-            <div style="background: #f8f9fa; padding: 30px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px;">
-                <p>Dear ' . htmlspecialchars($booking['guest_name']) . ',</p>
-                
-                <p>We are pleased to confirm that your payment has been received. Please find attached your official invoice/receipt for booking <strong>' . htmlspecialchars($booking['booking_reference']) . '</strong>.</p>
-                
-                <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #8B7355;">
-                    <h3 style="color: #1A1A1A; margin-top: 0;">Booking Summary</h3>
-                    
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-                        <span style="font-weight: bold; color: #333;">Room:</span>
-                        <span style="color: #666;">' . htmlspecialchars($room['name']) . '</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-                        <span style="font-weight: bold; color: #333;">Check-in:</span>
-                        <span style="color: #666;">' . date('F j, Y', strtotime($booking['check_in_date'])) . '</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-                        <span style="font-weight: bold; color: #333;">Check-out:</span>
-                        <span style="color: #666;">' . date('F j, Y', strtotime($booking['check_out_date'])) . '</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; padding: 15px 0;">
-                        <span style="font-weight: bold; color: #8B7355; font-size: 18px;">Total Paid:</span>
-                        <span style="color: #8B7355; font-weight: bold; font-size: 18px;">' . $currency_symbol . ' ' . number_format($booking['total_amount'], 0) . '</span>
-                    </div>
-                </div>
-                
-                <div style="background: #d4edda; padding: 15px; border-left: 4px solid #28a745; border-radius: 5px; margin: 20px 0;">
-                    <h3 style="color: #155724; margin-top: 0;">✅ Payment Status: PAID</h3>
-                    <p style="color: #155724; margin: 0;">Your booking is now fully paid and confirmed. We look forward to welcoming you!</p>
-                </div>
-                
-                <div style="background: #e7f3ff; padding: 15px; border-left: 4px solid #0d6efd; border-radius: 5px;">
-                    <h3 style="color: #0d6efd; margin-top: 0;">Next Steps</h3>
-                    <ul style="color: #0d6efd; margin: 10px 0; padding-left: 20px;">
-                        <li>Please save your booking reference: <strong>' . htmlspecialchars($booking['booking_reference']) . '</strong></li>
-                        <li>Check-in time: ' . getSetting('check_in_time', '2:00 PM') . '</li>
-                        <li>Check-out time: ' . getSetting('check_out_time', '11:00 AM') . '</li>
-                        <li>Bring your ID for registration</li>
-                    </ul>
-                </div>
-                
-                <p style="margin-top: 30px;">If you have any questions, please contact us at <a href="mailto:' . htmlspecialchars($email_from_email) . '">' . htmlspecialchars($email_from_email) . '</a>.</p>
-                
-                <p style="margin-top: 20px;">We look forward to welcoming you to <strong>' . htmlspecialchars($email_site_name) . '</strong>!</p>
-                
-                <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #1A1A1A;">
-                    <p style="color: #666; font-size: 14px; margin: 5px 0;"><strong>The ' . htmlspecialchars($email_site_name) . ' Team</strong></p>
-                    <p style="color: #666; font-size: 14px; margin: 5px 0;"><a href="' . htmlspecialchars($email_site_url) . '">' . htmlspecialchars($email_site_url) . '</a></p>
-                </div>
-            </div>
-        </div>';
+        </body>
+        </html>';
         
         $subject = 'Payment Invoice - ' . htmlspecialchars($email_site_name) . ' [' . $booking['booking_reference'] . ']';
         $textBody = '';
