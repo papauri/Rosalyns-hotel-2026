@@ -63,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error = 'Failed to send reminder: ' . $result['message'];
             }
         }
-        
         if ($action === 'regenerate_invoice' && $payment_id > 0) {
             // Get payment details
             $stmt = $pdo->prepare("SELECT * FROM payments WHERE id = ? AND deleted_at IS NULL");
@@ -86,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($result) {
                 // Update payment record with new invoice path
                 $update_stmt = $pdo->prepare("
-                    UPDATE payments 
+                    UPDATE payments
                     SET invoice_path = ?, invoice_number = ?, invoice_generated = 1
                     WHERE id = ?
                 ");
@@ -101,6 +100,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error = 'Failed to regenerate invoice';
             }
         }
+
+        if ($action === 'generate_credit_note' && $payment_id > 0) {
+            // Get payment details
+            $stmt = $pdo->prepare("SELECT * FROM payments WHERE id = ? AND deleted_at IS NULL");
+            $stmt->execute([$payment_id]);
+            $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$payment) {
+                throw new Exception('Payment not found. It may have been deleted or does not exist.');
+            }
+            
+            if ($payment['payment_type'] !== 'refund') {
+                throw new Exception('Credit notes can only be generated for refund payments.');
+            }
+            
+            // Generate credit note number
+            $year = date('Y');
+            $creditNoteNumber = 'CN-' . $year . '-' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
+            
+            // Update payment record with credit note number
+            $update_stmt = $pdo->prepare("
+                UPDATE payments
+                SET invoice_number = ?, invoice_generated = 1
+                WHERE id = ?
+            ");
+            $update_stmt->execute([$creditNoteNumber, $payment_id]);
+            
+            $message = 'Credit note generated successfully! Number: ' . $creditNoteNumber;
+        }
+        
         
     } catch (Exception $e) {
         $error = 'Error: ' . $e->getMessage();
@@ -327,16 +356,31 @@ $site_name = getSetting('site_name');
                                         <span class="badge badge-<?php echo $invoice['payment_status']; ?>">
                                             <?php echo ucfirst(str_replace('_', ' ', $invoice['payment_status'])); ?>
                                         </span>
+                                        <?php if ($invoice['payment_type'] === 'refund'): ?>
+                                            <br><small style="color: var(--finance-danger);">Refund</small>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($invoice['invoice_generated']): ?>
-                                            <span class="badge badge-generated">
-                                                <i class="fas fa-check"></i> Generated
-                                            </span>
+                                        <?php if ($invoice['payment_type'] === 'refund'): ?>
+                                            <?php if ($invoice['invoice_generated']): ?>
+                                                <span class="badge" style="background: #fef2f2; color: #991b1b; border-color: #fecaca;">
+                                                    <i class="fas fa-file-invoice"></i> Credit Note
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge badge-pending">
+                                                    <i class="fas fa-clock"></i> Pending
+                                                </span>
+                                            <?php endif; ?>
                                         <?php else: ?>
-                                            <span class="badge badge-pending">
-                                                <i class="fas fa-clock"></i> Pending
-                                            </span>
+                                            <?php if ($invoice['invoice_generated']): ?>
+                                                <span class="badge badge-generated">
+                                                    <i class="fas fa-check"></i> Generated
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge badge-pending">
+                                                    <i class="fas fa-clock"></i> Pending
+                                                </span>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -389,6 +433,16 @@ $site_name = getSetting('site_name');
                                                     <i class="fas fa-sync"></i> Regenerate
                                                 </button>
                                             </form>
+
+                                            <?php if ($invoice['payment_type'] === 'refund' && !$invoice['invoice_generated']): ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="action" value="generate_credit_note">
+                                                    <input type="hidden" name="payment_id" value="<?php echo $invoice['id']; ?>">
+                                                    <button type="submit" class="btn-action" style="background: #dc3545; color: white;" onclick="return confirm('Generate credit note for this refund?');">
+                                                        <i class="fas fa-file-invoice"></i> Credit Note
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>

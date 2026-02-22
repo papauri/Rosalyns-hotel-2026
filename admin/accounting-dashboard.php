@@ -23,16 +23,19 @@ $endDate = isset($_GET['end_date']) ? $_GET['end_date'] : ($showAll ? '2099-12-3
 
 // Fetch accounting statistics
 try {
-    // Overall financial summary
-    $financialStmt = $pdo->prepare(" 
+    // Overall financial summary with gross/net revenue calculation
+    $financialStmt = $pdo->prepare("
         SELECT
             COUNT(*) as total_payments,
-            COALESCE(SUM(CASE WHEN payment_status IN ('completed', 'paid') THEN total_amount ELSE 0 END), 0) as total_collected,
-            COALESCE(SUM(CASE WHEN payment_status IN ('completed', 'paid') THEN payment_amount ELSE 0 END), 0) as total_collected_excl_vat,
-            COALESCE(SUM(CASE WHEN payment_status IN ('completed', 'paid') THEN vat_amount ELSE 0 END), 0) as total_vat_collected,
-            COALESCE(SUM(CASE WHEN payment_status IN ('pending', 'partial') THEN total_amount ELSE 0 END), 0) as total_pending,
+            COALESCE(SUM(CASE WHEN payment_status IN ('completed', 'paid') AND payment_type != 'refund' THEN total_amount ELSE 0 END), 0) as total_collected,
+            COALESCE(SUM(CASE WHEN payment_status IN ('completed', 'paid') AND payment_type != 'refund' THEN payment_amount ELSE 0 END), 0) as total_collected_excl_vat,
+            COALESCE(SUM(CASE WHEN payment_status IN ('completed', 'paid') AND payment_type != 'refund' THEN vat_amount ELSE 0 END), 0) as total_vat_collected,
+            COALESCE(SUM(CASE WHEN payment_status IN ('pending', 'partial') AND payment_type != 'refund' THEN total_amount ELSE 0 END), 0) as total_pending,
+            COALESCE(SUM(CASE WHEN payment_type = 'refund' THEN refund_amount ELSE 0 END), 0) as total_refunds_issued,
             COALESCE(SUM(CASE WHEN payment_status = 'refunded' THEN total_amount ELSE 0 END), 0) as total_refunded,
-            COALESCE(SUM(CASE WHEN payment_status = 'cancelled' THEN total_amount ELSE 0 END), 0) as total_cancelled
+            COALESCE(SUM(CASE WHEN payment_status = 'cancelled' THEN total_amount ELSE 0 END), 0) as total_cancelled,
+            COALESCE(SUM(CASE WHEN payment_type = 'refund' AND refund_status = 'pending' THEN refund_amount ELSE 0 END), 0) as pending_refunds,
+            COALESCE(SUM(CASE WHEN payment_type = 'refund' AND refund_status = 'completed' THEN refund_amount ELSE 0 END), 0) as completed_refunds
         FROM payments
         WHERE payment_date BETWEEN ? AND ?
           AND deleted_at IS NULL
@@ -86,6 +89,22 @@ try {
     ");
     $methodStmt->execute([$startDate, $endDate]);
     $paymentMethods = $methodStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Refund breakdown by reason
+    $refundReasonStmt = $pdo->prepare("
+        SELECT
+            refund_reason,
+            COUNT(*) as count,
+            COALESCE(SUM(refund_amount), 0) as total_amount
+        FROM payments
+        WHERE payment_type = 'refund'
+          AND payment_date BETWEEN ? AND ?
+          AND deleted_at IS NULL
+        GROUP BY refund_reason
+        ORDER BY total_amount DESC
+    ");
+    $refundReasonStmt->execute([$startDate, $endDate]);
+    $refundReasons = $refundReasonStmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Recent payments (last 20)
     $recentStmt = $pdo->prepare("
@@ -205,6 +224,35 @@ try {
             <?php endif; ?>
         </div>
 
+        <!-- Revenue Summary Cards (Gross/Net/Refunds) -->
+        <div class="revenue-summary">
+            <div class="revenue-card gross">
+                <div class="revenue-card-label">Gross Revenue</div>
+                <div class="revenue-card-value"><?php echo $currency_symbol; ?><?php echo number_format($financialSummary['total_collected'] ?? 0, 0); ?></div>
+                <div style="font-size: 11px; color: var(--finance-muted); margin-top: 4px;">
+                    <?php echo $financialSummary['total_payments'] ?? 0; ?> payments
+                </div>
+            </div>
+
+            <div class="revenue-card refunds">
+                <div class="revenue-card-label">Refunds Issued</div>
+                <div class="revenue-card-value">-<?php echo $currency_symbol; ?><?php echo number_format($financialSummary['total_refunds_issued'] ?? 0, 0); ?></div>
+                <div style="font-size: 11px; color: var(--finance-muted); margin-top: 4px;">
+                    <?php if (($financialSummary['pending_refunds'] ?? 0) > 0): ?>
+                        <span style="color: var(--finance-warning);"><?php echo $currency_symbol; ?><?php echo number_format($financialSummary['pending_refunds'], 0); ?> pending</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="revenue-card net">
+                <div class="revenue-card-label">Net Revenue</div>
+                <div class="revenue-card-value"><?php echo $currency_symbol; ?><?php echo number_format(($financialSummary['total_collected'] ?? 0) - ($financialSummary['total_refunds_issued'] ?? 0), 0); ?></div>
+                <div style="font-size: 11px; color: var(--finance-success); margin-top: 4px;">
+                    After refunds
+                </div>
+            </div>
+        </div>
+
         <!-- Financial Summary Stats -->
         <div class="stats-grid">
             <div class="stat-card primary">
@@ -225,9 +273,14 @@ try {
             </div>
 
             <div class="stat-card danger">
-                <div class="stat-label">Refunded / Cancelled</div>
-                <div class="stat-value"><?php echo $currency_symbol; ?><?php echo number_format(($financialSummary['total_refunded'] ?? 0) + ($financialSummary['total_cancelled'] ?? 0), 0); ?></div>
-                <div class="stat-sub">Refunded or cancelled amount</div>
+                <div class="stat-label">Refunds Processed</div>
+                <div class="stat-value"><?php echo $currency_symbol; ?><?php echo number_format($financialSummary['completed_refunds'] ?? 0, 0); ?></div>
+                <div class="stat-sub">
+                    Completed refunds
+                    <?php if (($financialSummary['pending_refunds'] ?? 0) > 0): ?>
+                        <br><span style="color: var(--finance-warning);"><?php echo $currency_symbol; ?><?php echo number_format($financialSummary['pending_refunds'], 0); ?> pending</span>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <div class="stat-card success">
@@ -315,6 +368,53 @@ try {
                 <?php endif; ?>
             </div>
         </div>
+
+        <!-- Refund Breakdown by Reason -->
+        <?php if (!empty($refundReasons)): ?>
+            <div class="section-card">
+                <h3>
+                    <i class="fas fa-undo"></i> Refund Breakdown by Reason
+                </h3>
+                <div class="table-container" style="margin-bottom: 0; padding: 0;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Reason</th>
+                                <th>Count</th>
+                                <th>Total Amount</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $totalRefundAmount = array_sum(array_column($refundReasons, 'total_amount'));
+                            $reasonLabels = [
+                                'early_checkout' => 'Early Checkout',
+                                'late_checkout_charge' => 'Late Checkout Charge',
+                                'cancellation' => 'Cancellation',
+                                'service_issue' => 'Service Issue',
+                                'overpayment' => 'Overpayment',
+                                'other' => 'Other'
+                            ];
+                            foreach ($refundReasons as $reason):
+                                $percentage = $totalRefundAmount > 0 ? round(($reason['total_amount'] / $totalRefundAmount) * 100, 1) : 0;
+                            ?>
+                                <tr>
+                                    <td>
+                                        <span class="refund-reason-badge refund-reason-<?php echo $reason['refund_reason']; ?>">
+                                            <?php echo $reasonLabels[$reason['refund_reason']] ?? ucfirst(str_replace('_', ' ', $reason['refund_reason'])); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo $reason['count']; ?></td>
+                                    <td><?php echo $currency_symbol; ?><?php echo number_format($reason['total_amount'], 0); ?></td>
+                                    <td><?php echo $percentage; ?>%</td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <!-- Recent Payments -->
         <h3 class="section-title">Recent Payments</h3>

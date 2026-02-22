@@ -326,14 +326,19 @@ $totalPages = ceil($total / $limit);
                                 </td>
                                 <td>
                                     <div class="quick-actions">
-                                        <a href="payment-details.php?id=<?php echo $payment['id']; ?>" class="btn btn-primary btn-sm">
+                                        <a href="payment-details.php?id=<?php echo $payment['id']; ?>" class="btn btn-primary btn-sm" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <a href="invoices.php?search=<?php echo urlencode($payment['payment_reference']); ?>" class="btn btn-secondary btn-sm" title="Invoice">
                                             <i class="fas fa-file-invoice"></i>
                                         </a>
+                                        <?php if (in_array($payment['payment_status'], ['completed', 'paid'], true) && $payment['payment_type'] != 'refund'): ?>
+                                            <a href="payment-refund.php?id=<?php echo $payment['id']; ?>" class="btn btn-warning btn-sm" title="Process Refund" onclick="return confirm('Process refund for this payment?');">
+                                                <i class="fas fa-undo"></i>
+                                            </a>
+                                        <?php endif; ?>
                                         <?php if (!in_array($payment['payment_status'], ['completed', 'paid'], true)): ?>
-                                            <a href="payment-add.php?edit=<?php echo $payment['id']; ?>" class="btn btn-warning btn-sm">
+                                            <a href="payment-add.php?edit=<?php echo $payment['id']; ?>" class="btn btn-info btn-sm" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         <?php endif; ?>

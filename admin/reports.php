@@ -51,6 +51,9 @@ $conferenceRoomStats = [];
 $recentBookings = [];
 $reviewStats = [];
 $gymInquiryStats = [];
+$refundReasons = [];
+$refundStatuses = [];
+$refundTrends = [];
 
 $totalRevenue = 0;
 $totalVatCollected = 0;
@@ -61,6 +64,9 @@ $avgStayLength = 0;
 $avgRevenuePerBooking = 0;
 $cancellationRate = 0;
 $totalStatusCount = 0;
+$totalRefunds = 0;
+$pendingRefunds = 0;
+$completedRefunds = 0;
 $error = null;
 
 $adr = 0;
@@ -216,6 +222,62 @@ try {
     ");
     $topClientsStmt->execute([$start_date, $end_date]);
     $topClients = $topClientsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // ============================================
+    // REFUND ANALYSIS QUERIES
+    // ============================================
+
+    // 9. Refund Breakdown by Reason
+    $refundReasonStmt = $pdo->prepare("
+        SELECT refund_reason, COUNT(*) as count,
+               COALESCE(SUM(refund_amount), 0) as total_amount
+        FROM payments
+        WHERE payment_type = 'refund' AND deleted_at IS NULL
+        AND payment_date >= ? AND payment_date <= ?
+        GROUP BY refund_reason
+        ORDER BY total_amount DESC
+    ");
+    $refundReasonStmt->execute([$start_date, $end_date]);
+    $refundReasons = $refundReasonStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 10. Refund Status Breakdown
+    $refundStatusStmt = $pdo->prepare("
+        SELECT refund_status, COUNT(*) as count,
+               COALESCE(SUM(refund_amount), 0) as total_amount
+        FROM payments
+        WHERE payment_type = 'refund' AND deleted_at IS NULL
+        AND payment_date >= ? AND payment_date <= ?
+        GROUP BY refund_status
+        ORDER BY refund_status ASC
+    ");
+    $refundStatusStmt->execute([$start_date, $end_date]);
+    $refundStatuses = $refundStatusStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 11. Refund Trends by Date
+    $refundTrendStmt = $pdo->prepare("
+        SELECT DATE(payment_date) as date, COUNT(*) as count,
+               COALESCE(SUM(refund_amount), 0) as daily_refunds,
+               refund_reason
+        FROM payments
+        WHERE payment_type = 'refund' AND deleted_at IS NULL
+        AND payment_date >= ? AND payment_date <= ?
+        GROUP BY DATE(payment_date), refund_reason
+        ORDER BY date ASC
+    ");
+    $refundTrendStmt->execute([$start_date, $end_date]);
+    $refundTrends = $refundTrendStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Calculate refund totals
+    foreach ($refundReasons as $reason) {
+        $totalRefunds += $reason['total_amount'];
+    }
+    foreach ($refundStatuses as $status) {
+        if ($status['refund_status'] === 'pending') {
+            $pendingRefunds = $status['total_amount'];
+        } elseif ($status['refund_status'] === 'completed') {
+            $completedRefunds = $status['total_amount'];
+        }
+    }
 
     // ============================================
     // BOOKINGS TAB QUERIES
@@ -927,6 +989,106 @@ try {
                 <?php endif; ?>
             </div>
             <?php endif; ?>
+
+            <!-- Refund Analysis -->
+            <div class="report-section">
+                <h2><i class="fas fa-undo"></i> Refund Analysis</h2>
+                
+                <!-- Refund Summary Cards -->
+                <div class="summary-cards" style="margin-bottom: 20px;">
+                    <div class="summary-card" style="border-left: 4px solid #dc3545;">
+                        <h3>Total Refunds</h3>
+                        <div class="value">-<?php echo $currency_symbol . ' ' . number_format($totalRefunds, 2); ?></div>
+                        <div class="subtitle">Issued in period</div>
+                    </div>
+                    <div class="summary-card" style="border-left: 4px solid #ffc107;">
+                        <h3>Pending Refunds</h3>
+                        <div class="value"><?php echo $currency_symbol . ' ' . number_format($pendingRefunds, 2); ?></div>
+                        <div class="subtitle">Awaiting processing</div>
+                    </div>
+                    <div class="summary-card" style="border-left: 4px solid #28a745;">
+                        <h3>Completed Refunds</h3>
+                        <div class="value"><?php echo $currency_symbol . ' ' . number_format($completedRefunds, 2); ?></div>
+                        <div class="subtitle">Successfully processed</div>
+                    </div>
+                    <div class="summary-card" style="border-left: 4px solid #17a2b8;">
+                        <h3>Net Revenue</h3>
+                        <div class="value"><?php echo $currency_symbol . ' ' . number_format($totalRevenue - $totalRefunds, 2); ?></div>
+                        <div class="subtitle">After refunds</div>
+                    </div>
+                </div>
+
+                <?php if (!empty($refundReasons)): ?>
+                    <!-- Refund Breakdown by Reason -->
+                    <h3 style="margin-top: 24px; margin-bottom: 12px; font-size: 15px;">Refunds by Reason</h3>
+                    <table class="report-table">
+                        <thead><tr><th>Reason</th><th>Count</th><th>Total Amount</th><th>Percentage</th></tr></thead>
+                        <tbody>
+                            <?php
+                            $reasonLabels = [
+                                'early_checkout' => 'Early Checkout',
+                                'late_checkout_charge' => 'Late Checkout Charge',
+                                'cancellation' => 'Cancellation',
+                                'service_issue' => 'Service Issue',
+                                'overpayment' => 'Overpayment',
+                                'other' => 'Other'
+                            ];
+                            foreach ($refundReasons as $reason):
+                                $percentage = $totalRefunds > 0 ? round(($reason['total_amount'] / $totalRefunds) * 100, 1) : 0;
+                            ?>
+                                <tr>
+                                    <td>
+                                        <span class="refund-reason-badge refund-reason-<?php echo $reason['refund_reason']; ?>">
+                                            <?php echo $reasonLabels[$reason['refund_reason']] ?? ucfirst(str_replace('_', ' ', $reason['refund_reason'])); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo number_format($reason['count']); ?></td>
+                                    <td><?php echo $currency_symbol . ' ' . number_format($reason['total_amount'], 2); ?></td>
+                                    <td><?php echo $percentage; ?>%</td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+
+                <?php if (!empty($refundStatuses)): ?>
+                    <!-- Refund Status Breakdown -->
+                    <h3 style="margin-top: 24px; margin-bottom: 12px; font-size: 15px;">Refunds by Status</h3>
+                    <table class="report-table">
+                        <thead><tr><th>Status</th><th>Count</th><th>Total Amount</th></tr></thead>
+                        <tbody>
+                            <?php
+                            $statusLabels = [
+                                'pending' => 'Pending',
+                                'processing' => 'Processing',
+                                'completed' => 'Completed',
+                                'failed' => 'Failed'
+                            ];
+                            $statusColors = [
+                                'pending' => '#ffc107',
+                                'processing' => '#17a2b8',
+                                'completed' => '#28a745',
+                                'failed' => '#dc3545'
+                            ];
+                            foreach ($refundStatuses as $status): ?>
+                                <tr>
+                                    <td>
+                                        <span class="badge-sm" style="background: <?php echo $statusColors[$status['refund_status']] ?? '#6c757d'; ?>; color: white;">
+                                            <?php echo $statusLabels[$status['refund_status']] ?? ucfirst($status['refund_status']); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo number_format($status['count']); ?></td>
+                                    <td><?php echo $currency_symbol . ' ' . number_format($status['total_amount'], 2); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+
+                <?php if (empty($refundReasons) && empty($refundStatuses)): ?>
+                    <div class="empty-state"><i class="fas fa-undo"></i><p>No refund data for this period</p></div>
+                <?php endif; ?>
+            </div>
 
             <!-- Monthly ADR Trend -->
             <div class="report-section">

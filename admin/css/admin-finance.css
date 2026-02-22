@@ -1,22 +1,97 @@
-/* Admin Finance Shared Theme */
+/* Admin Finance Shared Theme - Enhanced */
 :root {
     --finance-bg: #f7f6f3;
     --finance-surface: #ffffff;
     --finance-border: #e7e2d8;
     --finance-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+    --finance-shadow-sm: 0 2px 8px rgba(16, 24, 40, 0.06);
     --finance-text: #1f2937;
     --finance-muted: #6b7280;
     --finance-accent: #8b7355;
     --finance-accent-2: #a48a64;
     --finance-success: #1f7a42;
+    --finance-success-bg: #ecfdf3;
+    --finance-success-border: #bbf7d0;
     --finance-warning: #b7791f;
+    --finance-warning-bg: #fff7ed;
+    --finance-warning-border: #fed7aa;
     --finance-danger: #b42318;
+    --finance-danger-bg: #fef2f2;
+    --finance-danger-border: #fecaca;
     --finance-info: #1d4ed8;
+    --finance-info-bg: #eff6ff;
+    --finance-info-border: #bfdbfe;
 }
 
 body {
     background: radial-gradient(circle at top right, #fdfbf7 0%, var(--finance-bg) 45%, #f3f0ea 100%);
+    min-height: 100vh;
 }
+
+/* ============================================
+   ACCOUNTING DASHBOARD STYLES
+   ============================================ */
+
+.accounting-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--finance-border);
+}
+
+.accounting-header h2.section-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--finance-text);
+}
+
+.date-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.date-filter label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--finance-muted);
+}
+
+.date-filter input[type="date"] {
+    padding: 8px 12px;
+    border: 1px solid var(--finance-border);
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--finance-surface);
+}
+
+.date-filter button {
+    padding: 8px 16px;
+    background: var(--finance-accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.date-filter button:hover {
+    background: var(--finance-accent-2);
+    transform: translateY(-1px);
+}
+
+/* ============================================
+   SUMMARY CARDS & STATS GRID
+   ============================================ */
 
 .summary-cards,
 .stats-grid {
@@ -46,15 +121,23 @@ body {
 
 .summary-card,
 .stat-card {
-    padding: 16px 18px;
+    padding: 18px 20px;
+    transition: all 0.2s ease;
+}
+
+.summary-card:hover,
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(16, 24, 40, 0.12);
 }
 
 .summary-card .label,
 .stat-label {
     color: var(--finance-muted);
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
+    font-weight: 600;
 }
 
 .summary-card .value,
@@ -62,8 +145,41 @@ body {
 .summary-value {
     color: var(--finance-text);
     font-weight: 700;
+    font-size: 24px;
     margin-top: 8px;
 }
+
+.stat-sub {
+    font-size: 12px;
+    color: var(--finance-muted);
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+/* Stat Card Variants */
+.stat-card.primary {
+    border-left: 4px solid var(--finance-accent);
+}
+
+.stat-card.success {
+    border-left: 4px solid var(--finance-success);
+}
+
+.stat-card.warning {
+    border-left: 4px solid var(--finance-warning);
+}
+
+.stat-card.danger {
+    border-left: 4px solid var(--finance-danger);
+}
+
+.stat-card.info {
+    border-left: 4px solid var(--finance-info);
+}
+
+/* ============================================
+   SECTIONS & CONTAINERS
+   ============================================ */
 
 .report-section,
 .section-card,
@@ -75,9 +191,40 @@ body {
 .payment-summary-card,
 .vat-info,
 .form-container {
-    padding: 16px;
-    margin-bottom: 18px;
+    padding: 18px;
+    margin-bottom: 20px;
 }
+
+.section-card h3,
+.report-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--finance-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-card h3 i,
+.report-section h3 i {
+    color: var(--finance-accent);
+}
+
+/* ============================================
+   SECTION GRID (Two Column Layout)
+   ============================================ */
+
+.section-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 18px;
+    margin-bottom: 20px;
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
 
 .table,
 .report-table,
@@ -90,44 +237,100 @@ body {
 .report-table thead th,
 .invoices-table thead th {
     text-align: left;
-    padding: 11px 10px;
-    border-bottom: 1px solid var(--finance-border);
+    padding: 12px 14px;
+    border-bottom: 2px solid var(--finance-border);
     color: #4b5563;
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    background: linear-gradient(to bottom, #faf9f6, var(--finance-surface));
 }
 
 .table tbody td,
 .report-table tbody td,
 .invoices-table tbody td {
-    padding: 11px 10px;
+    padding: 12px 14px;
     border-bottom: 1px solid #f0ece5;
     color: var(--finance-text);
-    vertical-align: top;
+    vertical-align: middle;
+    font-size: 13px;
 }
+
+.table tbody tr:hover,
+.report-table tbody tr:hover,
+.invoices-table tbody tr:hover {
+    background: #faf9f6;
+}
+
+.table .empty-state,
+.report-table .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--finance-muted);
+}
+
+.table .empty-state i,
+.report-table .empty-state i {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+/* ============================================
+   BADGES
+   ============================================ */
 
 .badge,
 .badge-sm,
 .status-badge {
     border-radius: 999px;
-    padding: 5px 10px;
+    padding: 5px 11px;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
     text-transform: uppercase;
     border: 1px solid transparent;
+    display: inline-block;
 }
 
 .badge-pending,
-.badge-partial { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.badge-partial {
+    background: var(--finance-warning-bg);
+    color: #9a3412;
+    border-color: var(--finance-warning-border);
+}
+
 .badge-paid,
-.badge-completed { background: #ecfdf3; color: #166534; border-color: #bbf7d0; }
+.badge-completed {
+    background: var(--finance-success-bg);
+    color: #166534;
+    border-color: var(--finance-success-border);
+}
+
 .badge-refunded,
 .badge-cancelled,
-.badge-failed { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
-.badge-room { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
-.badge-conference { background: #f5f3ff; color: #5b21b6; border-color: #ddd6fe; }
+.badge-failed {
+    background: var(--finance-danger-bg);
+    color: #991b1b;
+    border-color: var(--finance-danger-border);
+}
+
+.badge-room {
+    background: var(--finance-info-bg);
+    color: #1e40af;
+    border-color: var(--finance-info-border);
+}
+
+.badge-conference {
+    background: #f5f3ff;
+    color: #5b21b6;
+    border-color: #ddd6fe;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
 
 .btn,
 .btn-action,
@@ -136,33 +339,79 @@ body {
 .btn-filter,
 .btn-reset {
     border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
+
+.btn-primary {
+    background: var(--finance-accent);
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover {
+    background: var(--finance-accent-2);
+    transform: translateY(-1px);
+    box-shadow: var(--finance-shadow-sm);
+}
+
+.btn-secondary {
+    background: white;
+    color: var(--finance-text);
+    border: 1px solid var(--finance-border);
+}
+
+.btn-secondary:hover {
+    background: #faf9f6;
+    border-color: var(--finance-accent);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 11px;
+}
+
+/* ============================================
+   QUICK ACTIONS
+   ============================================ */
 
 .quick-actions,
 .action-buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
 .quick-actions .btn,
 .action-buttons .btn,
 .action-buttons .btn-action {
     border: 1px solid var(--finance-border);
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--finance-shadow-sm);
+    padding: 10px 18px;
 }
 
 .quick-actions .btn:hover,
 .action-buttons .btn:hover,
 .action-buttons .btn-action:hover {
     transform: translateY(-1px);
+    box-shadow: var(--finance-shadow);
 }
+
+/* ============================================
+   FILTERS
+   ============================================ */
 
 .filter-form,
 .filters-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
+    gap: 14px;
     align-items: end;
 }
 
@@ -184,6 +433,8 @@ body {
     border-radius: 10px;
     padding: 10px 12px;
     background: #fff;
+    font-size: 13px;
+    transition: all 0.2s ease;
 }
 
 .filter-group input:focus,
@@ -196,9 +447,247 @@ body {
     box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.16);
 }
 
+/* ============================================
+   PAYMENT METHOD ITEMS
+   ============================================ */
+
+.payment-method-item,
+.outstanding-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0ece5;
+}
+
+.payment-method-item:last-child,
+.outstanding-item:last-child {
+    border-bottom: none;
+}
+
+.method-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    color: var(--finance-text);
+}
+
+.method-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--finance-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--finance-accent);
+}
+
+.method-stats {
+    text-align: right;
+}
+
+.method-count {
+    font-size: 11px;
+    color: var(--finance-muted);
+}
+
+.method-total,
+.outstanding-amount {
+    font-weight: 600;
+    color: var(--finance-text);
+    font-size: 14px;
+}
+
+.outstanding-type {
+    font-weight: 500;
+    color: var(--finance-text);
+}
+
+/* ============================================
+   VAT INFO
+   ============================================ */
+
+.vat-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+}
+
+.vat-info p {
+    margin: 0;
+    font-size: 13px;
+}
+
+.vat-info strong {
+    color: var(--finance-text);
+}
+
+/* ============================================
+   PAGINATION
+   ============================================ */
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.pagination a,
+.pagination span {
+    padding: 8px 14px;
+    border: 1px solid var(--finance-border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--finance-text);
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.pagination a:hover {
+    background: var(--finance-bg);
+    border-color: var(--finance-accent);
+}
+
 .pagination .current {
     background: var(--finance-accent);
     color: #fff;
     border-color: var(--finance-accent);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+    .accounting-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .date-filter {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .date-filter label {
+        width: 100%;
+    }
+
+    .date-filter input[type="date"] {
+        flex: 1;
+    }
+
+    .summary-cards,
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .section-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .table,
+    .report-table,
+    .invoices-table table {
+        font-size: 12px;
+    }
+
+    .table thead th,
+    .report-table thead th,
+    .invoices-table thead th,
+    .table tbody td,
+    .report-table tbody td,
+    .invoices-table tbody td {
+        padding: 8px 10px;
+    }
+}
+
+/* ============================================
+   REVENUE SUMMARY CARDS
+   ============================================ */
+
+.revenue-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.revenue-card {
+    background: var(--finance-surface);
+    border: 1px solid var(--finance-border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+
+.revenue-card.gross {
+    border-top: 3px solid var(--finance-success);
+}
+
+.revenue-card.refunds {
+    border-top: 3px solid var(--finance-danger);
+}
+
+.revenue-card.net {
+    border-top: 3px solid var(--finance-accent);
+}
+
+.revenue-card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--finance-muted);
+    margin-bottom: 8px;
+}
+
+.revenue-card-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--finance-text);
+}
+
+/* ============================================
+   REFUND BADGES
+   ============================================ */
+
+.refund-reason-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.refund-reason-early_checkout {
+    background: #eff6ff;
+    color: #1e40af;
+}
+
+.refund-reason-late_checkout {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.refund-reason-cancellation {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.refund-reason-service_issue {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.refund-reason-other {
+    background: #f3f4f6;
+    color: #374151;
 }
 
