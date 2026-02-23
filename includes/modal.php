@@ -66,9 +66,7 @@ if (!function_exists('renderModal')) {
             <div class="modal__wrapper">
                 <div class="modal__container">
                     <?php if ($opts['show_close']): ?>
-                        <button class="modal__close" data-modal-close aria-label="Close modal">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
+                        <button class="modal__close" data-modal-close aria-label="Close modal"></button>
                     <?php endif; ?>
                     
                     <?php if (!empty($title)): ?>

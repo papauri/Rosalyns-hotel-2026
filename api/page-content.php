@@ -27,7 +27,9 @@ try {
         'gym' => 'gym.php',
         'conference' => 'conference.php',
         'rooms-showcase' => 'rooms-showcase.php',
-        'rooms-gallery' => 'rooms-gallery.php'
+        'rooms-gallery' => 'rooms-gallery.php',
+        'contact-us' => 'contact-us.php',
+        'guest-services' => 'guest-services.php'
     ];
     
     // Validate page parameter

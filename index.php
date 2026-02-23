@@ -268,7 +268,7 @@ foreach ($footer_links_raw as $link) {
                         </div>
                         <div class="editorial-about-cta">
                             <a href="#rooms" class="btn btn-primary">Explore Our Rooms</a>
-                            <a href="#contact" class="btn btn-outline btn-outline-on-light">Contact Us</a>
+                            <a href="contact-us.php" class="btn btn-outline btn-outline-on-light">Contact Us</a>
                         </div>
                     </div>
                 </div>
