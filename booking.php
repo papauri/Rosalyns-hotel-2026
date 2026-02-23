@@ -1120,6 +1120,9 @@ try {
                         <span>Total Amount:</span>
                         <span id="summaryTotal">-</span>
                     </div>
+                    <div class="summary-note" id="summaryTourismLevyNote" style="display:none;">
+                        <i class="fas fa-percent"></i> <span id="tourismLevyText"></span>
+                    </div>
                     <div class="summary-note" id="summaryNote">
                         <i class="fas fa-info-circle"></i> Payment details will be provided upon confirmation
                     </div>
@@ -1147,6 +1150,10 @@ try {
         const emailReservations = '<?php echo $email_reservations_esc; ?>';
         const currencySymbol = '<?php echo htmlspecialchars($currency_symbol); ?>';
         const childPriceMultiplier = <?php echo json_encode((float)getSetting('booking_child_price_multiplier', getSetting('child_guest_price_multiplier', 50))); ?>;
+        
+        // Tourism levy settings
+        const tourismLevyEnabled = <?php echo json_encode((bool)getSetting('tourism_levy_enabled', false)); ?>;
+        const tourismLevyPercent = <?php echo json_encode((float)getSetting('tourism_levy_percent', 0)); ?>;
         
         // Blocked dates from server (global + per room)
         const globalBlockedDates = <?php echo json_encode(array_values($global_blocked_dates)); ?>;
@@ -1821,7 +1828,14 @@ try {
                         : Number(childPriceMultiplier);
                     const childPerNight = pricePerNight * (Math.max(0, roomChildMultiplier || 0) / 100);
                     const childSupplement = childGuests > 0 ? (childPerNight * childGuests * nights) : 0;
-                    const total = baseTotal + childSupplement;
+                    
+                    // Calculate tourism levy if enabled
+                    let tourismLevyAmount = 0;
+                    if (tourismLevyEnabled && tourismLevyPercent > 0) {
+                        tourismLevyAmount = (baseTotal + childSupplement) * (tourismLevyPercent / 100);
+                    }
+                    
+                    const total = baseTotal + childSupplement + tourismLevyAmount;
                     
                     // Update booking type badge
                     const selectedBookingType = document.querySelector('input[name="booking_type"]:checked');
@@ -1869,6 +1883,16 @@ try {
                     
                     // Update total
                     document.getElementById('summaryTotal').textContent = currencySymbol + total.toLocaleString();
+                    
+                    // Update tourism levy hint
+                    const tourismLevyNote = document.getElementById('summaryTourismLevyNote');
+                    const tourismLevyText = document.getElementById('tourismLevyText');
+                    if (tourismLevyEnabled && tourismLevyPercent > 0 && tourismLevyAmount > 0) {
+                        tourismLevyNote.style.display = '';
+                        tourismLevyText.textContent = `Includes ${tourismLevyPercent}% Tourism Levy`;
+                    } else {
+                        tourismLevyNote.style.display = 'none';
+                    }
                     
                     document.getElementById('bookingSummary').style.display = 'block';
                     
@@ -2144,7 +2168,16 @@ try {
                             
                             if (roomStatus && !roomStatus.available) {
                                 e.preventDefault();
-                                showAvailabilityMessage(roomStatus.message, 'error');
+                                // Show user-friendly message with tip when room is unavailable
+                                const friendlyMessage = `
+                                    <i class="fas fa-calendar-times"></i>
+                                    <strong>Sorry, this room is fully booked for your selected dates.</strong>
+                                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(220, 53, 69, 0.2);">
+                                        <i class="fas fa-lightbulb" style="color: #ffc107; margin-right: 6px;"></i>
+                                        <strong>Tip:</strong> Try changing your dates slightly or check our other available room types above.
+                                    </div>
+                                `;
+                                showAvailabilityMessage(friendlyMessage, 'error');
                                 return false;
                             }
                         }
@@ -2237,17 +2270,25 @@ try {
                         
                         if (availableRooms.length === 0) {
                             showAvailabilityMessage(
-                                '<i class="fas fa-calendar-times"></i> <strong>No rooms available</strong> for the selected dates. ' +
-                                '<i class="fas fa-lightbulb" style="margin-top: 8px; display: inline-block;"></i> ' +
-                                '<strong>Tip:</strong> Try different dates or reduce the number of guests.',
+                                '<div style="line-height: 1.8;">' +
+                                '<i class="fas fa-calendar-times"></i> ' +
+                                '<strong>Sorry, all rooms are fully booked for your selected dates.</strong><br>' +
+                                '<div style="margin-top: 10px; padding: 10px; background: rgba(255, 193, 7, 0.15); border-radius: 4px; border-left: 3px solid #ffc107;">' +
+                                '<i class="fas fa-lightbulb" style="color: #ffc107; margin-right: 6px;"></i>' +
+                                '<strong>Tip:</strong> Try adjusting your check-in/check-out dates or check back later for availability.' +
+                                '</div></div>',
                                 'error'
                             );
                         } else if (availableRooms.length < roomOptions.length) {
                             const unavailableCount = roomOptions.length - availableRooms.length;
                             showAvailabilityMessage(
-                                `<i class="fas fa-info-circle"></i> ${unavailableCount} room type${unavailableCount > 1 ? 's are' : ' is'} unavailable for your selected dates. ` +
-                                '<i class="fas fa-lightbulb" style="margin-top: 8px; display: inline-block;"></i> ' +
-                                '<strong>Tip:</strong> Select from the available rooms above or try different dates.',
+                                '<div style="line-height: 1.8;">' +
+                                `<i class="fas fa-info-circle"></i> ` +
+                                `<strong>${unavailableCount} room type${unavailableCount > 1 ? 's are' : ' is'} unavailable</strong> for your selected dates.<br>` +
+                                '<div style="margin-top: 8px; padding: 8px; background: rgba(255, 193, 7, 0.1); border-radius: 4px; border-left: 3px solid #ffc107;">' +
+                                '<i class="fas fa-lightbulb" style="color: #ffc107; margin-right: 6px;"></i>' +
+                                '<strong>Tip:</strong> Select from the available rooms highlighted above or try different dates.' +
+                                '</div></div>',
                                 'warning'
                             );
                         } else {
@@ -2596,7 +2637,7 @@ try {
             let btnDisabled = true;
             
             if (!availabilityValid) {
-                btnText = '<i class="fas fa-ban"></i> Room Unavailable';
+                btnText = '<i class="fas fa-calendar-times"></i> Room Fully Booked - Try Different Dates';
                 btnDisabled = true;
             } else if (selectedRoomId && checkIn && checkOut && numGuests && childValid && adultsInt >= 1) {
                 // All required fields are filled - allow submission

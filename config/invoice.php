@@ -187,6 +187,7 @@ function generateInvoicePDF($booking_id) {
 
 /**
  * Get hotel logo URL for invoices
+ * IMPORTANT: PDF generators and emails require absolute URLs for images
  */
 function getInvoiceLogoUrl() {
     $logo_url = getSetting('logo_url', '');
@@ -199,7 +200,9 @@ function getInvoiceLogoUrl() {
     
     // If logo is a relative path, make it absolute
     if (!empty($logo_url) && strpos($logo_url, 'http') !== 0) {
-        $logo_url = rtrim($site_url, '/') . '/' . ltrim($logo_url, '/');
+        // Use site_url from database, fallback to BASE_URL constant
+        $base_url = !empty($site_url) ? $site_url : (defined('BASE_URL') ? BASE_URL : '');
+        $logo_url = rtrim($base_url, '/') . '/' . ltrim($logo_url, '/');
     }
     
     return $logo_url;
@@ -223,7 +226,9 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
     $childGuests = (int)($booking['child_guests'] ?? 0);
     $adultGuests = (int)($booking['adult_guests'] ?? max(1, ((int)($booking['number_of_guests'] ?? 1)) - $childGuests));
     $childSupplementTotal = (float)($booking['child_supplement_total'] ?? 0);
-    $baseAmount = max(0, (float)$booking['total_amount'] - $childSupplementTotal);
+    $tourismLevyAmount = (float)($booking['tourism_levy_amount'] ?? 0);
+    $tourismLevyPercent = (float)($booking['tourism_levy_percent'] ?? 0);
+    $baseAmount = max(0, (float)$booking['total_amount'] - $childSupplementTotal - $tourismLevyAmount);
     $childMultiplier = (float)($booking['child_price_multiplier'] ?? getSetting('booking_child_price_multiplier', getSetting('child_guest_price_multiplier', 50)));
     
     // Get VAT settings - more flexible check
@@ -369,6 +374,17 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
             <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: center; color: #616161;">' . $childGuests . '</td>
             <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; color: #616161;">' . $currency_symbol . ' ' . number_format($childSupplementTotal / max(1, $childGuests), 2) . '</td>
             <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; font-weight: 500; color: #424242;">' . $currency_symbol . ' ' . number_format($childSupplementTotal, 2) . '</td>
+        </tr>';
+    }
+    
+    // Tourism levy row
+    if ($tourismLevyAmount > 0 && $tourismLevyPercent > 0) {
+        $chargesTableRows .= '
+        <tr>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; color: #424242;">Tourism Levy (' . number_format($tourismLevyPercent, 2) . '%)</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: center; color: #616161;">1</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; color: #616161;">' . $currency_symbol . ' ' . number_format($tourismLevyAmount, 2) . '</td>
+            <td style="padding: 12px 8px; border-bottom: 1px solid #E0E0E0; text-align: right; font-weight: 500; color: #424242;">' . $currency_symbol . ' ' . number_format($tourismLevyAmount, 2) . '</td>
         </tr>';
     }
     
@@ -528,6 +544,10 @@ function buildInvoiceHTML($booking, $invoice_number, $site_name, $email_address,
                             <tr>
                                 <td style="padding: 6px 0; font-size: 13px; color: #616161;">VAT (' . number_format($vatRate, 2) . '%):</td>
                                 <td style="padding: 6px 0; font-size: 13px; text-align: right; color: #424242;">' . $currency_symbol . ' ' . number_format($vatAmount, 2) . '</td>
+                            </tr>' : '') . ($tourismLevyAmount > 0 && $tourismLevyPercent > 0 ? '
+                            <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #616161;">Tourism Levy (' . number_format($tourismLevyPercent, 2) . '%):</td>
+                                <td style="padding: 6px 0; font-size: 13px; text-align: right; color: #424242;">' . $currency_symbol . ' ' . number_format($tourismLevyAmount, 2) . '</td>
                             </tr>' : '') . '
                             <tr style="border-top: 2px solid #8B7355;">
                                 <td style="padding: 12px 0 6px 0; font-size: 15px; font-weight: 600; color: #212121;">Total Amount:</td>

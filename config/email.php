@@ -4,6 +4,9 @@
  * All settings stored in database - no hardcoded files
  */
 
+// Require base URL configuration first (needed for absolute logo URLs)
+require_once __DIR__ . '/base-url.php';
+
 // Require database connection for settings
 require_once __DIR__ . '/database.php';
 
@@ -3002,21 +3005,24 @@ function sendGymAdminNotificationEmail($data) {
 
 /**
  * Get hotel logo URL for emails
+ * IMPORTANT: Email clients require absolute URLs for images
  */
 function getHotelLogoUrl() {
     $logo_url = getSetting('logo_url', '');
     $site_url = getSetting('site_url', '');
-    
+
     // Fallback to default logo if not set
     if (empty($logo_url)) {
         $logo_url = 'images/logo/logo.png';
     }
-    
+
     // If logo is a relative path, make it absolute
     if (!empty($logo_url) && strpos($logo_url, 'http') !== 0) {
-        $logo_url = rtrim($site_url, '/') . '/' . ltrim($logo_url, '/');
+        // Use site_url from database, fallback to BASE_URL constant
+        $base_url = !empty($site_url) ? $site_url : (defined('BASE_URL') ? BASE_URL : '');
+        $logo_url = rtrim($base_url, '/') . '/' . ltrim($logo_url, '/');
     }
-    
+
     return $logo_url;
 }
 

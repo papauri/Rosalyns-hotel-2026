@@ -82,6 +82,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $message = "Maximum advance booking days updated to {$max_advance_days} days successfully!";
             
+        } elseif (isset($_POST['tourism_levy_settings'])) {
+            // Tourism levy settings
+            $tourism_levy_enabled = isset($_POST['tourism_levy_enabled']) ? '1' : '0';
+            $tourism_levy_percent = (float)($_POST['tourism_levy_percent'] ?? 0);
+            
+            // Validate input
+            if ($tourism_levy_percent < 0) {
+                throw new Exception('Tourism levy percent cannot be negative');
+            }
+            
+            if ($tourism_levy_percent > 100) {
+                throw new Exception('Tourism levy percent cannot exceed 100%');
+            }
+            
+            // Update settings in database
+            updateSetting('tourism_levy_enabled', $tourism_levy_enabled);
+            updateSetting('tourism_levy_percent', $tourism_levy_percent);
+            
+            // Clear the setting cache
+            global $_SITE_SETTINGS;
+            if (isset($_SITE_SETTINGS['tourism_levy_enabled'])) {
+                unset($_SITE_SETTINGS['tourism_levy_enabled']);
+            }
+            if (isset($_SITE_SETTINGS['tourism_levy_percent'])) {
+                unset($_SITE_SETTINGS['tourism_levy_percent']);
+            }
+            // Clear the file cache
+            deleteCache("setting_tourism_levy_enabled");
+            deleteCache("setting_tourism_levy_percent");
+            
+            $message = $tourism_levy_enabled === '1'
+                ? "Tourism levy enabled at {$tourism_levy_percent}% successfully!"
+                : "Tourism levy disabled successfully!";
+            
         } elseif (isset($_POST['booking_notification_settings'])) {
             $booking_notification_email = trim($_POST['booking_notification_email'] ?? '');
             $booking_notification_cc_emails = trim($_POST['booking_notification_cc_emails'] ?? '');
@@ -514,6 +548,63 @@ foreach ($booking_template_defs as $template_key => $template_name) {
                     <li><strong>Validation:</strong> Server-side validation will reject bookings beyond this date</li>
                     <li><strong>User Experience:</strong> Users will see a clear message about the booking window</li>
                     <li><strong>Flexibility:</strong> Change this value anytime to adjust your booking policy</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <h2><i class="fas fa-percent" style="color: #8B7355;"></i> Tourism Levy / City Tax</h2>
+
+            <form method="POST" action="booking-settings.php">
+                <input type="hidden" name="tourism_levy_settings" value="1">
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox"
+                               id="tourism_levy_enabled"
+                               name="tourism_levy_enabled"
+                               value="1"
+                               style="margin-right: 10px;"
+                               <?php echo (getSetting('tourism_levy_enabled', '0') === '1') ? 'checked' : ''; ?>>
+                        <strong>Enable Tourism Levy</strong>
+                    </label>
+                    <p class="help-text" style="margin-top: 10px;">
+                        <i class="fas fa-info-circle"></i>
+                        When enabled, a tourism levy (city tax) will be automatically added to all new bookings.
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label for="tourism_levy_percent">Tourism Levy Percentage (%)</label>
+                    <input type="number"
+                           id="tourism_levy_percent"
+                           name="tourism_levy_percent"
+                           class="form-control"
+                           value="<?php echo htmlspecialchars(getSetting('tourism_levy_percent', '1.00')); ?>"
+                           min="0"
+                           max="100"
+                           step="0.01"
+                           required>
+                    <p class="help-text">
+                        <i class="fas fa-info-circle"></i>
+                        The percentage of the total booking amount (room rate + child supplement) to charge as tourism levy.
+                        Default is 1.00%. Common values range from 1% to 5% depending on local regulations.
+                    </p>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <i class="fas fa-save"></i> Save Tourism Levy Settings
+                </button>
+            </form>
+
+            <div class="info-box">
+                <h4><i class="fas fa-lightbulb"></i> How Tourism Levy Works</h4>
+                <ul>
+                    <li><strong>Calculation:</strong> Levy is calculated as (Room Rate + Child Supplement) × (Levy Percent / 100)</li>
+                    <li><strong>Display:</strong> A hint "Includes X% Tourism Levy" will be shown on the booking page</li>
+                    <li><strong>Invoices:</strong> The levy will appear as a separate line item on invoices</li>
+                    <li><strong>Existing Bookings:</strong> Changing this setting only affects new bookings, not existing ones</li>
+                    <li><strong>Compliance:</strong> Ensure your levy rate complies with local tourism tax regulations</li>
                 </ul>
             </div>
         </div>

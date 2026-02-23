@@ -215,7 +215,18 @@ try {
     $childSupplementTotal = $bookingData['child_guests'] > 0
         ? ($roomRate * ($childPriceMultiplier / 100) * $bookingData['child_guests'] * $nights)
         : 0;
-    $totalAmount = $baseAmount + $childSupplementTotal;
+    
+    // Calculate tourism levy if enabled
+    $tourismLevyEnabled = (bool)getSetting('tourism_levy_enabled', false);
+    $tourismLevyPercent = (float)getSetting('tourism_levy_percent', 0);
+    $tourismLevyAmount = 0.00;
+    
+    if ($tourismLevyEnabled && $tourismLevyPercent > 0) {
+        // Calculate levy on (base amount + child supplement)
+        $tourismLevyAmount = ($baseAmount + $childSupplementTotal) * ($tourismLevyPercent / 100);
+    }
+    
+    $totalAmount = $baseAmount + $childSupplementTotal + $tourismLevyAmount;
     
     // Generate unique booking reference
     $refPrefix = getSetting('booking_reference_prefix', 'LSH');
@@ -247,9 +258,9 @@ try {
                 booking_reference, room_id, guest_name, guest_email, guest_phone,
                 guest_country, guest_address, number_of_guests, adult_guests, child_guests,
                 child_price_multiplier, check_in_date, check_out_date, number_of_nights,
-                total_amount, child_supplement_total, special_requests, status,
-                is_tentative, tentative_expires_at, occupancy_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                total_amount, child_supplement_total, tourism_levy_amount, tourism_levy_percent,
+                special_requests, status, is_tentative, tentative_expires_at, occupancy_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $insertStmt->execute([
@@ -269,6 +280,8 @@ try {
             $nights,
             $totalAmount,
             $childSupplementTotal,
+            $tourismLevyAmount,
+            $tourismLevyPercent,
             $bookingData['special_requests'],
             $bookingStatus,
             $isTentative,
@@ -301,6 +314,8 @@ try {
             'child_guests' => $bookingData['child_guests'],
             'child_price_multiplier' => $childPriceMultiplier,
             'child_supplement_total' => $childSupplementTotal,
+            'tourism_levy_amount' => $tourismLevyAmount,
+            'tourism_levy_percent' => $tourismLevyPercent,
             'occupancy_type' => $bookingData['occupancy_type'],
             'total_amount' => $totalAmount,
             'special_requests' => $bookingData['special_requests'],
@@ -377,9 +392,11 @@ try {
                     'occupancy_type' => $booking['occupancy_type'] ?? $bookingData['occupancy_type'],
                 ],
                 'pricing' => [
-                    'base_amount' => (float)($booking['total_amount'] - ($booking['child_supplement_total'] ?? 0)),
+                    'base_amount' => (float)($booking['total_amount'] - ($booking['child_supplement_total'] ?? 0) - ($booking['tourism_levy_amount'] ?? 0)),
                     'child_supplement_total' => (float)($booking['child_supplement_total'] ?? $childSupplementTotal),
                     'child_price_multiplier' => (float)($booking['child_price_multiplier'] ?? $childPriceMultiplier),
+                    'tourism_levy_amount' => (float)($booking['tourism_levy_amount'] ?? $tourismLevyAmount),
+                    'tourism_levy_percent' => (float)($booking['tourism_levy_percent'] ?? $tourismLevyPercent),
                     'total_amount' => (float)$booking['total_amount'],
                     'currency' => getSetting('currency_symbol'),
                     'currency_code' => getSetting('currency_code')
