@@ -108,6 +108,11 @@
                         <span><?php echo htmlspecialchars($contact['working_hours']); ?></span>
                     </li>
                 </ul>
+                <div style="margin-top: 16px;">
+                    <a href="<?php echo $is_index_page ? '#contact' : 'contact-us.php'; ?>" class="footer__contact-cta" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; background: rgba(139, 115, 85, 0.12); color: var(--gold, #8B7355); border-radius: 8px; font-size: 0.9rem; font-weight: 500; text-decoration: none; transition: all 0.3s ease;">
+                        <i class="fas fa-paper-plane"></i> Contact Us
+                    </a>
+                </div>
             </div>
 
             <div class="footer__section">
@@ -178,7 +183,7 @@
             <?php
             $policyContent = '';
             if (!empty($policy['summary'])) {
-                $policyContent = '<p class="policy-summary" class="policy-summary">' . htmlspecialchars($policy['summary']) . '</p>';
+                $policyContent = '<p class="policy-summary">' . htmlspecialchars($policy['summary']) . '</p>';
             }
             $policyContent .= '<p>' . nl2br(htmlspecialchars($policy['content'])) . '</p>';
 

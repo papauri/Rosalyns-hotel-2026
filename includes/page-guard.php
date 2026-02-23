@@ -17,7 +17,7 @@ if (!isset($pdo)) return; // No DB connection — skip guard
 $_pg_file = basename($_SERVER['PHP_SELF']);
 
 // Never block the home page or booking confirmation
-$_pg_skip = ['index.php', 'booking-confirmation.php', 'review-confirmation.php', 'submit-review.php', 'test-base-url.php'];
+$_pg_skip = ['index.php', 'booking-confirmation.php', 'review-confirmation.php', 'submit-review.php', 'test-base-url.php', 'contact-us.php', 'guest-services.php'];
 if (in_array($_pg_file, $_pg_skip, true)) return;
 
 try {
