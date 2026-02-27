@@ -247,30 +247,27 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
+    <?php
+    $seo_data = [
+        'title' => 'Fitness & Wellness Center - ' . $site_name . ' | Gym, Spa & Yoga',
+        'description' => "State-of-the-art fitness center and wellness facilities at {$site_name}. Modern gym equipment, spa services, yoga classes, personal training, and holistic wellness programs.",
+        'image' => '/images/gym/hero.jpg',
+        'type' => 'website',
+        'structured_data' => [
+            "@context" => "https://schema.org",
+            "@type" => "SportsActivityLocation",
+            "name" => $site_name . " Fitness & Wellness Center",
+            "image" => "https://" . $_SERVER['HTTP_HOST'] . "/images/gym/hero.jpg",
+            "description" => "State-of-the-art fitness center with modern equipment, spa, yoga, and personal training services",
+            "url" => "https://" . $_SERVER['HTTP_HOST'] . "/gym.php"
+        ]
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=yes">
-    <title>Fitness & Wellness Center - <?php echo htmlspecialchars($site_name); ?> | Gym, Spa & Yoga</title>
-    <meta name="description" content="State-of-the-art fitness center and wellness facilities at <?php echo htmlspecialchars($site_name); ?>. Modern gym equipment, spa services, yoga classes, personal training, and holistic wellness programs.">
-    <meta name="keywords" content="fitness center malawi, hotel gym, spa malawi, yoga classes, wellness center, personal training, health club">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST']; ?>/gym.php">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/gym.php">
-    <meta property="og:title" content="Fitness & Wellness Center - <?php echo htmlspecialchars($site_name); ?>">
-    <meta property="og:description" content="State-of-the-art fitness center with modern equipment, spa, yoga, and personal training services.">
-    <meta property="og:image" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/gym/hero.jpg">
-    
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/gym.php">
-    <meta property="twitter:title" content="Fitness & Wellness Center - <?php echo htmlspecialchars($site_name); ?>">
-    <meta property="twitter:description" content="State-of-the-art fitness center with modern equipment, spa, yoga, and personal training services.">
-    <meta property="twitter:image" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/gym/hero.jpg">
     
     <!-- REMOVED: Preload Critical Resources - Preventing aggressive caching for page transitions -->
     <!-- Preloading disabled to allow smooth page transition animations -->
@@ -287,17 +284,6 @@ try {
     <link rel="stylesheet" href="css/base/critical.css">
     <link rel="stylesheet" href="css/main.css">
     
-    <!-- Structured Data - Sports Activity Location Schema -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SportsActivityLocation",
-      "name": "<?php echo htmlspecialchars($site_name); ?> Fitness & Wellness Center",
-      "image": "https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/gym/hero.jpg",
-      "description": "State-of-the-art fitness center with modern equipment, spa, yoga, and personal training services",
-      "url": "https://<?php echo $_SERVER['HTTP_HOST']; ?>/gym.php"
-    }
-    </script>
 </head>
 <body>
     <?php include 'includes/loader.php'; ?>
@@ -347,23 +333,23 @@ try {
     ?>
     
     <?php include 'includes/header.php'; ?>
-    
+
     <!-- Mobile Menu Overlay -->
     <div class="mobile-menu-overlay" role="presentation"></div>
 
     <!-- Hero Section -->
     <?php include 'includes/hero.php'; ?>
 
-
+    <main>
         <!-- Passalacqua-Inspired Editorial Wellness Overview -->
-        <section class="editorial-wellness-intro section-padding">
+        <section class="editorial-wellness-intro section-padding" id="wellness">
             <div class="container">
                 <?php renderSectionHeader('gym_wellness', 'gym', [
                     'label' => 'Your Wellness Journey',
                     'title' => $gymContent['wellness_title'] ?? 'Wellness & Fitness',
                     'description' => $gymContent['wellness_description'] ?? 'Experience comprehensive wellness facilities'
                 ]); ?>
-                <div class="editorial-wellness-content-grid">
+                <div class="editorial-wellness-content-grid" id="editorial-wellness-content-grid">
                     <div class="editorial-wellness-text">
                         <div class="editorial-wellness-features">
                             <?php if (!empty($gymFeatures)): ?>
@@ -421,14 +407,14 @@ try {
 
 
         <!-- Passalacqua-Inspired Editorial Gym Facilities -->
-        <section class="editorial-gym-facilities section-padding">
+        <section class="editorial-gym-facilities section-padding" id="facilities">
             <div class="container">
                 <?php renderSectionHeader('gym_facilities', 'gym', [
                     'label' => 'What We Offer',
                     'title' => 'Comprehensive Fitness Facilities',
                     'description' => 'Everything you need for a complete wellness experience'
                 ], 'text-center'); ?>
-                <div class="editorial-facilities-grid">
+                <div class="editorial-facilities-grid" id="gym-facilities-grid">
                     <?php if (!empty($gymFacilities)): ?>
                         <?php foreach ($gymFacilities as $index => $facility): ?>
                             <div class="editorial-facility-card">
@@ -481,7 +467,7 @@ try {
         </section>
 
     <!-- Class Schedule -->
-    <section class="class-schedule section-padding">
+    <section class="class-schedule section-padding" id="classes">
         <div class="container">
             <?php renderSectionHeader('gym_classes', 'gym', [
                 'label' => 'Stay Active',
@@ -489,7 +475,7 @@ try {
                 'description' => 'Join our expert-led classes designed for all fitness levels'
             ], 'text-center'); ?>
 
-            <div class="schedule-grid">
+            <div class="schedule-grid" id="schedule-grid">
                 <?php if (!empty($gymClasses)): ?>
                     <?php foreach ($gymClasses as $idx => $class): ?>
                         <div class="class-card" data-aos="zoom-in" data-aos-delay="<?php echo $idx * 100; ?>">
@@ -550,9 +536,9 @@ try {
     </section>
 
     <!-- Personal Training -->
-    <section class="personal-training section-padding bg-dark">
+    <section class="personal-training section-padding bg-dark" id="personal-training">
         <div class="container">
-            <div class="training-content-grid">
+            <div class="training-content-grid" id="training-content-grid">
                 <div class="training-image" data-aos="fade-right">
                     <img src="<?php echo htmlspecialchars(proxyImageUrl($gymContent['personal_training_image_path'])); ?>" alt="Personal Training" loading="lazy">
                 </div>
@@ -582,7 +568,7 @@ try {
     </section>
 
     <!-- Wellness Packages -->
-    <section class="wellness-packages section-padding">
+    <section class="wellness-packages section-padding" id="packages">
         <div class="container">
             <?php renderSectionHeader('gym_packages', 'gym', [
                 'label' => 'Exclusive Offers',
@@ -590,7 +576,7 @@ try {
                 'description' => 'Comprehensive packages designed for optimal health and relaxation'
             ], 'text-center'); ?>
 
-            <div class="packages-grid">
+            <div class="packages-grid" id="packages-grid">
                 <?php if (!empty($gymPackages)): ?>
                     <?php foreach ($gymPackages as $idx => $package): ?>
                         <?php $includes = array_filter(array_map('trim', preg_split('/\r\n|\n|\r/', $package['includes_text'] ?? ''))); ?>
@@ -749,9 +735,6 @@ try {
             </div>
         </div>
     </div>
-    </main>
-
-    <?php include 'includes/footer.php'; ?>
 
     <!-- Scripts -->
     <script src="js/modal.js"></script>
@@ -926,6 +909,8 @@ try {
         }
     </script>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
+    </main>
+    <!-- Footer -->
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

@@ -35,10 +35,14 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#060a17">
-    <title><?php echo htmlspecialchars($site_name); ?> | Rooms Gallery</title>
-    <meta name="description" content="Explore all rooms and suites at <?php echo htmlspecialchars($site_name); ?>. Browse, compare, and open any room for full details.">
+    <?php
+    $seo_data = [
+        'title' => $site_name . ' | Rooms Gallery',
+        'description' => "Explore all rooms and suites at {$site_name}. Browse, compare, and open any room for full details.",
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -125,15 +129,14 @@ try {
         </section>
     </main>
 
-    <?php include 'includes/footer.php'; ?>
-    
+    <!-- Scripts -->
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
-    
+
     <!-- Phase 3: Parallax Effects -->
     <script src="js/parallax-cards.js" defer></script>
     <script src="js/cursor-follower.js" defer></script>
-    
+
     <script>
         // Optional 3D card tilt effect (desktop only + respects reduced motion)
         (function() {
@@ -164,24 +167,24 @@ try {
         // Fetch and display ALL room ratings in a single request (optimized)
         (function() {
             const ratingContainers = document.querySelectorAll('.room-tile__rating');
-            
+
             if (ratingContainers.length === 0) return;
-            
+
             // Single batch API call instead of N+1 individual requests
             fetch('admin/api/all-room-ratings.php')
                 .then(response => response.json())
                 .then(result => {
                     if (result.success && result.data) {
                         const ratings = result.data;
-                        
+
                         ratingContainers.forEach(container => {
                             const roomId = parseInt(container.dataset.roomId);
                             const ratingData = ratings[roomId];
-                            
+
                             if (ratingData && ratingData.review_count > 0) {
                                 const avgRating = ratingData.avg_rating;
                                 const totalCount = ratingData.review_count;
-                                
+
                                 let starsHtml = '';
                                 const fullStars = Math.floor(avgRating);
                                 const hasHalfStar = (avgRating - fullStars) >= 0.5;
@@ -241,6 +244,7 @@ try {
         })();
     </script>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
+    <!-- Footer -->
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

@@ -336,8 +336,14 @@ function resolveConferenceImage(?string $imagePath): string
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conference Facilities - <?php echo htmlspecialchars($site_name); ?></title>
+    <?php
+    $seo_data = [
+        'title' => 'Conference Facilities - ' . $site_name,
+        'description' => "Host your corporate events, meetings, and conferences at {$site_name}. State-of-the-art venues, full AV equipment, and dedicated event coordination.",
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
     
     <!-- Main CSS - Loads all stylesheets in correct order -->
     <link rel="stylesheet" href="css/base/critical.css">
@@ -350,9 +356,9 @@ function resolveConferenceImage(?string $imagePath): string
     <!-- Hero Section -->
     <?php include 'includes/hero.php'; ?>
 
-
+    <main>
     <!-- Passalacqua-Inspired Editorial Conference Rooms Section -->
-    <section class="editorial-events-section editorial-conference-section conference-showcase">
+    <section class="editorial-events-section editorial-conference-section conference-showcase" id="conference">
         <div class="container">
             <?php renderSectionHeader('conference_overview', 'conference', [
                 'label' => 'Our Meeting Spaces',
@@ -366,7 +372,7 @@ function resolveConferenceImage(?string $imagePath): string
                     <p>Our team is preparing the conference lineup. Please check back soon or contact us for tailored corporate options.</p>
                 </div>
             <?php else: ?>
-                <div class="editorial-events-grid editorial-conference-grid conference-showcase__grid">
+                <div class="editorial-events-grid editorial-conference-grid conference-showcase__grid" id="editorial-conference-grid">
                     <?php foreach ($conference_rooms as $room): ?>
                         <?php
                         $amenities = !empty($room['amenities']) ? explode(',', $room['amenities']) : [];
@@ -562,8 +568,7 @@ function resolveConferenceImage(?string $imagePath): string
     renderModal('conferenceBookingResult', '', $resultModalContent, ['size' => 'md']);
     ?>
 
-    <?php include 'includes/footer.php'; ?>
-    
+    <!-- Scripts -->
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
     <script>
@@ -752,6 +757,8 @@ function resolveConferenceImage(?string $imagePath): string
         <?php endif; ?>
     </script>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
+    </main>
+    <!-- Footer -->
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

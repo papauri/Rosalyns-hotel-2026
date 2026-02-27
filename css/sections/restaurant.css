@@ -274,22 +274,36 @@
 }
 
 .menu-control-bar {
-    display: grid;
-    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.1fr);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: clamp(1rem, 2vw, 1.5rem);
     margin-top: clamp(1rem, 2vw, 1.4rem);
     margin-bottom: clamp(1rem, 2vw, 1.4rem);
+    align-items: stretch;
 }
 
 .qr-menu-panel {
-    display: grid;
-    grid-template-columns: 1fr auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 1rem;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 245, 239, 0.9));
     border: 1px solid var(--menu-border);
     border-radius: 18px;
     padding: 1rem;
     align-items: center;
+    flex: 1 1 minmax(320px, 1fr);
+    min-width: 0;
+}
+
+.qr-menu-brand {
+    flex: 1 1 auto;
+    min-width: 200px;
+}
+
+.qr-menu-qr {
+    flex: 0 0 auto;
 }
 
 .qr-menu-mark {
@@ -418,6 +432,8 @@
 .menu-type-tabs-wrap {
     display: flex;
     align-items: center;
+    flex: 1 1 minmax(280px, 1fr);
+    min-width: 0;
 }
 
 .menu-type-tabs {
@@ -425,10 +441,16 @@
     background: #fff;
     border: 1px solid var(--menu-border);
     border-radius: 14px;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     padding: 0.4rem;
     gap: 0.45rem;
+}
+
+.menu-type-tab {
+    flex: 1 1 minmax(100px, 1fr);
+    min-width: 0;
 }
 
 .menu-type-tab {
@@ -442,6 +464,10 @@
     padding: 0.65rem 0.5rem;
     cursor: pointer;
     transition: all 0.25s ease;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .menu-type-tab:hover {
@@ -719,15 +745,26 @@
 
 @media (max-width: 992px) {
     .menu-control-bar {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+    }
+
+    .qr-menu-panel {
+        flex-direction: column;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .qr-menu-brand {
+        text-align: center;
+    }
+
+    .qr-menu-actions {
+        justify-content: center;
     }
 
     .menu-type-tabs-wrap {
         order: -1;
-    }
-
-    .menu-type-tabs {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
     }
 }
 
@@ -738,17 +775,34 @@
     }
 
     .qr-menu-panel {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        text-align: center;
+        padding: 0.85rem;
+    }
+
+    .qr-menu-title {
+        font-size: 1.1rem;
+    }
+
+    .qr-menu-desc {
+        font-size: 0.88rem;
+    }
+
+    .qr-menu-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .qr-menu-actions .btn {
+        width: 100%;
+        justify-content: center;
     }
 
     .menu-type-tabs {
-        grid-template-columns: 1fr;
+        flex-direction: column;
     }
 
     .menu-type-tab {
         min-height: 44px;
+        width: 100%;
     }
 
     .menu-items-grid {
@@ -993,6 +1047,26 @@
     border: 1px solid rgba(139, 115, 85, 0.18);
     border-radius: 14px;
     padding: 0.95rem;
+}
+
+/* CRITICAL: Ensure menu tabs are always clickable */
+.menu-type-tabs,
+.menu-type-tab,
+.menu-tabs,
+.menu-tab {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Ensure no overlay blocks the tabs */
+.menu-control-bar {
+    position: relative;
+    z-index: 1;
+}
+
+.menu-categories-wrapper {
+    position: relative;
+    z-index: 1;
 }
 
 /* Empty state styling - make sure it's visible */

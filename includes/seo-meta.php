@@ -29,6 +29,32 @@ $site_logo = getSetting('site_logo');
 $site_url = getSetting('site_url');
 $default_keywords = getSetting('default_keywords');
 
+// Sanitize site name and tagline to fix apostrophe/quote encoding issues
+// Convert curly/smart quotes to standard ASCII using Unicode-aware regex
+$__orig_site_name = $site_name;
+$__orig_site_tagline = $site_tagline;
+
+$site_name = preg_replace([
+    '/[‘’‛`´]/u',   // various single quote marks/backticks/acute
+    '/[“”„‟]/u'     // various double quote marks
+], [
+    "'",
+    '"'
+], $site_name);
+
+$site_tagline = preg_replace([
+    '/[‘’‛`´]/u',
+    '/[“”„‟]/u'
+], [
+    "'",
+    '"'
+], $site_tagline);
+
+// Debug log only when normalization actually changed values (helps verify once in logs)
+if ($__orig_site_name !== $site_name || $__orig_site_tagline !== $site_tagline) {
+    error_log('seo-meta: normalized smart quotes in site_name/site_tagline');
+}
+
 // Use database URL if available, otherwise construct from host
 $base_url = $site_url ?: 'https://' . $_SERVER['HTTP_HOST'];
 
@@ -62,8 +88,32 @@ $seo_image = strpos($seo['image'], 'http') === 0
     ? $seo['image'] 
     : $base_url . $seo['image'];
 
+// Build absolute logo URL
+$logo_abs = strpos($site_logo, 'http') === 0
+    ? $site_logo
+    : $base_url . $site_logo;
+
+// Versioning for SEO assets (favicons, touch icons) to force cache refresh on purge
+// Uses a dedicated setting that we can bump from admin tools
+$__seo_asset_version = getSetting('seo_asset_version');
+// Spec-aligned alias for readability and downstream usage
+$asset_ver = isset($__seo_asset_version) ? (string) $__seo_asset_version : '';
+if (!function_exists('appendAssetVersion')) {
+    function appendAssetVersion($url, $version) {
+        if (empty($version)) return $url;
+        $sep = (strpos($url, '?') !== false) ? '&' : '?';
+        return $url . $sep . 'v=' . rawurlencode($version);
+    }
+}
+
 // Build canonical URL
-$canonical_url = $seo['canonical'] ?: $base_url . $_SERVER['REQUEST_URI'];
+if ($seo['canonical']) {
+    $canonical_url = strpos($seo['canonical'], 'http') === 0
+        ? $seo['canonical']
+        : $base_url . $seo['canonical'];
+} else {
+    $canonical_url = $base_url . $_SERVER['REQUEST_URI'];
+}
 
 // Get current page path for robots
 $current_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -83,6 +133,7 @@ foreach ($disallowed_paths as $path) {
 <meta name="description" content="<?php echo htmlspecialchars($seo['description']); ?>">
 <meta name="keywords" content="<?php echo htmlspecialchars($seo['tags'] ?: $default_keywords); ?>">
 <meta name="author" content="<?php echo htmlspecialchars($seo['author']); ?>">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
 <?php if ($should_noindex): ?>
 <meta name="robots" content="noindex, nofollow">
@@ -122,10 +173,20 @@ foreach ($disallowed_paths as $path) {
 <!-- Additional SEO Meta Tags -->
 <meta name="theme-color" content="#1A1A1A">
 <meta name="msapplication-TileColor" content="#1A1A1A">
-<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<?php if (!empty($site_logo)): ?>
+<!-- Dynamic favicon from database -->
+<link rel="icon" type="image/png" sizes="16x16" href="<?php echo htmlspecialchars(appendAssetVersion($logo_abs, $asset_ver)); ?>">
+<link rel="icon" type="image/png" sizes="32x32" href="<?php echo htmlspecialchars(appendAssetVersion($logo_abs, $asset_ver)); ?>">
+<link rel="apple-touch-icon" sizes="180x180" href="<?php echo htmlspecialchars(appendAssetVersion($logo_abs, $asset_ver)); ?>">
+<link rel="shortcut icon" href="<?php echo htmlspecialchars(appendAssetVersion($logo_abs, $asset_ver)); ?>" type="image/x-icon">
+<link rel="icon" href="<?php echo htmlspecialchars(appendAssetVersion('/favicon.ico', $asset_ver)); ?>">
+<?php else: ?>
+<!-- Fallback static favicons -->
+<link rel="shortcut icon" href="<?php echo htmlspecialchars(appendAssetVersion('/favicon.ico', $asset_ver)); ?>" type="image/x-icon">
+<link rel="icon" type="image/png" sizes="32x32" href="<?php echo htmlspecialchars(appendAssetVersion('/favicon-32x32.png', $asset_ver)); ?>">
+<link rel="icon" type="image/png" sizes="16x16" href="<?php echo htmlspecialchars(appendAssetVersion('/favicon-16x16.png', $asset_ver)); ?>">
+<link rel="apple-touch-icon" sizes="180x180" href="<?php echo htmlspecialchars(appendAssetVersion('/apple-touch-icon.png', $asset_ver)); ?>">
+<?php endif; ?>
 
 <?php
 // Structured Data (JSON-LD)

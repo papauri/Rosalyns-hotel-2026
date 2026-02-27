@@ -36,18 +36,37 @@ document.addEventListener('DOMContentLoaded', function() {
                             currentImage.src = '../' + data.image_url;
                             currentImageContainer.style.display = 'block';
                         }
-                        alert('Image uploaded successfully!');
+                        // Success: no noisy alerts in production
                     } else {
-                        alert(data.message || 'Upload failed.');
+                        if (window.Modal && typeof Modal.showMessage === 'function') {
+                            Modal.showMessage({
+                                title: 'Upload failed',
+                                message: data.message ? `<p>${data.message}</p>` : '<p>There was a problem uploading the image. Please try again.</p>'
+                            });
+                        } else {
+                            alert(data.message || 'Upload failed.');
+                        }
                     }
                 } catch (err) {
-                    console.error('Invalid JSON response:', text);
-                    alert('Upload failed. Server error or invalid response.');
+                    if (window.Modal && typeof Modal.showMessage === 'function') {
+                        Modal.showMessage({
+                            title: 'Server error',
+                            message: '<p>The server returned an unexpected response. Please try again in a moment.</p>'
+                        });
+                    } else {
+                        alert('Upload failed. Server error or invalid response.');
+                    }
                 }
             })
             .catch((err) => {
-                console.error('Network or JS error:', err);
-                alert('Upload failed. Network or server error.');
+                if (window.Modal && typeof Modal.showMessage === 'function') {
+                    Modal.showMessage({
+                        title: 'Network error',
+                        message: '<p>We could not reach the server. Please check your connection and try again.</p>'
+                    });
+                } else {
+                    alert('Upload failed. Network or server error.');
+                }
             });
         });
     }
@@ -307,16 +326,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const policyLinks = document.querySelectorAll('.policy-link');
     const policyOverlay = document.querySelector('[data-policy-overlay]');
     
-    function openPolicy(slug) {
-        const modalId = 'policy-' + slug;
-        const modal = document.getElementById(modalId);
-        
-        if (typeof Modal !== 'undefined' && Modal.open) {
-            Modal.open(modalId);
-        } else {
-            console.error('Modal component not available');
+        function openPolicy(slug) {
+            const modalId = 'policy-' + slug;
+            const modal = document.getElementById(modalId);
+            
+        	if (typeof Modal !== 'undefined' && Modal.open) {
+                Modal.open(modalId);
+            } else if (modal) {
+                // Graceful fallback: activate modal classes
+                modal.classList.add('modal--active');
+                document.body.classList.add('modal-open');
+            } else if (window.Modal && typeof Modal.showMessage === 'function') {
+                Modal.showMessage({ title: 'Notice', message: '<p>Content is not available right now. Please try again later.</p>' });
+            } else {
+                alert('Content is not available right now. Please try again later.');
+            }
         }
-    }
     
     policyLinks.forEach(link => {
         link.addEventListener('click', function(e) {

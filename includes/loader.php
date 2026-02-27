@@ -130,18 +130,27 @@ if (function_exists('getPageLoader')) {
         }
     }
     
-    // Hide on window load
+    // Hide on window load (only if navigation has not started)
+    function hideLoaderOnPageLoad() {
+        setTimeout(function() {
+            if (!window._pageLoaderNavigating) {
+                hideLoader();
+            }
+        }, 100);
+    }
+
     if (document.readyState === 'complete') {
-        // Small delay to ensure smooth transition
-        setTimeout(hideLoader, 100);
+        hideLoaderOnPageLoad();
     } else {
-        window.addEventListener('load', function() {
-            setTimeout(hideLoader, 100);
-        });
+        window.addEventListener('load', hideLoaderOnPageLoad);
     }
     
-    // Fallback: hide after 3 seconds regardless
-    setTimeout(hideLoader, 3000);
+    // Fallback: hide after 3 seconds, but only if navigation is not in progress
+    setTimeout(function() {
+        if (!window._pageLoaderNavigating) {
+            hideLoader();
+        }
+    }, 3000);
     
     // Handle browser back/forward (bfcache)
     window.addEventListener('pageshow', function(e) {

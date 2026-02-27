@@ -423,3 +423,55 @@
     max-width: 640px;
     margin: 0 auto;
 }
+/* ============================================================
+   COMMUNITY FEEDBACK SECTION (theme-aligned with hero)
+   ============================================================ */
+.reviews-overview {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2621 60%, #332b21 100%);
+    color: #f5f0e8;
+    padding: 42px 20px 48px;
+    position: relative;
+    overflow: hidden;
+}
+
+.reviews-overview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(139,115,85,0.16) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.reviews-overview .section-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 500;
+    color: #f5f0e8;
+    text-align: center;
+}
+
+.reviews-overview .text-muted {
+    color: rgba(245,240,232,0.78);
+    text-align: center;
+}
+
+.reviews-overview .stats .stat {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.16);
+}
+
+.reviews-overview .stat .label { color: rgba(245,240,232,0.75); }
+.reviews-overview .stat .value { color: #fff; }
+
+.reviews-overview .card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.16);
+}
+
+.reviews-overview .card h4 { color: #f5f0e8; }
+.reviews-overview .card p { color: rgba(245,240,232,0.9); }
+.reviews-overview .resp { background: rgba(201,168,108,0.15); color: #f5f0e8; border-left-color: #C9A86C; }
+
+/* Reveal motion alignment */
+.reviews-overview.rh-reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.4,0,.2,1), transform .8s cubic-bezier(.4,0,.2,1); }
+.reviews-overview.rh-reveal.is-revealed { opacity: 1; transform: translateY(0); }

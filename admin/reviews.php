@@ -279,27 +279,70 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
         /* Response form */
         .response-form {
             border: 1px solid #e7ebf1;
+            border-left: 4px solid var(--gold, #8B7355);
             border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 14px;
+            padding: 16px;
+            margin-top: -10px;
+            margin-bottom: 16px;
             background: #fafbfd;
+        }
+        .response-form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .response-form-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2d3d;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .response-form-hint {
+            font-size: 12px;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: help;
+        }
+        .response-form-hint:hover {
+            color: var(--gold, #8B7355);
         }
         .response-form textarea {
             width: 100%;
             border: 1px solid #dbe2ea;
             border-radius: 8px;
-            padding: 10px 12px;
+            padding: 12px;
             font-size: 13px;
             font-family: inherit;
-            min-height: 100px;
+            min-height: 120px;
             resize: vertical;
             box-sizing: border-box;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .response-form textarea:focus {
             outline: none;
             border-color: var(--gold, #8B7355);
             box-shadow: 0 0 0 3px rgba(139,115,85,0.12);
+        }
+        .char-count {
+            font-size: 12px;
+            color: #6b7280;
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        .char-count-current {
+            font-weight: 600;
+            color: #1f2d3d;
+        }
+        .char-count.valid {
+            color: #28a745;
+        }
+        .char-count.invalid {
+            color: #dc3545;
         }
 
         /* Review actions */
@@ -500,43 +543,57 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
                             </div>
                         </div>
                     <?php endif; ?>
-                    
-                    <div class="response-form" id="response-form-<?php echo $review['id']; ?>" style="display: none;">
-                        <textarea id="response-text-<?php echo $review['id']; ?>" placeholder="Write your response to this review..."></textarea>
-                        <div class="review-actions">
-                            <button onclick="submitResponse(<?php echo $review['id']; ?>)" class="btn btn-primary btn-sm">
-                                <i class="fas fa-paper-plane"></i> Submit Response
-                            </button>
-                            <button onclick="toggleResponseForm(<?php echo $review['id']; ?>)" class="btn btn-light btn-sm">
-                                <i class="fas fa-times"></i> Cancel
-                            </button>
-                        </div>
-                    </div>
-                    
+
                     <div class="review-actions">
                         <?php if ($review['status'] === 'pending'): ?>
-                            <button onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'approved')" class="btn btn-success btn-sm">
+                            <button type="button" onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'approved', this)" class="btn btn-success btn-sm">
                                 <i class="fas fa-check"></i> Approve
                             </button>
-                            <button onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'rejected')" class="btn btn-danger btn-sm">
+                            <button type="button" onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'rejected', this)" class="btn btn-danger btn-sm">
                                 <i class="fas fa-times"></i> Reject
                             </button>
                         <?php elseif ($review['status'] === 'approved'): ?>
-                            <button onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'rejected')" class="btn btn-warning btn-sm">
+                            <button type="button" onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'rejected', this)" class="btn btn-warning btn-sm">
                                 <i class="fas fa-times"></i> Reject
                             </button>
                         <?php elseif ($review['status'] === 'rejected'): ?>
-                            <button onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'approved')" class="btn btn-success btn-sm">
+                            <button type="button" onclick="updateReviewStatus(<?php echo $review['id']; ?>, 'approved', this)" class="btn btn-success btn-sm">
                                 <i class="fas fa-check"></i> Approve
                             </button>
                         <?php endif; ?>
-                        
-                        <button onclick="toggleResponseForm(<?php echo $review['id']; ?>)" class="btn btn-info btn-sm">
+
+                        <button type="button" onclick="toggleResponseForm(<?php echo $review['id']; ?>)" class="btn btn-info btn-sm">
                             <i class="fas fa-reply"></i> Respond
                         </button>
-                        
-                        <button onclick="deleteReview(<?php echo $review['id']; ?>)" class="btn btn-dark btn-sm">
+
+                        <button type="button" onclick="deleteReview(<?php echo $review['id']; ?>, this)" class="btn btn-dark btn-sm">
                             <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Response Form (renders below the review card) -->
+                <div class="response-form" id="response-form-<?php echo $review['id']; ?>" style="display: none;">
+                    <div class="response-form-header">
+                        <span class="response-form-title">
+                            <i class="fas fa-reply"></i> Respond to Review
+                        </span>
+                        <span class="response-form-hint" title="Minimum 10 characters required">
+                            <i class="fas fa-info-circle"></i> Min. 10 characters
+                        </span>
+                    </div>
+                    <textarea id="response-text-<?php echo $review['id']; ?>"
+                              placeholder="Write your response to this review... (minimum 10 characters)"
+                              oninput="updateCharCount(<?php echo $review['id']; ?>)"></textarea>
+                    <div class="char-count" id="char-count-<?php echo $review['id']; ?>">
+                        <span class="char-count-current">0</span> characters
+                    </div>
+                    <div class="review-actions">
+                        <button type="button" onclick="submitResponse(<?php echo $review['id']; ?>, this)" class="btn btn-primary btn-sm">
+                            <i class="fas fa-paper-plane"></i> Submit Response
+                        </button>
+                        <button type="button" onclick="toggleResponseForm(<?php echo $review['id']; ?>)" class="btn btn-light btn-sm">
+                            <i class="fas fa-times"></i> Cancel
                         </button>
                     </div>
                 </div>
@@ -576,6 +633,22 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
     </div>
 
     <script>
+        // Fallback loader/helpers in case admin-components.js is unavailable
+        window.setButtonLoading = window.setButtonLoading || function(btn, loading) {
+            if (!btn) return;
+            if (loading) {
+                if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (btn.textContent || 'Loading');
+            } else {
+                btn.disabled = false;
+                if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+            }
+        };
+        window.showLoadingOverlay = window.showLoadingOverlay || function(text){ console.debug('Loading:', text); };
+        window.hideLoadingOverlay = window.hideLoadingOverlay || function(){ };
+        window.Alert = window.Alert || { show: (msg, type) => { try { alert((type ? ('['+String(type).toUpperCase()+'] ') : '') + String(msg)); } catch(_) {} } };
+        
         // Apply filters
         function applyFilters() {
             const status = document.getElementById('status-filter').value;
@@ -593,40 +666,70 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
         function clearFilters() {
             window.location.href = '?';
         }
-        
+
+        // Update character count
+        function updateCharCount(reviewId) {
+            const textarea = document.getElementById('response-text-' + reviewId);
+            const charCountEl = document.getElementById('char-count-' + reviewId);
+            const charCountCurrent = charCountEl.querySelector('.char-count-current');
+            const length = textarea.value.trim().length;
+            
+            charCountCurrent.textContent = length;
+            
+            if (length >= 10) {
+                charCountEl.classList.add('valid');
+                charCountEl.classList.remove('invalid');
+            } else {
+                charCountEl.classList.add('invalid');
+                charCountEl.classList.remove('valid');
+            }
+        }
+
         // Toggle response form
         function toggleResponseForm(reviewId) {
             const form = document.getElementById('response-form-' + reviewId);
+            if (!form) {
+                Alert.show('Error: Form not found', 'error');
+                return;
+            }
             form.style.display = form.style.display === 'none' ? 'block' : 'none';
-            
+
             if (form.style.display === 'block') {
                 document.getElementById('response-text-' + reviewId).focus();
             }
         }
-        
+
         // Submit admin response
-        function submitResponse(reviewId) {
+        function submitResponse(reviewId, btnEl) {
             const responseText = document.getElementById('response-text-' + reviewId).value.trim();
-            
+
             if (!responseText) {
                 Alert.show('Please enter a response', 'error');
                 return;
             }
-            
+
             if (responseText.length < 10) {
                 Alert.show('Response must be at least 10 characters long', 'error');
                 return;
             }
-            
+
             const formData = new FormData();
             formData.append('review_id', reviewId);
             formData.append('response', responseText);
-            
+
+            setButtonLoading(btnEl, true);
+            showLoadingOverlay('Submitting response...');
+
             fetch('api/review-responses.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     let message = 'Response added successfully';
@@ -645,12 +748,16 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
             })
             .catch(error => {
                 console.error('Error:', error);
-                Alert.show('An error occurred while adding response', 'error');
+                Alert.show('An error occurred while adding response. Please try again.', 'error');
+            })
+            .finally(() => { 
+                hideLoadingOverlay(); 
+                setButtonLoading(btnEl, false); 
             });
         }
         
         // Update review status
-        function updateReviewStatus(reviewId, newStatus) {
+        function updateReviewStatus(reviewId, newStatus, btnEl) {
             const statusText = newStatus === 'approved' ? 'approve' : 'reject';
             if (!confirm('Are you sure you want to ' + statusText + ' this review?')) {
                 return;
@@ -661,14 +768,22 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
                 status: newStatus
             };
             
+            setButtonLoading(btnEl, true);
+            showLoadingOverlay((newStatus === 'approved' ? 'Approving' : 'Rejecting') + ' review...');
+
             fetch('api/reviews.php', {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     Alert.show('Review ' + statusText + 'd successfully', 'success');
@@ -680,19 +795,28 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
             .catch(error => {
                 console.error('Error:', error);
                 Alert.show('An error occurred while updating review', 'error');
-            });
+            })
+            .finally(() => { hideLoadingOverlay(); setButtonLoading(btnEl, false); });
         }
         
         // Delete review
-        function deleteReview(reviewId) {
+        function deleteReview(reviewId, btnEl) {
             if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
                 return;
             }
             
-            fetch('api/reviews.php?review_id=' + reviewId, {
-                method: 'DELETE'
+            setButtonLoading(btnEl, true);
+            showLoadingOverlay('Deleting review...');
+
+            fetch('api/reviews.php?review_id=' + encodeURIComponent(reviewId), {
+                method: 'DELETE',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     Alert.show('Review deleted successfully', 'success');
@@ -713,8 +837,17 @@ $pending_count = $pending_stmt->fetch(PDO::FETCH_ASSOC)['count'];
             .catch(error => {
                 console.error('Error:', error);
                 Alert.show('An error occurred while deleting review', 'error');
-            });
+            })
+            .finally(() => { hideLoadingOverlay(); setButtonLoading(btnEl, false); });
         }
+        // Ensure functions are available on window for inline onclick handlers
+        window.applyFilters = applyFilters;
+        window.clearFilters = clearFilters;
+        window.updateCharCount = updateCharCount;
+        window.toggleResponseForm = toggleResponseForm;
+        window.submitResponse = submitResponse;
+        window.updateReviewStatus = updateReviewStatus;
+        window.deleteReview = deleteReview;
     </script>
 
     <?php require_once 'includes/admin-footer.php'; ?>

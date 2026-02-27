@@ -2,11 +2,16 @@
 /**
  * Review Responses API
  * Hotel Website - Admin API for managing admin responses to reviews
- * 
+ *
  * Endpoints:
  * - GET: Fetch responses for a specific review
  * - POST: Add a new admin response to a review
  */
+
+// Start session FIRST before any includes
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Enable error reporting for debugging (disable in production)
 error_reporting(E_ALL);
@@ -16,16 +21,11 @@ ini_set('log_errors', 1);
 // Set JSON response header
 header('Content-Type: application/json');
 
-// Include database configuration
+// Include database configuration (corrected relative path)
 require_once __DIR__ . '/../../config/database.php';
 
-// Include email configuration
+// Include email configuration (corrected relative path)
 require_once __DIR__ . '/../../config/email.php';
-
-// Start session for admin authentication
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 // Helper function to send JSON response
 function sendResponse($data, $statusCode = 200) {
@@ -161,7 +161,8 @@ try {
             }
             
             $review_id = (int)$input['review_id'];
-            $response = trim($input['response']);
+            $response_text = trim($input['response']);
+            
             // Default admin_id to logged-in admin, but allow override via input
             $admin_id = isset($input['admin_id']) && $input['admin_id'] !== '' ? (int)$input['admin_id'] : null;
             if ($admin_id === null && isset($_SESSION['admin_user_id'])) {
@@ -197,7 +198,7 @@ try {
                 VALUES (?, ?, ?)
             ";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$review_id, $admin_id, $response]);
+            $stmt->execute([$review_id, $admin_id, $response_text]);
             
             $response_id = $pdo->lastInsertId();
             
@@ -269,7 +270,7 @@ try {
                             
                             <div class='response-box'>
                                 <h3>Our Response:</h3>
-                                <p>" . nl2br(htmlspecialchars($response)) . "</p>
+                                <p>" . nl2br(htmlspecialchars($response_text)) . "</p>
                             </div>
                             
                             <p>We hope to welcome you back to {$site_name} soon!</p>
@@ -287,7 +288,7 @@ try {
                 
                 $text_body = "Thank you for your review at {$site_name}.\n\n";
                 $text_body .= "We have responded to your review titled: " . $review_details['title'] . "\n\n";
-                $text_body .= "Our Response:\n" . strip_tags($response) . "\n\n";
+                $text_body .= "Our Response:\n" . strip_tags($response_text) . "\n\n";
                 $text_body .= "Visit us at: {$site_url}\n";
                 
                 // Log email attempt

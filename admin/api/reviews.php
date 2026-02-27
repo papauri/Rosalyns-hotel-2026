@@ -2,13 +2,18 @@
 /**
  * Reviews API
  * Hotel Website - Admin API for managing guest reviews
- * 
+ *
  * Endpoints:
  * - GET: Fetch reviews with optional filtering
  * - POST: Submit a new review
  * - PUT: Update review status (moderation)
  * - DELETE: Delete a review
  */
+
+// Start session FIRST before any includes
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Enable error reporting for debugging (disable in production)
 error_reporting(E_ALL);
@@ -18,16 +23,11 @@ ini_set('log_errors', 1);
 // Set JSON response header
 header('Content-Type: application/json');
 
-// Include database configuration
-require_once __DIR__ . '/../../config/database.php';
+// Include database configuration - FIXED PATH
+require_once __DIR__ . '/../../../config/database.php';
 
-// Include cache configuration
-require_once __DIR__ . '/../../config/cache.php';
-
-// Start session for admin authentication
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Include cache configuration - FIXED PATH
+require_once __DIR__ . '/../../../config/cache.php';
 
 // Helper function to send JSON response
 function sendResponse($data, $statusCode = 200) {

@@ -90,14 +90,19 @@ foreach ($rooms as $room) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
+    <?php
+    $seo_data = [
+        'title' => $site_name . ' | Rooms & Suites',
+        'description' => "Explore contemporary rooms and suites at {$site_name} with seamless booking integration.",
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=yes">
-    <title><?php echo htmlspecialchars($site_name); ?> | Rooms & Suites</title>
-    <meta name="description" content="Explore contemporary rooms and suites at <?php echo htmlspecialchars($site_name); ?> with seamless booking integration.">
-
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -238,8 +243,7 @@ foreach ($rooms as $room) {
         </div>
     </section>
 
-    <main>
-        <section class="section" id="collection">
+    <section class="section" id="collection">
             <div class="container">
                 <?php renderSectionHeader('rooms_collection', 'rooms-showcase', [
                     'label' => 'Stay Collection',
@@ -446,17 +450,14 @@ foreach ($rooms as $room) {
         </section>
     </main>
 
-    </main>
-    
-    <!-- Footer -->
-    <?php include 'includes/footer.php'; ?>
-    
+    <!-- Scripts -->
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
     <!-- Phase 3: Parallax Effects -->
     <script src="js/parallax-cards.js" defer></script>
     <script src="js/cursor-follower.js" defer></script>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
+    <!-- Footer -->
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

@@ -139,7 +139,8 @@ try {
 <body class="lookup-page">
     <?php include 'includes/loader.php'; ?>
     <?php include 'includes/header.php'; ?>
-    
+
+    <main>
     <div class="lookup-container">
         <div class="lookup-header">
             <h1><i class="fas fa-search" style="color: var(--gold);"></i> Check Booking Status</h1>
@@ -286,8 +287,8 @@ try {
             </p>
         </div>
     </div>
-    
+
+    </main>
     <?php include 'includes/footer.php'; ?>
-    <?php include 'includes/scroll-to-top.php'; ?>
 </body>
 </html>

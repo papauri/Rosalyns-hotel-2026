@@ -776,12 +776,18 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
+    <?php
+    $seo_data = [
+        'title' => 'Book Your Stay | ' . $site_name,
+        'description' => "Book your stay at {$site_name}. Choose from our luxurious rooms and suites, and enjoy a memorable experience.",
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
+    
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=yes">
-    <title>Book Your Stay | <?php echo htmlspecialchars($site_name); ?></title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1140,8 +1146,6 @@ try {
     </div>
     </main>
 
-    <?php include 'includes/footer.php'; ?>
-    
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -1150,11 +1154,11 @@ try {
         const emailReservations = '<?php echo $email_reservations_esc; ?>';
         const currencySymbol = '<?php echo htmlspecialchars($currency_symbol); ?>';
         const childPriceMultiplier = <?php echo json_encode((float)getSetting('booking_child_price_multiplier', getSetting('child_guest_price_multiplier', 50))); ?>;
-        
+
         // Tourism levy settings
         const tourismLevyEnabled = <?php echo json_encode((bool)getSetting('tourism_levy_enabled', false)); ?>;
         const tourismLevyPercent = <?php echo json_encode((float)getSetting('tourism_levy_percent', 0)); ?>;
-        
+
         // Blocked dates from server (global + per room)
         const globalBlockedDates = <?php echo json_encode(array_values($global_blocked_dates)); ?>;
         const blockedDatesByRoom = <?php echo json_encode($blocked_dates_by_room); ?>;
@@ -1162,24 +1166,24 @@ try {
         const preselectedRoomPrice = <?php echo $preselected_room ? $preselected_room['price_per_night'] : 'null'; ?>;
         const preselectedRoomName = <?php echo $preselected_room ? '"' . addslashes($preselected_room['name']) . '"' : 'null'; ?>;
         const preselectedRoomMaxGuests = <?php echo $preselected_room ? $preselected_room['max_guests'] : 'null'; ?>;
-        
+
         // Hero widget parameters
         const heroCheckIn = <?php echo $hero_check_in ? '"' . $hero_check_in . '"' : 'null'; ?>;
         const heroCheckOut = <?php echo $hero_check_out ? '"' . $hero_check_out . '"' : 'null'; ?>;
         const heroGuests = <?php echo $hero_guests ? $hero_guests : 'null'; ?>;
         const heroChildren = <?php echo $hero_children ? $hero_children : 'null'; ?>;
         const heroRoomType = <?php echo $hero_room_type ? '"' . $hero_room_type . '"' : 'null'; ?>;
-        
+
         // Rooms data for dynamic validation
         const roomsData = <?php echo json_encode($rooms_data); ?>;
-        
+
         let checkInCalendar = null;
         let checkOutCalendar = null;
         let selectedRoomId = preselectedRoomId;
         let selectedRoomPrice = preselectedRoomPrice;
         let selectedRoomName = preselectedRoomName;
         let selectedRoomMaxGuests = preselectedRoomMaxGuests;
-        
+
         // Track booked dates per room (dates that are fully booked/unavailable)
         // Pre-loaded with booked dates from database (includes tentative bookings)
         const bookedDatesByRoom = <?php echo json_encode($booked_dates_by_room); ?>;
@@ -2652,6 +2656,6 @@ try {
         };
     </script>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

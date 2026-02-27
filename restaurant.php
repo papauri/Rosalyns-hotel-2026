@@ -283,35 +283,79 @@ try {
 } catch (PDOException $e) {
     error_log("Error fetching Matuwi welcome: " . $e->getMessage());
 }
+
+// Pre-load food menu data for immediate display
+$initial_menu_data = [
+    'success' => false,
+    'menu_type' => 'food',
+    'categories' => [],
+    'currency' => [
+        'symbol' => $currency_symbol,
+        'code' => $currency_code
+    ]
+];
+
+try {
+    $stmt = $pdo->query("SELECT id, item_name, description, price, is_featured, is_vegetarian, is_vegan, allergens, category FROM food_menu WHERE is_available = 1 ORDER BY category ASC, display_order ASC, id ASC");
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($items as $item) {
+        $category = trim((string)($item['category'] ?? '')); 
+        if ($category === '') {
+            $category = 'Uncategorized';
+        }
+        $slug = menuCategorySlug($category);
+
+        if (!isset($initial_menu_data['categories'][$slug])) {
+            $initial_menu_data['categories'][$slug] = [
+                'name' => $category,
+                'slug' => $slug,
+                'items' => []
+            ];
+        }
+        $initial_menu_data['categories'][$slug]['items'][] = [
+            'id' => $item['id'],
+            'name' => trim((string)($item['item_name'] ?? '')),
+            'description' => trim((string)($item['description'] ?? '')),
+            'price' => (float)$item['price'],
+            'is_featured' => (bool)$item['is_featured'],
+            'is_vegetarian' => (bool)$item['is_vegetarian'],
+            'is_vegan' => (bool)$item['is_vegan'],
+            'allergens' => trim((string)($item['allergens'] ?? ''))
+        ];
+    }
+    $initial_menu_data['success'] = true;
+} catch (PDOException $e) {
+    error_log("Error fetching initial menu: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
+    <?php
+    $seo_data = [
+        'title' => 'Fine Dining Restaurant - ' . $site_name . ' | Gourmet Cuisine',
+        'description' => "Experience exquisite fine dining at {$site_name}. Fresh local cuisine, international dishes, craft cocktails, and premium bar service in an elegant setting.",
+        'image' => '/images/restaurant/hero.jpg',
+        'type' => 'restaurant',
+        'structured_data' => [
+            "@context" => "https://schema.org",
+            "@type" => "Restaurant",
+            "name" => $site_name . " Restaurant",
+            "image" => "https://" . $_SERVER['HTTP_HOST'] . "/images/restaurant/hero.jpg",
+            "description" => "Fine dining restaurant offering fresh local cuisine, international dishes, and premium bar service",
+            "servesCuisine" => ["International", "African", "Continental"],
+            "priceRange" => "$$$",
+            "url" => "https://" . $_SERVER['HTTP_HOST'] . "/restaurant.php"
+        ]
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=yes">
-    <title>Fine Dining Restaurant - <?php echo htmlspecialchars($site_name); ?> | Gourmet Cuisine</title>
-    <meta name="description" content="Experience exquisite fine dining at <?php echo htmlspecialchars($site_name); ?>. Fresh local cuisine, international dishes, craft cocktails, and premium bar service in an elegant setting.">
-    <meta name="keywords" content="<?php echo htmlspecialchars(getSetting('default_keywords', 'fine dining, gourmet restaurant, international cuisine, luxury restaurant')); ?>">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST']; ?>/restaurant.php">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="restaurant">
-    <meta property="og:url" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/restaurant.php">
-    <meta property="og:title" content="Fine Dining Restaurant - <?php echo htmlspecialchars($site_name); ?>">
-    <meta property="og:description" content="Experience exquisite fine dining with fresh local cuisine, international dishes, and premium bar service.">
-    <meta property="og:image" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/restaurant/hero.jpg">
-    
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/restaurant.php">
-    <meta property="twitter:title" content="Fine Dining Restaurant - <?php echo htmlspecialchars($site_name); ?>">
-    <meta property="twitter:description" content="Experience exquisite fine dining with fresh local cuisine, international dishes, and premium bar service.">
-    <meta property="twitter:image" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/restaurant/hero.jpg">
     
     <!-- REMOVED: Preload Critical Resources - Preventing aggressive caching for page transitions -->
     <!-- Preloading disabled to allow smooth page transition animations -->
@@ -328,20 +372,6 @@ try {
     <link rel="stylesheet" href="css/base/critical.css">
     <link rel="stylesheet" href="css/main.css">
     
-    <!-- Structured Data - Restaurant Schema -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Restaurant",
-      "name": "<?php echo htmlspecialchars($site_name); ?> Restaurant",
-      "image": "https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/restaurant/hero.jpg",
-      "description": "Fine dining restaurant offering fresh local cuisine, international dishes, and premium bar service",
-      "servesCuisine": ["International", "African", "Continental"],
-      "priceRange": "$$$",
-      "url": "https://<?php echo $_SERVER['HTTP_HOST']; ?>/restaurant.php"
-    }
-    </script>
-    
 </head>
 <body>
     <?php include 'includes/loader.php'; ?>
@@ -355,7 +385,7 @@ try {
 
     <!-- Matuwi Kitchen Welcome Section -->
     <?php if (!empty($matuwi_welcome)): ?>
-    <section class="matuwi-welcome-section section-padding">
+    <section class="matuwi-welcome-section section-padding" id="welcome">
         <div class="container">
             <div class="matuwi-welcome-content">
                 <?php if (!empty($matuwi_welcome['section_label'])): ?>
@@ -381,7 +411,7 @@ try {
     <?php endif; ?>
 
     <!-- Menu Section -->
-    <section class="restaurant-menu section-padding">
+    <section class="restaurant-menu section-padding" id="menu">
         <div class="container">
             <?php renderSectionHeader('restaurant_menu', 'restaurant', [
                 'label' => 'Culinary Delights',
@@ -390,7 +420,7 @@ try {
             ], 'text-center'); ?>
 
             <!-- Menu Container -->
-            <div class="menu-container">
+            <div class="menu-container" id="menu-container">
                 <!-- Restaurant Hero Actions (moved here) -->
                 <div class="restaurant-hero-actions">
                     <a href="<?php echo !empty($restaurant_contact_email) ? 'mailto:' . rawurlencode($restaurant_contact_email) : '#contact'; ?>" class="btn btn-primary"><i class="fas fa-utensils"></i> Reserve a Table</a>
@@ -454,10 +484,87 @@ try {
                 <!-- Menu Categories Wrapper -->
                 <div class="menu-categories-wrapper" id="menuCategoriesWrapper" aria-live="polite" aria-busy="false">
                     <!-- Category Tabs -->
-                    <div class="menu-tabs" id="menuTabs" role="tablist" aria-label="Menu categories"></div>
-                    
+                    <div class="menu-tabs" id="menuTabs" role="tablist" aria-label="Menu categories">
+                        <?php
+                        // Server-side render initial menu tabs for immediate display
+                        if (!empty($initial_menu_data['categories'])):
+                            $catIndex = 0;
+                            foreach ($initial_menu_data['categories'] as $slug => $category):
+                        ?>
+                        <button
+                            type="button"
+                            class="menu-tab <?php echo $catIndex === 0 ? 'active' : ''; ?>"
+                            data-category="<?php echo htmlspecialchars($slug); ?>"
+                            role="tab"
+                            aria-selected="<?php echo $catIndex === 0 ? 'true' : 'false'; ?>"
+                            aria-controls="menu-panel-<?php echo htmlspecialchars($slug); ?>"
+                            id="menu-tab-<?php echo htmlspecialchars($slug); ?>"
+                        >
+                            <span class="menu-tab-name"><?php echo htmlspecialchars($category['name']); ?></span>
+                            <span class="menu-tab-count"><?php echo count($category['items']); ?></span>
+                        </button>
+                        <?php
+                                $catIndex++;
+                            endforeach;
+                        endif;
+                        ?>
+                    </div>
+
                     <!-- Menu Content -->
-                    <div id="menuContent" class="menu-content-panels"></div>
+                    <div id="menuContent" class="menu-content-panels">
+                        <?php
+                        // Server-side render initial menu content for immediate display
+                        if (!empty($initial_menu_data['categories'])):
+                            $panelIndex = 0;
+                            foreach ($initial_menu_data['categories'] as $slug => $category):
+                        ?>
+                        <div
+                            class="menu-panel <?php echo $panelIndex === 0 ? 'active' : ''; ?>"
+                            data-category="<?php echo htmlspecialchars($slug); ?>"
+                            id="menu-panel-<?php echo htmlspecialchars($slug); ?>"
+                            role="tabpanel"
+                            aria-labelledby="menu-tab-<?php echo htmlspecialchars($slug); ?>"
+                        >
+                            <div class="menu-panel-header">
+                                <h3 class="menu-panel-title"><?php echo htmlspecialchars($category['name']); ?></h3>
+                                <p class="menu-panel-subtitle"><?php echo count($category['items']); ?> <?php echo count($category['items']) === 1 ? 'item' : 'items'; ?></p>
+                            </div>
+                            <div class="menu-items-grid">
+                                <?php foreach ($category['items'] as $item): ?>
+                                <div class="menu-item <?php echo !empty($item['is_featured']) ? 'featured' : ''; ?>">
+                                    <div class="menu-item-header">
+                                        <div class="menu-item-title">
+                                            <h3 class="menu-item-name"><?php echo htmlspecialchars($item['name']); ?></h3>
+                                            <?php if (!empty($item['is_featured'])): ?>
+                                            <span class="featured-badge"><i class="fas fa-star"></i> Chef's Special</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <span class="menu-item-price"><?php echo $currency_symbol; ?><?php echo number_format($item['price'], 2); ?></span>
+                                    </div>
+                                    <?php if (!empty($item['description'])): ?>
+                                    <p class="menu-item-description"><?php echo htmlspecialchars($item['description']); ?></p>
+                                    <?php endif; ?>
+                                    <div class="menu-item-tags">
+                                        <?php if (!empty($item['is_vegetarian'])): ?>
+                                        <span class="tag tag-vegetarian"><i class="fas fa-leaf"></i> Vegetarian</span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($item['is_vegan'])): ?>
+                                        <span class="tag tag-vegan"><i class="fas fa-seedling"></i> Vegan</span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($item['allergens'])): ?>
+                                        <span class="tag tag-allergen"><i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($item['allergens']); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <?php
+                                $panelIndex++;
+                            endforeach;
+                        endif;
+                        ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -465,14 +572,14 @@ try {
 
 
         <!-- Passalacqua-Inspired Editorial Restaurant Gallery Grid (moved below menu) -->
-        <section class="editorial-gallery-section section-padding">
+        <section class="editorial-gallery-section section-padding" id="gallery">
             <div class="container">
                 <?php renderSectionHeader('restaurant_gallery', 'restaurant', [
                     'label' => 'Visual Journey',
                     'title' => 'Our Dining Spaces',
                     'description' => 'From elegant interiors to breathtaking views, every detail creates the perfect ambiance'
                 ], 'text-center'); ?>
-                <div class="editorial-gallery-grid">
+                <div class="editorial-gallery-grid" id="editorial-gallery-grid">
                     <?php if (!empty($gallery_images)): ?>
                         <?php foreach ($gallery_images as $index => $image): ?>
                             <div class="editorial-gallery-item">
@@ -509,9 +616,9 @@ try {
 
 
         <!-- Passalacqua-Inspired Editorial Restaurant Experience Section -->
-        <section class="editorial-experience-section section-padding">
+        <section class="editorial-experience-section section-padding" id="experience">
             <div class="container">
-                <div class="editorial-experience-grid">
+                <div class="editorial-experience-grid" id="editorial-experience-grid">
                     <div class="editorial-experience-item">
                         <div class="editorial-experience-icon"><i class="fas fa-utensils"></i></div>
                         <h3>Fine Dining</h3>
@@ -540,9 +647,6 @@ try {
             </div>
         </section>
 
-    </main>
-    <?php include 'includes/footer.php'; ?>
-
     <!-- Scripts -->
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
@@ -551,66 +655,110 @@ try {
         // Currency settings (from PHP)
         const currencySymbol = '<?php echo $currency_symbol; ?>';
         const currencyCode = '<?php echo $currency_code; ?>';
-        
+
+        // Pre-loaded menu data from server (for immediate display)
+        const initialMenuData = <?php echo json_encode($initial_menu_data); ?>;
+
         // Current menu state
         let currentMenuType = 'food';
         let currentCategory = null;
         let menuData = null;
-        
+
         // DOM Elements
-        const menuTypeTabs = document.querySelectorAll('.menu-type-tab');
-        const menuTabs = document.getElementById('menuTabs');
-        const menuContent = document.getElementById('menuContent');
-        const menuLoading = document.getElementById('menuLoading');
-        const menuCategoriesWrapper = document.getElementById('menuCategoriesWrapper');
-        
-        // Fetch menu data via AJAX
-        async function fetchMenuData(menuType) {
-            console.log('[MENU DEBUG] Fetching menu data for type:', menuType);
-            showLoading();
+        let menuTypeTabs = null;
+        let menuTabs = null;
+        let menuContent = null;
+        let menuLoading = null;
+        let menuCategoriesWrapper = null;
+
+        // Initialize DOM elements
+        function initMenuElements() {
+            menuTypeTabs = document.querySelectorAll('.menu-type-tab');
+            menuTabs = document.getElementById('menuTabs');
+            menuContent = document.getElementById('menuContent');
+            menuLoading = document.getElementById('menuLoading');
+            menuCategoriesWrapper = document.getElementById('menuCategoriesWrapper');
+
+            if (!menuTabs || !menuContent || !menuLoading || !menuCategoriesWrapper) {
+                return false;
+            }
             
+            // Debug: Check if elements are visible and have correct styles
+            const menuTypeTabsContainer = document.querySelector('.menu-type-tabs');
+            if (menuTypeTabsContainer) {
+                const style = window.getComputedStyle(menuTypeTabsContainer);
+            }
+            if (menuTabs) {
+                const style = window.getComputedStyle(menuTabs);
+            }
+
+            return true;
+        }
+
+        // Fetch menu data via AJAX with timeout and retry
+        async function fetchMenuData(menuType, retryCount = 0) {
+            showLoading();
+
             try {
                 const url = `restaurant.php?ajax=menu&menu_type=${menuType}`;
-                console.log('[MENU DEBUG] Fetching from:', url);
-                
-                const response = await fetch(url);
-                console.log('[MENU DEBUG] Response status:', response.status);
-                
+
+                // Create abort controller for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    cache: 'no-store'
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
-                console.log('[MENU DEBUG] Response data:', data);
-                
+
                 if (data.success) {
                     menuData = data;
-                    console.log('[MENU DEBUG] Menu data loaded successfully, categories:', Object.keys(data.categories || {}));
                     renderMenu(data);
                 } else {
-                    console.error('[MENU DEBUG] Menu load failed:', data.error);
                     showError(data.error || 'Failed to load menu');
                 }
             } catch (error) {
-                console.error('[MENU DEBUG] Error fetching menu:', error);
-                showError('An error occurred while loading the menu');
+                // Retry logic for network errors
+                if (retryCount < 2 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                    return fetchMenuData(menuType, retryCount + 1);
+                }
+
+                if (error.name === 'AbortError') {
+                    showError('Request timed out. Please check your connection and try again.');
+                } else {
+                    showError('An error occurred while loading the menu. Please try again.');
+                }
             } finally {
                 hideLoading();
             }
         }
-        
+
         // Show loading state
         function showLoading() {
-            menuLoading.classList.add('active');
-            menuCategoriesWrapper.classList.add('is-loading');
-            menuCategoriesWrapper.setAttribute('aria-busy', 'true');
+            if (menuLoading) menuLoading.classList.add('active');
+            if (menuCategoriesWrapper) menuCategoriesWrapper.classList.add('is-loading');
+            if (menuCategoriesWrapper) menuCategoriesWrapper.setAttribute('aria-busy', 'true');
         }
-        
+
         // Hide loading state
         function hideLoading() {
-            menuLoading.classList.remove('active');
-            menuCategoriesWrapper.classList.remove('is-loading');
-            menuCategoriesWrapper.setAttribute('aria-busy', 'false');
+            if (menuLoading) menuLoading.classList.remove('active');
+            if (menuCategoriesWrapper) menuCategoriesWrapper.classList.remove('is-loading');
+            if (menuCategoriesWrapper) menuCategoriesWrapper.setAttribute('aria-busy', 'false');
         }
-        
+
         // Show error state
         function showError(message) {
+            if (!menuContent) return;
             menuContent.innerHTML = `
                 <div class="menu-empty-state">
                     <i class="fas fa-exclamation-circle"></i>
@@ -623,15 +771,18 @@ try {
             `;
             menuTabs.innerHTML = '';
         }
-        
+
         // Render menu
         function renderMenu(data) {
-            console.log('[MENU DEBUG] Rendering menu, data:', data);
             const categories = Object.values(data.categories);
-            console.log('[MENU DEBUG] Categories to render:', categories);
-            
+
+            if (!menuTabs || !menuContent) {
+                // console.error('[Menu] Menu tabs or content not found!');
+                return;
+            }
+
             if (categories.length === 0) {
-                console.warn('[MENU DEBUG] No categories found, showing empty state');
+                hideLoading();
                 menuTabs.innerHTML = '';
                 const adminHint = data.admin_hint
                     ? `<p class="menu-empty-admin-hint">${escapeHtml(data.admin_hint)}</p>`
@@ -646,7 +797,7 @@ try {
                 `;
                 return;
             }
-            
+
             // Render category tabs
             menuTabs.innerHTML = categories.map((cat, index) => `
                 <button
@@ -662,9 +813,8 @@ try {
                     <span class="menu-tab-count">${cat.items.length}</span>
                 </button>
             `).join('');
-            
+
             // Render menu content
-            console.log('[MENU DEBUG] Rendering menu content HTML...');
             menuContent.innerHTML = categories.map((cat, index) => `
                 <div
                     class="menu-panel ${index === 0 ? 'active' : ''}"
@@ -682,14 +832,13 @@ try {
                     </div>
                 </div>
             `).join('');
-            
-            console.log('[MENU DEBUG] Menu content HTML set, checking elements...');
-            console.log('[MENU DEBUG] menuContent.innerHTML length:', menuContent.innerHTML.length);
-            console.log('[MENU DEBUG] menuContent children:', menuContent.children.length);
-            
+
+            // Hide loading state to show the menu
+            hideLoading();
+
             // Set current category to first one
             currentCategory = categories[0].slug;
-            
+
             // Add event listeners to category tabs
             menuTabs.querySelectorAll('.menu-tab').forEach(tab => {
                 tab.addEventListener('click', function() {
@@ -698,7 +847,7 @@ try {
                 });
             });
         }
-        
+
         // Render single menu item
         function renderMenuItem(item, menuType) {
             if (menuType === 'food') {
@@ -736,76 +885,155 @@ try {
                 </div>
             `;
         }
-        
+
         // Switch category
         function switchCategory(category) {
             currentCategory = category;
-            
+
+            if (!menuTabs || !menuContent) {
+                return;
+            }
+
             // Update active tab
             menuTabs.querySelectorAll('.menu-tab').forEach(tab => {
-                tab.classList.toggle('active', tab.getAttribute('data-category') === category);
-                tab.setAttribute('aria-selected', tab.getAttribute('data-category') === category ? 'true' : 'false');
+                const isActive = tab.getAttribute('data-category') === category;
+                tab.classList.toggle('active', isActive);
+                tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
             });
-            
+
             // Update active category
             menuContent.querySelectorAll('.menu-panel').forEach(cat => {
                 cat.classList.toggle('active', cat.getAttribute('data-category') === category);
             });
         }
-        
+
         // Switch menu type
         function switchMenuType(menuType) {
             if (currentMenuType === menuType) return;
-            
+
             currentMenuType = menuType;
             currentCategory = null;
-            
+
             // Update active type tab
-            menuTypeTabs.forEach(tab => {
-                tab.classList.toggle('active', tab.getAttribute('data-type') === menuType);
-            });
-            
+            if (menuTypeTabs) {
+                menuTypeTabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.getAttribute('data-type') === menuType);
+                });
+            }
+
             // Fetch new menu data
             fetchMenuData(menuType);
         }
-        
+
         // Escape HTML to prevent XSS
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
-        
-        // Initialize menu type tabs
-        menuTypeTabs.forEach(tab => {
-            tab.addEventListener('click', function() {
-                const menuType = this.getAttribute('data-type');
-                switchMenuType(menuType);
-            });
-        });
-        
-        // Load default menu on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('[MENU DEBUG] DOM loaded, initializing menu...');
-            console.log('[MENU DEBUG] DOM elements found:', {
-                menuContent: !!menuContent,
-                menuTabs: !!menuTabs,
-                menuLoading: !!menuLoading,
-                menuCategoriesWrapper: !!menuCategoriesWrapper
-            });
-            fetchMenuData('food');
-        });
-        
-        // Page loader
-        window.addEventListener('load', function() {
-            const pageLoader = document.querySelector('.page-loader');
-            if (pageLoader) {
-                pageLoader.classList.add('fade-out');
-                setTimeout(() => {
-                    pageLoader.style.display = 'none';
-                }, 500);
+
+        // Expose functions globally so persistent event handler can call them
+        window.switchMenuType = switchMenuType;
+        window.switchCategory = switchCategory;
+        window.fetchMenuData = fetchMenuData;
+        window.renderMenu = renderMenu;
+
+        // Initialize menu when DOM is ready
+        function initMenu() {
+            if (!initMenuElements()) {
+                // Retry after a short delay in case DOM is still being built
+                setTimeout(initMenu, 100);
+                return;
             }
+
+            // Check if menu content already exists (server-side rendered)
+            const existingPanels = menuContent.querySelectorAll('.menu-panel');
+            
+            if (existingPanels.length > 0) {
+                // Menu already exists, just bind event listeners
+                menuTypeTabs.forEach(tab => {
+                    tab.addEventListener('click', function() {
+                        const menuType = this.getAttribute('data-type');
+                        switchMenuType(menuType);
+                    });
+                });
+
+                // Bind category tab events - add debug logging
+                menuTabs.querySelectorAll('.menu-tab').forEach(tab => {
+                    tab.addEventListener('click', function(e) {
+                        const category = this.getAttribute('data-category');
+                        switchCategory(category);
+                    });
+                });
+
+                // Also bind directly to ensure clicks work
+                menuTabs.addEventListener('click', function(e) {
+                    const tab = e.target.closest('.menu-tab');
+                    if (tab) {
+                        const category = tab.getAttribute('data-category');
+                        switchCategory(category);
+                    }
+                });
+
+                // Hide loading state
+                hideLoading();
+                return;
+            }
+
+            menuTypeTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const menuType = this.getAttribute('data-type');
+                    switchMenuType(menuType);
+                });
+            });
+
+            // ALWAYS fetch fresh menu data on initialization
+            // This ensures menu loads even when SPA navigates to this page
+            fetchMenuData('food');
+        }
+
+        // Wait for DOM to be fully ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMenu);
+        } else {
+            // DOM is ready, initialize immediately
+            initMenu();
+        }
+
+        // Re-initialize menu when SPA navigates to this page
+        window.addEventListener('spa:contentLoaded', function(e) {
+            // Small delay to ensure DOM is fully rendered
+            setTimeout(() => {
+                initMenu();
+            }, 100);
         });
+
+        // ULTIMATE FALLBACK: Global click handler for menu tabs (runs on ALL pages)
+        // This ensures clicks work even if initMenu fails or script is swapped out
+        if (!window._restaurantMenuHandlerAttached) {
+            window._restaurantMenuHandlerAttached = true;
+            document.addEventListener('click', function(e) {
+                // Check for menu-type-tab clicks
+                const menuTypeTab = e.target.closest('.menu-type-tab');
+                if (menuTypeTab) {
+                    const menuType = menuTypeTab.getAttribute('data-type');
+                    if (menuType && typeof switchMenuType === 'function') {
+                        switchMenuType(menuType);
+                    }
+                    return;
+                }
+
+                // Check for menu-tab (category) clicks
+                const menuTab = e.target.closest('.menu-tab');
+                if (menuTab) {
+                    const category = menuTab.getAttribute('data-category');
+                    if (category && typeof switchCategory === 'function') {
+                        switchCategory(category);
+                    }
+                    return;
+                }
+            }, true); // Use capture phase to ensure this runs first
+        }
     </script>
 
     <!-- Gallery scroll-reveal animations -->
@@ -837,6 +1065,7 @@ try {
         })();
     </script>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
+    </main>
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

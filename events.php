@@ -80,12 +80,19 @@ $site_logo = getSetting('site_logo');
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
+    <?php
+    $seo_data = [
+        'title' => 'Upcoming Events - ' . $site_name,
+        'description' => "Join us for memorable celebrations and special gatherings at {$site_name}. Check out our upcoming events, live music, and special occasions.",
+        'image' => '/images/hero/slide1.jpeg',
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=yes">
-    <title>Upcoming Events - <?php echo htmlspecialchars($site_name); ?></title>
     
     <!-- Main CSS - Loads all stylesheets in correct order -->
     <link rel="stylesheet" href="css/base/critical.css">
@@ -95,16 +102,17 @@ $site_logo = getSetting('site_logo');
     <?php include 'includes/loader.php'; ?>
     
     <?php include 'includes/header.php'; ?>
-    
+
     <!-- Mobile Menu Overlay -->
     <div class="mobile-menu-overlay" role="presentation"></div>
 
+    <main>
     <!-- Hero Section -->
     <?php include 'includes/hero.php'; ?>
 
 
         <!-- Passalacqua-Inspired Editorial Events Section -->
-        <section class="editorial-events-section events-showcase">
+        <section class="editorial-events-section events-showcase" id="events">
             <div class="container">
                 <?php renderSectionHeader('events_overview', 'events', [
                     'label' => 'Upcoming Events',
@@ -118,7 +126,7 @@ $site_logo = getSetting('site_logo');
                         <p>Check back soon for exciting events and special occasions!</p>
                     </div>
                 <?php else: ?>
-                    <div class="editorial-events-grid events-showcase__grid">
+                    <div class="editorial-events-grid events-showcase__grid" id="editorial-events-grid">
                         <?php foreach ($upcoming_events as $event): ?>
                             <?php
                             $event_date = new DateTime($event['event_date']);
@@ -203,10 +211,10 @@ $site_logo = getSetting('site_logo');
                 <?php endif; ?>
                 <!-- Expired Events Section -->
                 <?php if (!empty($expired_events)): ?>
-                    <div class="editorial-expired-events-section">
+                    <div class="editorial-expired-events-section" id="editorial-expired-events-section">
                         <h2 class="editorial-expired-section-title">Past Events</h2>
                         <p class="editorial-expired-section-subtitle">Events that have already taken place</p>
-                        <div class="editorial-events-grid events-showcase__grid">
+                        <div class="editorial-events-grid events-showcase__grid" id="editorial-expired-events-grid">
                             <?php foreach ($expired_events as $event): ?>
                                 <?php
                                 $event_date = new DateTime($event['event_date']);
@@ -284,11 +292,13 @@ $site_logo = getSetting('site_logo');
                 <?php endif; ?>
             </div>
         </section>
-    <!-- Footer -->
-    <?php include 'includes/footer.php'; ?>
-    
+    </main>
+
+    <!-- Scripts -->
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
-    <?php include 'includes/scroll-to-top.php'; ?>
+
+    <!-- Footer -->
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

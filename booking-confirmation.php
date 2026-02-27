@@ -55,12 +55,19 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
+    <?php
+    $seo_data = [
+        'title' => 'Booking Confirmed | ' . $site_name,
+        'description' => "Your booking at {$site_name} has been confirmed.",
+        'noindex' => true,
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
+    
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=yes">
-    <title>Booking Confirmed | <?php echo htmlspecialchars($site_name); ?></title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -268,10 +275,9 @@ try {
     <?php endif; ?>
     </main>
 
-    <?php include 'includes/footer.php'; ?>
-    <?php include 'includes/scroll-to-top.php'; ?>
-    
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
+
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

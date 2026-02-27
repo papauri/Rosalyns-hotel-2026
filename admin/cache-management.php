@@ -180,6 +180,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = "Global caching " . ($enabled ? 'enabled' : 'disabled') . "!";
                 $success = true;
                 break;
+
+            case 'purge_seo_favicon':
+                // Purge SEO & Favicon related caches: page HTML, proxied logo, and bump asset version
+                require_once __DIR__ . '/../config/cache.php';
+                require_once __DIR__ . '/../config/page-cache.php';
+
+                // Build absolute logo URL similar to includes/seo-meta.php
+                $site_url = getSetting('site_url');
+                $base_url = $site_url ?: ('https://' . $_SERVER['HTTP_HOST']);
+                $site_logo = getSetting('site_logo');
+                $logo_abs = '';
+                if (!empty($site_logo)) {
+                    $logo_abs = (strpos($site_logo, 'http') === 0) ? $site_logo : ($base_url . $site_logo);
+                }
+
+                // Use the granular helpers when available; fall back to legacy combined helper
+                $pageCleared = false;
+                $proxyDeleted = false;
+                $newVersion = null;
+
+                if (function_exists('purge_all_page_caches') && function_exists('purge_proxied_image_for_url') && function_exists('bump_seo_asset_version')) {
+                    $pageCleared = (bool) purge_all_page_caches();
+                    if (!empty($logo_abs)) {
+                        $proxyDeleted = (bool) purge_proxied_image_for_url($logo_abs);
+                    }
+                    $newVersion = bump_seo_asset_version();
+                } elseif (function_exists('purgeSeoAndFaviconCaches')) {
+                    $res = purgeSeoAndFaviconCaches($logo_abs);
+                    $pageCleared = !empty($res['page_cache_cleared']);
+                    $proxyDeleted = !empty($res['proxied_logo_deleted']);
+                    $newVersion = $res['new_version'] ?? null;
+                } else {
+                    // Minimal fallback if helpers are unavailable
+                    if (function_exists('clearPageCache')) {
+                        $pageCleared = (bool) clearPageCache();
+                    }
+                }
+
+                $message = sprintf(
+                    "Purged SEO & Favicon caches. Page HTML cleared: %s. Proxied logo deleted: %s. New asset version: %s.",
+                    $pageCleared ? 'yes' : 'no',
+                    $proxyDeleted ? 'yes' : 'no',
+                    $newVersion ?: 'n/a'
+                );
+                $success = true;
+                break;
         }
     } catch (PDOException $e) {
         $error = 'Database error: ' . $e->getMessage();
@@ -871,6 +917,25 @@ $cache_types = [
                 <button type="submit" class="btn-action btn-delete" 
                         onclick="return confirm('Are you sure you want to clear the selected caches?');">
                     <i class="fas fa-eraser"></i> Clear Selected Caches
+                </button>
+            </form>
+        </div>
+
+        <!-- Quick Actions: SEO & Favicon Purge -->
+        <div class="cache-section">
+            <h2><i class="fas fa-wand-magic-sparkles"></i> Quick Actions</h2>
+            <form method="POST" onsubmit="return confirm('This will clear ALL page HTML caches and bump favicon/meta asset versions so browsers refetch them. Proceed?');">
+                <input type="hidden" name="action" value="purge_seo_favicon">
+                <p class="cache-toggle-desc" style="margin-bottom:12px;">
+                    Runs a targeted purge to ensure favicon and SEO/meta changes are reflected immediately:
+                </p>
+                <ul style="margin:0 0 16px 18px; color:#555;">
+                    <li>Clear all Page HTML caches (refreshes meta tags across the site)</li>
+                    <li>Delete cached proxied logo (if logo is external and proxied)</li>
+                    <li>Bump a version parameter on favicon and touch-icon links to bypass CDN/browser cache</li>
+                </ul>
+                <button type="submit" class="btn-action btn-primary">
+                    <i class="fas fa-broom"></i> Purge SEO &amp; Favicon
                 </button>
             </form>
         </div>

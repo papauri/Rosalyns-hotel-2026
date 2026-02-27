@@ -18,10 +18,7 @@
             const modal = document.getElementById(modalId);
             const backdrop = modal?.querySelector('.modal__backdrop');
              
-            if (!modal) {
-                console.error('Modal not found:', modalId);
-                return;
-            }
+            if (!modal) { return; }
 
             // Add to active modals stack
             this.activeModals.push(modalId);
@@ -66,6 +63,66 @@
         // Close all open modals
         closeAll: function() {
             [...this.activeModals].forEach(id => this.close(id));
+        },
+
+        // Ensure a generic system message modal exists in DOM
+        _ensureSystemModal: function() {
+            let modal = document.getElementById('system-message');
+            if (modal) return modal;
+
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `
+                <div class="modal modal--md" id="system-message" data-modal data-close-on-overlay="true" data-close-on-escape="true" role="dialog" aria-modal="true" aria-labelledby="system-message-title">
+                    <div class="modal__backdrop" data-modal-close></div>
+                    <div class="modal__wrapper">
+                        <div class="modal__container">
+                            <button class="modal__close" data-modal-close aria-label="Close modal"></button>
+                            <div class="modal__header">
+                                <h3 class="modal__title" id="system-message-title"></h3>
+                            </div>
+                            <div class="modal__body"></div>
+                            <div class="modal__footer" style="display:none"></div>
+                        </div>
+                    </div>
+                </div>`;
+            modal = wrapper.firstElementChild;
+            document.body.appendChild(modal);
+
+            // Bind close handlers for this dynamically injected modal
+            const closeBtn = modal.querySelector('[data-modal-close]');
+            const backdrop = modal.querySelector('.modal__backdrop');
+            if (closeBtn) closeBtn.addEventListener('click', () => this.close('system-message'));
+            if (backdrop) backdrop.addEventListener('click', (e) => { if (e.target === backdrop) this.close('system-message'); });
+
+            return modal;
+        },
+
+        // Show a user-friendly system message in a modal
+        showMessage: function({ title = 'Notice', message = '', footerHtml = '', size = 'md' } = {}) {
+            const modal = this._ensureSystemModal();
+            if (!modal) { alert((title ? title + '\n\n' : '') + (message || '')); return; }
+
+            // Apply size class
+            modal.classList.remove('modal--sm', 'modal--md', 'modal--lg', 'modal--xl');
+            modal.classList.add(`modal--${size}`);
+
+            const titleEl = modal.querySelector('#system-message-title');
+            const bodyEl  = modal.querySelector('.modal__body');
+            const footEl  = modal.querySelector('.modal__footer');
+
+            if (titleEl) titleEl.textContent = title || '';
+            if (bodyEl)  bodyEl.innerHTML = message || '';
+            if (footEl)  {
+                if (footerHtml) {
+                    footEl.style.display = '';
+                    footEl.innerHTML = footerHtml;
+                } else {
+                    footEl.style.display = 'none';
+                    footEl.innerHTML = '';
+                }
+            }
+
+            this.open('system-message');
         },
 
         // Initialize modal event listeners

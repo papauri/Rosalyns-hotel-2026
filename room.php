@@ -24,17 +24,31 @@ if (empty($booking_notification_email)) {
     $booking_notification_email = $email_reservations;
 }
 
+// Configurable fallback image (no hardcoded paths)
+$default_room_image = getSetting('default_room_image');
+if (empty($default_room_image)) {
+    $default_room_image = $site_logo; // fall back to site logo if no dedicated default set
+}
+
 // Define base URL for use in SEO data
 $base_url = siteUrl('');
 
 function resolveImageUrl($path) {
     if (!$path) return '';
     $trimmed = trim($path);
+    // Absolute external URL
     if (stripos($trimmed, 'http://') === 0 || stripos($trimmed, 'https://') === 0) {
         return $trimmed;
     }
-    // No prefix needed since file is now in root directory
-    return $trimmed;
+    // Normalize relative path
+    $relative = ltrim($trimmed, '/\\');
+    $abs = __DIR__ . DIRECTORY_SEPARATOR . $relative;
+    if (!file_exists($abs)) {
+        // Use configurable fallback (DB-driven) to avoid hardcoded paths
+        global $default_room_image;
+        return $default_room_image ?: $relative;
+    }
+    return $relative;
 }
 
 $policies = [];
@@ -202,7 +216,6 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     
     <!-- SEO Meta Tags -->
     <?php require_once 'includes/seo-meta.php'; ?>
@@ -217,6 +230,19 @@ try {
     
     <!-- Swiper CSS for Modern Carousel -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    
+    <!-- Page-specific contrast tweak: booking CTA colors -->
+    <style>
+      /* Ensure premium contrast on the booking CTA block without affecting other sections */
+      /* Use !important to override global critical.css which sets h1–h6 and p with !important */
+      #booking-cta-grid .booking-cta__content { color: #f5efe6 !important; }
+      #booking-cta-grid .booking-cta__content h1,
+      #booking-cta-grid .booking-cta__content h2,
+      #booking-cta-grid .booking-cta__content h3 { color: #f8f3ea !important; }
+      #booking-cta-grid .booking-cta__content h2 { color: #f5efe6 !important; }
+      #booking-cta-grid .booking-cta__content p { color: #efe8dc !important; }
+      #booking-cta-grid .booking-cta__content .pill { color: #fff7ea !important; }
+    </style>
     </head>
 <body class="rooms-page">
     <?php include 'includes/loader.php'; ?>
@@ -227,26 +253,8 @@ try {
     <div class="mobile-menu-overlay" role="presentation"></div>
 
     <main>
-    <section class="rooms-hero">
-        <?php if (!empty($room['video_path'])): ?>
-            <!-- Display video if available -->
-            <div class="rooms-hero__video">
-                <?php echo renderVideoEmbed($room['video_path'], $room['video_type'], [
-                    'autoplay' => true,
-                    'muted' => true,
-                    'controls' => false,
-                    'loop' => true,
-                    'lazy' => false,
-                    'preload' => 'auto',
-                    'playsinline' => true,
-                    'class' => 'rooms-hero-video-embed',
-                    'style' => 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;'
-                ]); ?>
-            </div>
-        <?php else: ?>
-            <!-- Display image background if no video -->
-            <div class="rooms-hero__image" style="background-image: linear-gradient(135deg, rgba(5, 9, 15, 0.76), rgba(10, 25, 41, 0.75)), url('<?php echo htmlspecialchars($hero_image); ?>');"></div>
-        <?php endif; ?>
+    <section class="rooms-hero rh-reveal">
+        <!-- Themed background only; no image or video media elements -->
         
         <div class="rooms-hero__overlay"></div>
         <div class="container">
@@ -407,7 +415,7 @@ try {
     </section>
 
     <section class="booking-cta rh-reveal" id="book">
-        <div class="container booking-cta__grid">
+        <div class="container booking-cta__grid" id="booking-cta-grid">
             <div class="booking-cta__content">
                 <div class="pill">Direct Booking</div>
                 <h2>Ready to reserve your stay?</h2>
@@ -468,20 +476,18 @@ try {
         </section>
     </main>
 
-    <!-- Footer -->
-    <?php include 'includes/footer.php'; ?>
-    
+    <!-- Scripts -->
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
-    
+
     <!-- Scroll Reveal Animation Handler -->
     <script>
     // Scroll Reveal for elements with .rh-reveal class
     document.addEventListener('DOMContentLoaded', function() {
         const revealElements = document.querySelectorAll('.rh-reveal');
-        
+
         if (revealElements.length === 0) return;
-        
+
         const revealObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -495,11 +501,11 @@ try {
             rootMargin: '0px 0px -80px 0px',
             threshold: 0.1
         });
-        
+
         revealElements.forEach(el => {
             revealObserver.observe(el);
         });
-        
+
         // Fallback: reveal all elements after page load if IntersectionObserver not triggered
         setTimeout(() => {
             revealElements.forEach(el => {
@@ -511,16 +517,16 @@ try {
         }, 500);
     });
     </script>
-    
+
     <!-- Swiper JS for Carousel -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-    
+
     <script>
     // Initialize Room Gallery Carousel
     document.addEventListener('DOMContentLoaded', function() {
         const galleryCarousel = document.querySelector('.room-gallery-swiper');
         const thumbsCarousel = document.querySelector('.room-gallery-thumbs');
-        
+
         if (galleryCarousel) {
             // Initialize thumbnail swiper first
             let thumbsSwiper = null;
@@ -534,7 +540,7 @@ try {
                     slideToClickedSlide: true
                 });
             }
-            
+
             // Initialize main gallery swiper
             const mainSwiper = new Swiper('.room-gallery-swiper', {
                 spaceBetween: 0,
@@ -556,201 +562,133 @@ try {
                     onlyInViewport: true
                 },
                 a11y: {
-                    prevSlideMessage: 'Previous image',
-                    nextSlideMessage: 'Next image',
-                    firstSlideMessage: 'This is the first image',
-                    lastSlideMessage: 'This is the last image'
+                    prevSlideMessage: 'Previous slide',
+                    nextSlideMessage: 'Next slide'
                 },
                 on: {
                     slideChange: function() {
-                        // Update counter
-                        const counter = document.querySelector('.current-slide');
-                        if (counter) {
-                            counter.textContent = this.activeIndex + 1;
+                        const currentSlide = this.slides?.[this.activeIndex];
+                        if (currentSlide) {
+                            const img = currentSlide.querySelector('img');
+                            if (img && img.loading === 'lazy') {
+                                img.src = img.dataset.src || img.src;
+                                img.loading = 'eager';
+                            }
                         }
-                        
-                        // Pause any playing videos when switching slides
-                        const allVideos = document.querySelectorAll('.room-gallery-slide video');
-                        allVideos.forEach(video => {
-                            video.pause();
-                        });
-                    },
-                    init: function() {
-                        // Set initial counter
-                        const counter = document.querySelector('.current-slide');
-                        if (counter) {
-                            counter.textContent = 1;
+
+                        // Update counter
+                        const currentSlideEl = document.querySelector('.current-slide');
+                        const totalSlidesEl = document.querySelector('.total-slides');
+                        if (currentSlideEl && totalSlidesEl) {
+                            currentSlideEl.textContent = (this.activeIndex + 1).toString();
+                            totalSlidesEl.textContent = (this.slides ? this.slides.length : 0).toString();
                         }
                     }
                 }
             });
-            
-            // Touch/swipe hints for mobile
-            if ('ontouchstart' in window) {
-                const slideHint = document.createElement('div');
-                slideHint.className = 'swiper-touch-hint';
-                slideHint.innerHTML = '<i class="fas fa-hand-pointer"></i> Swipe to browse';
-                slideHint.style.cssText = 'position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.7); font-size: 12px; padding: 8px 16px; background: rgba(0,0,0,0.5); border-radius: 20px; z-index: 10; pointer-events: none;';
-                galleryCarousel.appendChild(slideHint);
-                
-                // Hide hint after first swipe
-                mainSwiper.on('slideChange', function() {
-                    if (slideHint.parentNode) {
-                        slideHint.style.opacity = '0';
-                        setTimeout(() => slideHint.remove(), 300);
-                    }
-                });
-                
-                // Auto-hide after 3 seconds
-                setTimeout(() => {
-                    if (slideHint.parentNode) {
-                        slideHint.style.opacity = '0';
-                        setTimeout(() => slideHint.remove(), 300);
-                    }
-                }, 3000);
+
+            // Update counter on init
+            const totalSlidesEl = document.querySelector('.total-slides');
+            if (totalSlidesEl) {
+                totalSlidesEl.textContent = mainSwiper.slides.length;
             }
         }
     });
     </script>
-    
+
+    <!-- Room Reviews Fetch & Display -->
     <script>
-    // Reviews functionality
     (function() {
-        const reviewsSection = document.getElementById('reviews');
-        if (!reviewsSection) return;
-
-        const roomId = reviewsSection.dataset.roomId;
         const reviewsList = document.getElementById('reviewsList');
-        const reviewsPagination = document.getElementById('reviewsPagination');
         const reviewsEmpty = document.getElementById('reviewsEmpty');
-        const currentPageSpan = document.getElementById('currentPage');
-        const totalPagesSpan = document.getElementById('totalPages');
-        const prevBtn = document.querySelector('.editorial-testimonials-pagination-btn--prev');
-        const nextBtn = document.querySelector('.editorial-testimonials-pagination-btn--next');
+        const reviewsPagination = document.getElementById('reviewsPagination');
+        const currentPageEl = document.getElementById('currentPage');
+        const totalPagesEl = document.getElementById('totalPages');
+        const prevBtn = reviewsPagination?.querySelector('.editorial-testimonials-pagination-btn--prev');
+        const nextBtn = reviewsPagination?.querySelector('.editorial-testimonials-pagination-btn--next');
 
-        // Check if required elements exist
-        if (!reviewsList || !reviewsPagination || !reviewsEmpty) {
-            console.warn('Reviews: Required elements not found');
-            return;
-        }
+        if (!reviewsList) return;
 
-        let currentPage = 1;
-        let totalPages = 1;
-        let reviewsPerPage = 5;
+        const roomId = reviewsList.closest('[data-room-id]')?.dataset.roomId;
+        if (!roomId) return;
+
         let allReviews = [];
+        let currentPage = 1;
+        const reviewsPerPage = 3;
 
-        // Fetch reviews from API
-        async function fetchReviews() {
-            try {
-                const response = await fetch(`admin/api/reviews.php?room_id=${roomId}&status=approved`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    allReviews = data.reviews || [];
-                    displayReviews(allReviews);
-                } else {
-                    showError('Failed to load reviews');
-                }
-            } catch (error) {
-                console.error('Error fetching reviews:', error);
-                showError('Failed to load reviews');
-            }
-        }
-
-        // Display reviews directly (simplified for editorial layout)
         function displayReviews(reviews) {
-            if (reviews.length === 0) {
-                reviewsEmpty.style.display = 'flex';
+            if (!reviews || reviews.length === 0) {
                 reviewsList.style.display = 'none';
                 reviewsPagination.style.display = 'none';
+                if (reviewsEmpty) reviewsEmpty.style.display = 'flex';
                 return;
             }
 
-            reviewsEmpty.style.display = 'none';
+            if (reviewsEmpty) reviewsEmpty.style.display = 'none';
             reviewsList.style.display = 'grid';
-            
-            totalPages = Math.ceil(reviews.length / reviewsPerPage);
-            if (currentPage > totalPages) currentPage = 1;
 
-            const startIndex = (currentPage - 1) * reviewsPerPage;
-            const endIndex = startIndex + reviewsPerPage;
-            const pageReviews = reviews.slice(startIndex, endIndex);
+            const totalPages = Math.ceil(reviews.length / reviewsPerPage);
+            const start = (currentPage - 1) * reviewsPerPage;
+            const end = start + reviewsPerPage;
+            const pageReviews = reviews.slice(start, end);
 
-            reviewsList.innerHTML = pageReviews.map(review => {
-                const starsHtml = generateStars(review.rating || 0);
-                const date = new Date(review.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-
-                return `
-                    <div class="editorial-testimonial-card">
-                        <div class="editorial-testimonial-quote">"</div>
-                        <p class="editorial-testimonial-text">${escapeHtml(review.comment)}</p>
+            reviewsList.innerHTML = pageReviews.map(review => `
+                <div class="editorial-testimonial-card">
+                    <div class="editorial-testimonial-quote">"</div>
+                    <p class="editorial-testimonial-text">${review.comment || 'A wonderful experience!'}</p>
+                    <div class="editorial-testimonial-footer">
                         <div class="editorial-testimonial-author">
-                            <div class="editorial-testimonial-author-name">${escapeHtml(review.guest_name || 'Anonymous')}</div>
-                            <div class="editorial-testimonial-author-location">${date}</div>
-                            <div class="editorial-testimonial-rating">${starsHtml}</div>
+                            <span class="editorial-testimonial-author-name">${review.guest_name || 'Valued Guest'}</span>
+                        </div>
+                        <div class="editorial-testimonial-rating">
+                            ${'<i class="fas fa-star"></i>'.repeat(Math.floor(review.rating))}${'<i class="fas fa-star-half-alt"></i>'.repeat(review.rating % 1)}${'<i class="far fa-star"></i>'.repeat(5 - Math.ceil(review.rating))}
                         </div>
                     </div>
-                `;
-            }).join('');
+                </div>
+            `).join('');
 
-            updatePagination();
-        }
+            if (currentPageEl) currentPageEl.textContent = currentPage;
+            if (totalPagesEl) totalPagesEl.textContent = totalPages;
 
-        // Generate star HTML
-        function generateStars(rating) {
-            let html = '';
-            const fullStars = Math.floor(rating);
-            const hasHalfStar = (rating - fullStars) >= 0.5;
-            const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-
-            for (let i = 0; i < fullStars; i++) {
-                html += '<i class="fas fa-star"></i>';
-            }
-            if (hasHalfStar) {
-                html += '<i class="fas fa-star-half-alt"></i>';
-            }
-            for (let i = 0; i < emptyStars; i++) {
-                html += '<i class="far fa-star"></i>';
-            }
-            return html;
-        }
-
-        // Update pagination
-        function updatePagination() {
-            if (currentPageSpan) currentPageSpan.textContent = currentPage;
-            if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
-            
             if (prevBtn) prevBtn.disabled = currentPage === 1;
-            if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+            if (nextBtn) {
+                nextBtn.disabled = currentPage === totalPages;
+                nextBtn.style.display = totalPages > 1 ? 'inline-flex' : 'none';
+            }
 
             if (reviewsPagination) {
                 reviewsPagination.style.display = totalPages > 1 ? 'flex' : 'none';
             }
         }
 
-        // Escape HTML
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Show error
-        function showError(message) {
+        function fetchReviews() {
             reviewsList.innerHTML = `
-                <div class="editorial-testimonial-card">
+                <div class="editorial-testimonial-card editorial-testimonial-loading">
                     <div class="editorial-testimonial-quote">"</div>
-                    <p class="editorial-testimonial-text"><i class="fas fa-exclamation-circle"></i> ${escapeHtml(message)}</p>
+                    <p class="editorial-testimonial-text"><i class="fas fa-spinner fa-spin"></i> Loading reviews...</p>
                 </div>
             `;
-            reviewsPagination.style.display = 'none';
+
+            fetch(`api/reviews.php?room_id=${roomId}&status=approved&limit=100`)
+                .then(response => {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && data.reviews) {
+                        allReviews = data.reviews;
+                        currentPage = 1;
+                        displayReviews(allReviews);
+                    } else {
+                        displayReviews([]);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching reviews:', error);
+                    displayReviews([]);
+                });
         }
 
-        // Event listeners for pagination
         if (prevBtn) {
             prevBtn.addEventListener('click', () => {
                 if (currentPage > 1) {
@@ -776,6 +714,7 @@ try {
     })();
     </script>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
+    <!-- Footer -->
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

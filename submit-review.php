@@ -44,6 +44,10 @@ $rooms = [];
 $selected_room_id = isset($_GET['room_id']) ? (int)$_GET['room_id'] : 0;
 $room_name = '';
 
+// Brand assets
+$site_name = getSetting('site_name');
+$site_logo = getSetting('site_logo');
+
 // Fetch available rooms for dropdown
 try {
     $stmt = $pdo->query("SELECT id, name FROM rooms WHERE is_active = 1 ORDER BY name ASC");
@@ -61,6 +65,58 @@ try {
 } catch (PDOException $e) {
     // Log error but continue
     error_log("Error fetching rooms: " . $e->getMessage());
+}
+
+// ── Reviews Overview (public, approved only) ───────────────────────────────
+$reviews_summary = [
+    'total' => 0,
+    'approved' => 0,
+    'responses' => 0,
+    'avg_rating' => null,
+];
+$latest_reviews = [];
+
+try {
+    // Total reviews (all statuses)
+    $stmt = $pdo->query("SELECT COUNT(*) AS c FROM reviews");
+    $reviews_summary['total'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+
+    // Approved reviews count
+    $stmt = $pdo->query("SELECT COUNT(*) AS c FROM reviews WHERE status = 'approved'");
+    $reviews_summary['approved'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+
+    // Responses count
+    $stmt = $pdo->query("SELECT COUNT(*) AS c FROM review_responses");
+    $reviews_summary['responses'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+
+    // Average rating on approved
+    $stmt = $pdo->query("SELECT AVG(rating) AS avg_rating FROM reviews WHERE status='approved' AND rating IS NOT NULL");
+    $avg = $stmt->fetch(PDO::FETCH_ASSOC)['avg_rating'] ?? null;
+    $reviews_summary['avg_rating'] = $avg !== null ? round((float)$avg, 2) : null;
+
+    // Latest approved reviews with latest response (if any)
+    $sql = "
+        SELECT r.id, r.guest_name, r.title, r.comment, r.rating, r.created_at,
+               (
+                 SELECT rr.response FROM review_responses rr
+                 WHERE rr.review_id = r.id
+                 ORDER BY rr.created_at DESC
+                 LIMIT 1
+               ) AS latest_response,
+               (
+                 SELECT rr.created_at FROM review_responses rr
+                 WHERE rr.review_id = r.id
+                 ORDER BY rr.created_at DESC
+                 LIMIT 1
+               ) AS latest_response_date
+        FROM reviews r
+        WHERE r.status = 'approved'
+        ORDER BY r.created_at DESC
+        LIMIT 5";
+    $stmt = $pdo->query($sql);
+    $latest_reviews = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (PDOException $e) {
+    error_log('submit-review overview error: ' . $e->getMessage());
 }
 
 // Handle form submission via POST
@@ -277,16 +333,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     <!-- Custom CSS for Review Form -->
     <link rel="stylesheet" href="css/review-form.css">
+    
+    <style>
+      /* Lightweight, page-scoped polish for overview and inline brand */
+      .inline-brand { display:flex; align-items:center; gap:12px; padding:10px 16px; }
+      .inline-brand .header__brand { display:inline-flex; align-items:center; gap:10px; text-decoration:none; }
+      .inline-brand .header__brand img { height:36px; width:auto; border-radius:6px; }
+      .inline-brand .header__brand span { font-weight:700; letter-spacing:.02em; }
+      .reviews-overview { padding: 28px 0; }
+      .reviews-overview .stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin: 14px 0 22px; }
+      .reviews-overview .stat { background: #fff; border:1px solid #e7ebf1; border-radius:12px; padding:14px; text-align:center; }
+      .reviews-overview .stat .label { color:#6b7280; font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+      .reviews-overview .stat .value { font-size:20px; font-weight:700; margin-top:6px; }
+      .reviews-overview .list { display:grid; gap:12px; }
+      .reviews-overview .card { background:#fff; border:1px solid #e7ebf1; border-radius:12px; padding:16px; }
+      .reviews-overview .card h4 { margin:0 0 6px; font-size:15px; }
+      .reviews-overview .card p { margin:0; color:#4b5563; line-height:1.6; }
+      .reviews-overview .resp { background:#fff8e1; border-left:3px solid #c9a86c; padding:10px; border-radius:8px; margin-top:10px; color:#554a2f; }
+    </style>
     </head>
 <body>
     <?php include 'includes/header.php'; ?>
     
     <main class="review-page">
+        <!-- Inline Brand (ensures brand visible even if header variant hides it) -->
+        <div class="inline-brand container">
+            <a class="header__brand" href="<?php echo htmlspecialchars(BASE_URL); ?>">
+                <?php if (!empty($site_logo)): ?>
+                    <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="<?php echo htmlspecialchars($site_name); ?>">
+                <?php endif; ?>
+                <span><?php echo htmlspecialchars($site_name); ?></span>
+            </a>
+        </div>
+
         <!-- Hero Section -->
         <section class="review-hero">
             <div class="container">
                 <h1>Share Your Experience</h1>
                 <p>Your feedback helps us improve and provide exceptional service to all our guests.</p>
+            </div>
+        </section>
+
+        <!-- Reviews Overview (approved + responses) placed below the review form card -->
+        <section class="reviews-overview rh-reveal is-revealed">
+            <div class="container">
+                <h2 class="section-title" style="margin:0 0 8px;">Community Feedback</h2>
+                <p class="text-muted" style="margin:0 0 16px;">A quick snapshot of what guests are saying and our responses.</p>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="label">Approved Reviews</div>
+                        <div class="value"><?php echo (int)$reviews_summary['approved']; ?></div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">All Reviews</div>
+                        <div class="value"><?php echo (int)$reviews_summary['total']; ?></div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Admin Responses</div>
+                        <div class="value"><?php echo (int)$reviews_summary['responses']; ?></div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Average Rating</div>
+                        <div class="value"><?php echo $reviews_summary['avg_rating'] !== null ? number_format($reviews_summary['avg_rating'], 2) . ' / 5' : '—'; ?></div>
+                    </div>
+                </div>
+
+                <?php if (!empty($latest_reviews)): ?>
+                <div class="list">
+                    <?php foreach ($latest_reviews as $r): ?>
+                        <div class="card">
+                            <h4>
+                                <i class="fas fa-user-circle" style="color:#8B7355;"></i>
+                                <?php echo htmlspecialchars($r['guest_name'] ?: 'Guest'); ?> · 
+                                <strong><?php echo (int)$r['rating']; ?>/5</strong>
+                                <span style="color:#6b7280; font-size:12px;"> · <?php echo date('M d, Y', strtotime((string)$r['created_at'])); ?></span>
+                            </h4>
+                            <p><strong><?php echo htmlspecialchars($r['title']); ?></strong></p>
+                            <p><?php echo nl2br(htmlspecialchars(mb_strimwidth($r['comment'] ?? '', 0, 320, '…'))); ?></p>
+                            <?php if (!empty($r['latest_response'])): ?>
+                                <div class="resp">
+                                    <strong><i class="fas fa-reply"></i> Our reply</strong>
+                                    <div style="font-size:13px; margin-top:6px;">
+                                        <?php echo nl2br(htmlspecialchars($r['latest_response'])); ?>
+                                    </div>
+                                    <?php if (!empty($r['latest_response_date'])): ?>
+                                        <div style="color:#8b8b8b; font-size:12px; margin-top:6px;">
+                                            <?php echo date('M d, Y g:i A', strtotime((string)$r['latest_response_date'])); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
             </div>
         </section>
         
@@ -500,7 +640,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </button>
                     </div>
                     
-                    <!-- Privacy Note -->
+        <!-- Privacy Note -->
                     <p class="text-center mt-30 text-base text-gray-light">
                         <i class="fas fa-shield-alt"></i>
                         Your review will be published after moderation. We reserve the right to edit or remove inappropriate content.
@@ -509,11 +649,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </section>
     </main>
-    
-    <?php include 'includes/footer.php'; ?>
+
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
-    
+
     <!-- JavaScript for Star Rating and Form Validation -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -525,7 +664,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 4: 'Very Good',
                 5: 'Excellent'
             };
-            
+
             function initStarRating(containerId, inputId, isRequired = false) {
                 const container = document.getElementById(containerId);
                 const input = document.getElementById(inputId);
@@ -788,5 +927,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
         });
     </script>
+
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

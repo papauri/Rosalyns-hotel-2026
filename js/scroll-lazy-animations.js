@@ -148,10 +148,60 @@
 
     /* =========================================================================
        Environment helpers
-    ========================================================================= */
+     ========================================================================= */
 
     const isDesktop        = () => window.matchMedia('(min-width: 1024px)').matches;
     const reducedMotion    = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Simple viewport helpers for reset logic
+    function isLikelyAboveFold(el) {
+        if (!el || !el.getBoundingClientRect) return false;
+        const rect = el.getBoundingClientRect();
+        const vh   = window.innerHeight || document.documentElement.clientHeight || 0;
+        // Treat top 85% of viewport as revealable; allow slight negative top for overscan
+        const buffer = 0.85;
+        const topCut = -120; // allow a small negative to include just-entered elements
+        return rect.top < (vh * buffer) && rect.bottom > topCut;
+    }
+
+    /* =========================================================================
+       Reset any pre-revealed markup on desktop (to avoid everything loaded)
+     ========================================================================= */
+    function resetPreRevealed(root) {
+        if (!isDesktop() || reducedMotion()) return;
+
+        // 1) Scroll-lazy system: elements using .rh-reveal
+        root.querySelectorAll('.rh-reveal.is-revealed').forEach(el => {
+            if (el.closest('.hero, [class*="hero--"]')) return;
+            if (!isLikelyAboveFold(el)) {
+                el.classList.remove('is-revealed');
+            }
+        });
+
+        // 2) Page-transitions system: elements that may be pre-marked as revealed
+        const PT_SELECTORS = [
+            '.reveal-on-scroll',
+            '.scroll-reveal',
+            '.fade-in-up',
+            '.editorial-room-card',
+            '.editorial-facility-card',
+            '.editorial-testimonial-card',
+            '.room-card',
+            '.facility-card',
+            '.testimonial-card',
+            '.room-tile'
+        ].join(', ');
+
+        root.querySelectorAll(PT_SELECTORS).forEach(el => {
+            if (el.closest('.hero, [class*="hero--"]')) return;
+            if (!isLikelyAboveFold(el)) {
+                el.classList.remove('revealed', 'lakeside-visible', 'scroll-animated', 'scroll-animate-init');
+                // Clear inline reveal styles; the owning system will set initial state again
+                el.style.opacity = '';
+                el.style.transform = '';
+            }
+        });
+    }
 
     /* =========================================================================
        Selectors
@@ -289,6 +339,8 @@
 
     function init(root) {
         injectStyles();
+        // Reset any pre-revealed elements so desktop gets proper lazy entrance
+        resetPreRevealed(root);
         annotate(root);
         observeAll(root);
     }

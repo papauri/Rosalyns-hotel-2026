@@ -117,31 +117,19 @@ foreach ($footer_links_raw as $link) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
+    <?php
+    $seo_data = [
+        'title' => 'Luxury Hotel | Premium Accommodation',
+        'description' => $hero_subtitle . '. Book your stay at our premier luxury hotel featuring world-class dining, spa, and breathtaking views.',
+        'image' => '/images/hotel_gallery/Front.jpeg',
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=yes">
-    <title><?php echo htmlspecialchars($site_name); ?> - Luxury Hotel | Premium Accommodation</title>
-    <meta name="description" content="<?php echo htmlspecialchars($hero_subtitle); ?>. Book your stay at our premier luxury hotel featuring world-class dining, spa, and breathtaking views.">
-    <meta name="keywords" content="<?php echo htmlspecialchars(getSetting('default_keywords', 'luxury hotel, premium accommodation, resort')); ?>">
-    <meta name="author" content="<?php echo htmlspecialchars($site_name); ?>">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST']; ?>/">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/">
-    <meta property="og:title" content="<?php echo htmlspecialchars($site_name); ?> - Luxury Hotel">
-    <meta property="og:description" content="<?php echo htmlspecialchars($hero_subtitle); ?>">
-    <meta property="og:image" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/hotel_gallery/Front.jpeg">
-    
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/">
-    <meta property="twitter:title" content="<?php echo htmlspecialchars($site_name); ?> - Luxury Hotel in Malawi">
-    <meta property="twitter:description" content="<?php echo htmlspecialchars($hero_subtitle); ?>">
-    <meta property="twitter:image" content="https://<?php echo $_SERVER['HTTP_HOST']; ?>/images/hotel_gallery/Front.jpeg">
     
     
     <!-- Performance: Resource Hints -->
@@ -216,7 +204,7 @@ foreach ($footer_links_raw as $link) {
     <!-- Header & Navigation - Supreme Premium -->
     <?php include 'includes/header.php'; ?>
 
-    <main class="landing-main">
+    <main class="landing-main" id="landing-main">
     <!-- Hero Section - Uses shared hero component for uniformity -->
     <?php include 'includes/hero.php'; ?>
 
@@ -226,11 +214,11 @@ foreach ($footer_links_raw as $link) {
     <?php endif; ?>
 
 
-    <div class="scroll-container landing-scroll-container">
-        <div class="main-content landing-shell">
+    <div class="scroll-container landing-scroll-container" id="landing-scroll-container">
+        <div class="main-content landing-shell" id="landing-shell">
     <!-- Passalacqua Section18 Style About Section -->
     <section class="editorial-about landing-section" id="about" data-lazy-reveal>
-        <div class="editorial-about-container">
+        <div class="editorial-about-container" id="editorial-about-container">
             <div class="editorial-about-grid">
                 <div class="editorial-about-image">
                     <?php if (!empty($about_content['image_url'])): ?>
@@ -279,13 +267,13 @@ foreach ($footer_links_raw as $link) {
 
         <!-- Passalacqua-Inspired Rooms Section: Section07 Style -->
         <section class="editorial-rooms-section landing-section" id="rooms" data-lazy-reveal>
-            <div>
+            <div id="editorial-rooms-section-content">
                 <?php renderSectionHeader('home_rooms', 'index', [
                     'label' => 'Accommodations',
                     'title' => 'Luxurious Rooms & Suites',
                     'description' => 'Experience unmatched comfort in our meticulously designed rooms and suites'
                 ], 'editorial-header section-header--editorial'); ?>
-                <div class="editorial-rooms-row landing-grid landing-grid--three">
+                <div class="editorial-rooms-row landing-grid landing-grid--three" id="editorial-rooms-row">
                     <?php
                     $roomIndex = 0;
                     // Limit to 3 items to match Section 07 layout (3 columns)
@@ -364,7 +352,7 @@ foreach ($footer_links_raw as $link) {
                     'title' => 'World-Class Facilities',
                     'description' => 'Indulge in our premium facilities designed for your ultimate comfort'
                 ], 'editorial-header section-header--editorial'); ?>
-                <div class="editorial-facilities-grid landing-grid landing-grid--three">
+                <div class="editorial-facilities-grid landing-grid landing-grid--three" id="editorial-facilities-grid">
                     <?php foreach ($facilities as $facility): ?>
                         <div class="editorial-facility-card">
                             <div class="editorial-facility-icon">
@@ -407,7 +395,7 @@ foreach ($footer_links_raw as $link) {
                         'description' => 'Hear from those who have experienced our exceptional hospitality'
                     ], 'editorial-header section-header--editorial'); ?>
                 </div>
-                <div class="editorial-testimonials-grid landing-grid landing-grid--three">
+                <div class="editorial-testimonials-grid landing-grid landing-grid--three" id="editorial-testimonials-grid">
                     <?php foreach ($testimonials as $testimonial): ?>
                     <div class="editorial-testimonial-card">
                         <div class="editorial-testimonial-quote">“</div>
@@ -433,8 +421,6 @@ foreach ($footer_links_raw as $link) {
         </div>
     </div>
 
-    <?php include 'includes/footer.php'; ?>
-    
     <!-- Font Loading Detection -->
     <script>
     (function() {
@@ -455,7 +441,7 @@ foreach ($footer_links_raw as $link) {
                 threshold: 0.15,
                 rootMargin: '0px 0px -50px 0px'
             });
-            
+
             animatedElements.forEach(el => observer.observe(el));
         }
 
@@ -463,14 +449,16 @@ foreach ($footer_links_raw as $link) {
         if ('fonts' in document) {
             document.fonts.ready.then(function() {
                 document.body.classList.add('fonts-loaded');
-                console.log('[Performance] Custom fonts loaded');
             });
         } else {
             // Fallback for browsers without Font Loading API
             window.addEventListener('load', function() {
                 document.body.classList.add('fonts-loaded');
-                console.log('[Performance] Fonts loaded (fallback)');
             });
         }
     })();
     </script>
+
+    <?php include 'includes/footer.php'; ?>
+</body>
+</html>

@@ -1,9 +1,65 @@
 <?php require_once __DIR__ . '/visitor-tracker.php'; ?>
 <?php require_once 'modal.php'; ?>
-<!-- Footer - Minimalist Professional 2026 -->
-<footer class="footer" id="contact">
+<!-- Footer - Minimalist Professional 2026 with Lazy Load -->
+<footer class="footer" id="contact" data-footer-lazy="">
+    <div class="footer__lazy-overlay"></div>
     <div class="footer__content">
-        <div class="footer__grid">
+        <?php
+        // Initialize footer_links to empty array to prevent count() error
+        $footer_links = [];
+        
+        // Fetch policies from database
+        $policies = [];
+        try {
+            $stmt = $pdo->query("SELECT slug, title, summary, content FROM policies WHERE is_active = 1 ORDER BY display_order ASC");
+            $policies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            // Fallback if table doesn't exist
+        }
+
+        // Fetch footer links from database
+        try {
+            // Determine current page for link selection
+            $request_uri = $_SERVER['REQUEST_URI'];
+            $path = parse_url($request_uri, PHP_URL_PATH);
+            $current_page = basename($path, '.php');
+            if (empty($current_page) || $current_page === '') {
+                $current_page = 'index';
+            }
+            $is_index_page = ($current_page === 'index');
+
+            // Select appropriate URL based on page
+            if ($is_index_page) {
+                // On index page, use link_url (hash only)
+                $stmt = $pdo->query("SELECT column_name, link_text, link_url FROM footer_links WHERE is_active = 1 ORDER BY column_name, display_order ASC");
+            } else {
+                // On other pages, use secondary_link_url if available, otherwise link_url
+                $stmt = $pdo->query("SELECT column_name, link_text,
+                    COALESCE(NULLIF(secondary_link_url, ''), link_url) as link_url
+                    FROM footer_links WHERE is_active = 1 ORDER BY column_name, display_order ASC");
+            }
+            $all_links = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($all_links as $link) {
+                $footer_links[$link['column_name']][] = $link;
+            }
+        } catch (PDOException $e) {
+            // Fallback if table doesn't exist
+        }
+
+        // Count total sections for dynamic grid class (now footer_links is defined)
+        $total_sections = count($footer_links) + 3; // +3 for Policies, Contact, Connect sections
+        $grid_class = 'footer__grid';
+        if ($total_sections >= 6) {
+            $grid_class .= ' footer__grid--6';
+        } elseif ($total_sections === 5) {
+            $grid_class .= ' footer__grid--5';
+        } elseif ($total_sections === 4) {
+            $grid_class .= ' footer__grid--4';
+        } elseif ($total_sections === 3) {
+            $grid_class .= ' footer__grid--3';
+        }
+        ?>
+        <div class="<?php echo $grid_class; ?>">
             <?php
             // Fetch policies from database
             $policies = [];
@@ -66,7 +122,56 @@
                 <h4 class="footer__section-title"><?php echo htmlspecialchars($column_name); ?></h4>
                 <ul class="footer__links">
                     <?php foreach ($links as $link): ?>
-                    <li><a href="<?php echo htmlspecialchars($link['link_url']); ?>"><?php echo htmlspecialchars($link['link_text']); ?></a></li>
+                    <?php
+                        // Normalize footer quick links for consistent behavior on desktop/mobile
+                        $rawHref = trim((string)($link['link_url'] ?? ''));
+                        
+                        // Strip any accidental api/ prefix from stored links (common DB entry mistake)
+                        $rawHref = preg_replace('#^api/#i', '', $rawHref);
+                        
+                        $normalizedHref = $rawHref;
+
+                        $isAbsolute = preg_match('/^https?:\/\//i', $rawHref);
+                        $isRooted  = preg_match('/^\//', $rawHref);
+                        $startsHash = strpos($rawHref, '#') === 0;
+                        $hasHashAnywhere = strpos($rawHref, '#') !== false;
+                        $hasPhp = (bool)preg_match('/\.php(\b|#|\?|$)/i', $rawHref);
+
+                        // 1) Special-case Contact links from DB variations
+                        //    Map: contact, #contact, contact-us, contact-us.php → contact-us.php[#contact-info]
+                        if ($rawHref !== '') {
+                            $lc = strtolower($rawHref);
+                            if ($lc === 'contact' || $lc === '#contact') {
+                                $normalizedHref = $is_index_page ? '#contact' : 'contact-us.php#contact-info';
+                            } elseif ($lc === 'contact-us' || $lc === 'contact-us.php') {
+                                $normalizedHref = 'contact-us.php' . ($hasHashAnywhere ? '' : '#contact-info');
+                            }
+                        }
+
+                        // 2) Bare ID like editorial-about-container (no #, no path) → convert to hash / index.php#id
+                        if ($normalizedHref === $rawHref) { // not already handled above
+                            if ($rawHref !== ''
+                                && !$startsHash
+                                && !$isAbsolute
+                                && !$isRooted
+                                && preg_match('/^[A-Za-z][A-Za-z0-9_\-:.]*$/', $rawHref)) {
+                                $normalizedHref = $is_index_page ? ('#' . $rawHref) : ('index.php#' . $rawHref);
+                            }
+                        }
+
+                        // 3) Slug without extension (e.g., contact-us, rooms-gallery) → append .php
+                        if ($normalizedHref === $rawHref) {
+                            if ($rawHref !== ''
+                                && !$isAbsolute
+                                && !$isRooted
+                                && !$startsHash
+                                && !$hasPhp
+                                && preg_match('/^[A-Za-z][A-Za-z0-9_\-]*$/', $rawHref)) {
+                                $normalizedHref = $rawHref . '.php';
+                            }
+                        }
+                    ?>
+                    <li><a href="<?php echo htmlspecialchars($normalizedHref); ?>"><?php echo htmlspecialchars($link['link_text']); ?></a></li>
                     <?php endforeach; ?>
                 </ul>
             </div>
@@ -173,6 +278,13 @@
     </div>
 </footer>
 
+<!-- Scroll to Top Button -->
+<button id="scrollToTop" class="scroll-to-top" aria-label="Scroll to top" data-scroll-to-top>
+    <svg class="scroll-to-top__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 19V5M5 12L12 5L19 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</button>
+
 <?php
 // Always render policy overlay and modals - either from database or fallback defaults
 ?>
@@ -239,17 +351,27 @@
     <?php endif; ?>
 </div>
 
-<!-- Main CSS - Loads all stylesheets in correct order -->
+<!-- Main CSS - Only load if not already loaded -->
+<?php if (!function_exists('assetUrl')): ?>
+<link rel="stylesheet" href="css/main.css">
+<?php else: ?>
 <link rel="stylesheet" href="<?php echo assetUrl('css/main.css'); ?>">
+<?php endif; ?>
 
 <!-- Unified Navigation — SPA routing so only content swaps, header never reloads.
      Loaded globally here so every page (including index.php) gets it.
      Singleton guard inside the script prevents double-init when a page also loads it. -->
+<?php if (!function_exists('assetUrl')): ?>
+<script src="js/modal.js" defer></script>
+<script src="js/navigation-unified.js" defer></script>
+<script src="js/scroll-lazy-animations.js" defer></script>
+<script src="js/page-transitions.js" defer></script>
+<?php else: ?>
+<script src="<?php echo assetUrl('js/modal.js'); ?>" defer></script>
 <script src="<?php echo assetUrl('js/navigation-unified.js'); ?>" defer></script>
 <script src="<?php echo assetUrl('js/scroll-lazy-animations.js'); ?>" defer></script>
-
-<!-- Page Transitions - Passalacqua-inspired smooth page loading and scroll animations -->
 <script src="<?php echo assetUrl('js/page-transitions.js'); ?>" defer></script>
+<?php endif; ?>
 
 <!-- Share Script -->
 <script>
@@ -275,6 +397,34 @@ function sharePage(platform) {
         window.open(shareUrl, '_blank', 'width=600,height=400');
     }
 }
+</script>
+
+<!-- Footer Lazy Load Re-init for SPA Navigation -->
+<script>
+(function() {
+    'use strict';
+    
+    function initFooterLazyLoad() {
+        const footer = document.querySelector('.footer[data-footer-lazy]');
+        if (!footer) return;
+        
+        // Remove and re-add the attribute to restart CSS animations
+        footer.removeAttribute('data-footer-lazy');
+        
+        // Force reflow to ensure the browser recognizes the removal
+        void footer.offsetWidth;
+        
+        // Re-add the attribute to restart animations
+        footer.setAttribute('data-footer-lazy', '');
+    }
+    
+    // Listen for SPA navigation events
+    if (typeof window !== 'undefined') {
+        window.addEventListener('spa:contentLoaded', initFooterLazyLoad);
+        window.addEventListener('page:navigation:end', initFooterLazyLoad);
+        window.addEventListener('page:loaded', initFooterLazyLoad);
+    }
+})();
 </script>
 
 <?php require_once __DIR__ . '/cookie-consent.php'; ?>

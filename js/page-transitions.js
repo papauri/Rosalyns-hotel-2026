@@ -670,6 +670,20 @@
         },
         
         update(scrollY) {
+            // Guard against DOM swaps (e.g., SPA updates moving/replacing header)
+            if (!this.header || !document.body.contains(this.header)) {
+                this.header = document.querySelector('.header');
+                if (!this.header) {
+                    if (!this._warnedMissingHeader) {
+                        // console.warn('[HeaderScroll] Header element missing during update; deferring until it reappears');
+                        this._warnedMissingHeader = true;
+                    }
+                    return;
+                }
+                // Found header again after DOM change
+                this._warnedMissingHeader = false;
+            }
+
             if (scrollY > CONFIG.headerScrollThreshold) {
                 this.header.classList.add('header--scrolled');
             } else {
@@ -689,53 +703,99 @@
     // ============================================
     // SCROLL TO TOP
     // ============================================
-    
+
     const ScrollToTop = {
         button: null,
-        
+
         init() {
             this.button = document.getElementById('scrollToTop');
-            if (!this.button) return;
-            
+            if (!this.button) {
+                return;
+            }
+
             // Show/hide button based on scroll position
             this.update(window.pageYOffset);
-            
+
             // Listen to scroll (with InertiaScroll integration if available)
             if (window.inertiaScroll) {
                 window.inertiaScroll.on(state => this.update(state.y));
             } else {
                 window.addEventListener('scroll', () => this.update(window.pageYOffset));
             }
-            
+
             // Scroll to top on click
             this.button.addEventListener('click', () => this.scrollToTop());
         },
-        
+
         update(scrollY) {
+            if (!this.button) return;
             if (scrollY > CONFIG.scrollTopThreshold) {
-                this.button.classList.add('visible');
+                this.button.classList.add('scroll-to-top--visible');
             } else {
-                this.button.classList.remove('visible');
+                this.button.classList.remove('scroll-to-top--visible');
             }
         },
         
         scrollToTop() {
-            if (window.inertiaScroll) {
-                window.inertiaScroll.scrollTo(0, { immediate: false });
-            } else {
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-            }
+            // Add ripple effect
+            this.button.classList.add('rippling');
+            setTimeout(() => this.button.classList.remove('rippling'), 600);
+            
+            // Get current scroll position
+            const startPos = window.pageYOffset;
+            const distance = startPos;
+            
+            // If already at top, do nothing
+            if (distance === 0) return;
+            
+            // Calculate duration based on distance (max 2 seconds for long scrolls)
+            const duration = Math.min(Math.max(distance * 0.6, 600), 2000);
+            const startTime = performance.now();
+            
+            // Smooth easing function (smoothstep)
+            const easeInOutQuad = (t) => {
+                return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            };
+            
+            // Even smoother easing for extra fancy feel
+            const easeInOutCubic = (t) => {
+                return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            };
+            
+            // Animation loop
+            const animateScroll = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease = easeInOutCubic(progress);
+                
+                // Calculate current position
+                const currentPosition = startPos - (distance * ease);
+                
+                // Scroll to position
+                window.scrollTo(0, currentPosition);
+                
+                // Continue animation if not complete
+                if (progress < 1) {
+                    requestAnimationFrame(animateScroll);
+                } else {
+                    // Ensure we end exactly at top
+                    window.scrollTo(0, 0);
+                }
+            };
+            
+            // Start animation
+            requestAnimationFrame(animateScroll);
         },
-        
+
         refresh() {
-            // Re-initialize if button might have changed
+            // Re-initialize if button might have changed (e.g., after SPA navigation)
             this.button = document.getElementById('scrollToTop');
             if (this.button) {
                 this.update(window.pageYOffset);
-                this.button.removeEventListener('click', this.scrollToTop);
+                // Remove old listener to prevent duplicates
+                const newButton = this.button.cloneNode(true);
+                this.button.parentNode.replaceChild(newButton, this.button);
+                this.button = newButton;
                 this.button.addEventListener('click', () => this.scrollToTop());
             }
         }
@@ -766,7 +826,7 @@
     // ============================================
     // INITIALIZATION
     // ============================================
-    
+
     function init() {
         // Initialize systems
         PageLoader.init();
@@ -777,7 +837,7 @@
         HeaderScroll.init();
         ScrollToTop.init();
         CardHover.init();
-        
+
         // Expose to global scope for external access
         window.PageTransitions = {
             refresh: () => {
@@ -790,8 +850,6 @@
             onNavigationStart: () => PageTransitions.onNavigationStart(),
             onNavigationEnd: () => PageTransitions.onNavigationEnd()
         };
-        
-        console.log('[PageTransitions] Consolidated transitions initialized');
     }
     
     // Auto-initialize on DOM ready

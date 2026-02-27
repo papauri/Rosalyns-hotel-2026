@@ -1,0 +1,569 @@
+/**
+ * Contact Page Cards - Premium 2027 Design
+ * Rosalyn's Hotel
+ * Modern, responsive cards with lazy load animations
+ */
+
+/* ============================================
+   CONTACT PAGE SECTION
+   ============================================ */
+
+.contact-page-section {
+    padding: 80px 0;
+    position: relative;
+}
+
+.contact-page-section .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ============================================
+   CONTACT GRID - Responsive Layout
+   ============================================ */
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    margin-top: 40px;
+    position: relative;
+}
+
+/* ============================================
+   LAZY LOAD ANIMATION - Contact Cards
+   Fade in + slide up effect on scroll
+   ============================================ */
+
+.contact-info-card,
+.contact-form-card {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.contact-info-card.revealed,
+.contact-form-card.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Stagger animation for second card */
+.contact-form-card {
+    transition-delay: 0.15s;
+}
+
+/* ============================================
+   CONTACT INFO CARD - Passalacqua Style
+   Clean, minimal, elegant Italian design
+   ============================================ */
+
+.contact-info-card {
+    background: #ffffff;
+    border-radius: 4px;
+    padding: 48px 40px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle top accent line */
+.contact-info-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(139, 115, 85, 0.3);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.contact-info-card:hover::before {
+    opacity: 1;
+}
+
+/* Minimal hover lift */
+.contact-info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.contact-info-card h3 {
+    font-family: var(--font-serif, 'Cormorant Garamond', serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 32px;
+    color: #1a1a1a;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* ============================================
+   CONTACT DETAIL ITEMS
+   ============================================ */
+
+.contact-detail {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+}
+
+.contact-detail:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.contact-detail:hover {
+    transform: translateX(4px);
+}
+
+.contact-detail-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: #8B7355;
+    border-radius: 0;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+.contact-detail:hover .contact-detail-icon {
+    color: #6d5a3f;
+}
+
+.contact-detail-content {
+    flex: 1;
+}
+
+.contact-detail-content strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #666;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.contact-detail-content a,
+.contact-detail-content span {
+    color: #333;
+    text-decoration: none;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    transition: color 0.3s ease;
+    font-weight: 300;
+}
+
+.contact-detail-content a:hover {
+    color: #8B7355;
+}
+
+/* ============================================
+   QUICK ACTION BUTTONS - Minimal Style
+   ============================================ */
+
+.contact-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.contact-quick-actions a {
+    flex: 1;
+    min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border-radius: 2px;
+    font-size: 0.85rem;
+    font-weight: 400;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: #fff;
+    color: #333;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.btn-call {
+    background: #8B7355;
+    color: #fff;
+    border-color: #8B7355;
+}
+
+.btn-call:hover {
+    background: #6d5a3f;
+    border-color: #6d5a3f;
+}
+
+.btn-email {
+    background: #fff;
+    color: #333;
+}
+
+.btn-email:hover {
+    background: #f8f8f8;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.btn-whatsapp {
+    background: #25D366;
+    color: #fff;
+    border-color: #25D366;
+}
+
+.btn-whatsapp:hover {
+    background: #20ba5a;
+    border-color: #20ba5a;
+}
+
+/* ============================================
+   SOCIAL LINKS - Minimal Icons
+   ============================================ */
+
+.contact-social-links {
+    display: flex;
+    gap: 16px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.contact-social-links a {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    background: transparent;
+    color: #666;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.contact-social-links a:hover {
+    background: #8B7355;
+    color: #fff;
+    border-color: #8B7355;
+}
+
+/* ============================================
+   CONTACT FORM CARD - Passalacqua Style
+   Clean, minimal, elegant
+   ============================================ */
+
+.contact-form-card {
+    background: #ffffff;
+    border-radius: 4px;
+    padding: 48px 40px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    position: relative;
+}
+
+.contact-form-card h3 {
+    font-family: var(--font-serif, 'Cormorant Garamond', serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 32px;
+    color: #1a1a1a;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* ============================================
+   FORM STYLES - Minimal Design
+   ============================================ */
+
+.contact-form .form-group {
+    margin-bottom: 24px;
+}
+
+.contact-form .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: #666;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.contact-form .form-group input,
+.contact-form .form-group textarea,
+.contact-form .form-group select {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 2px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    background: #fff;
+    color: #333;
+}
+
+.contact-form .form-group input:focus,
+.contact-form .form-group textarea:focus,
+.contact-form .form-group select:focus {
+    outline: none;
+    border-color: #8B7355;
+    box-shadow: 0 0 0 2px rgba(139, 115, 85, 0.06);
+}
+
+.contact-form .form-group input::placeholder,
+.contact-form .form-group textarea::placeholder {
+    color: #999;
+}
+
+.contact-form .form-group textarea {
+    min-height: 150px;
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.contact-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* ============================================
+   CONSENT CHECKBOX
+   ============================================ */
+
+.contact-form .consent-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: #666;
+    cursor: pointer;
+    line-height: 1.5;
+}
+
+.contact-form .consent-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: #8B7355;
+    cursor: pointer;
+}
+
+/* ============================================
+   SUBMIT BUTTON - Minimal Style
+   ============================================ */
+
+.contact-form .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 36px;
+    background: #8B7355;
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    font-size: 0.85rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.contact-form .btn-submit:hover {
+    background: #6d5a3f;
+}
+
+.contact-form .btn-submit:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   SUCCESS/ERROR MESSAGES - Minimal
+   ============================================ */
+
+.contact-form-success {
+    text-align: center;
+    padding: 50px 30px;
+    animation: successFadeIn 0.6s ease;
+}
+
+@keyframes successFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.contact-form-success i {
+    font-size: 3rem;
+    color: #28a745;
+    margin-bottom: 20px;
+}
+
+.contact-form-success h3 {
+    color: #1a1a1a;
+    margin-bottom: 12px;
+    font-size: 1.5rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.contact-form-success p {
+    color: #666;
+    font-size: 1rem;
+}
+
+.contact-form-success .ref-badge {
+    display: inline-block;
+    padding: 10px 24px;
+    background: rgba(139, 115, 85, 0.08);
+    border-radius: 2px;
+    font-weight: 400;
+    margin-top: 16px;
+    color: #8B7355;
+    border: 1px solid rgba(139, 115, 85, 0.15);
+    letter-spacing: 0.5px;
+}
+
+.contact-form-error {
+    background: #fff5f5;
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    border-radius: 2px;
+    padding: 16px 20px;
+    color: #721c24;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - Tablet
+   ============================================ */
+
+@media (max-width: 992px) {
+    .contact-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+    
+    .contact-info-card,
+    .contact-form-card {
+        padding: 36px 28px;
+    }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - Mobile
+   ============================================ */
+
+@media (max-width: 768px) {
+    .contact-page-section {
+        padding: 60px 0;
+    }
+    
+    .contact-grid {
+        gap: 32px;
+        margin-top: 30px;
+    }
+    
+    .contact-info-card,
+    .contact-form-card {
+        padding: 28px 20px;
+        border-radius: 2px;
+    }
+    
+    .contact-info-card h3,
+    .contact-form-card h3 {
+        font-size: 1.3rem;
+        margin-bottom: 24px;
+    }
+    
+    .contact-detail {
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+    }
+    
+    .contact-detail-icon {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        font-size: 1rem;
+    }
+    
+    .contact-form .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+    
+    .contact-quick-actions {
+        flex-direction: column;
+    }
+    
+    .contact-quick-actions a {
+        width: 100%;
+    }
+    
+    .contact-social-links {
+        justify-content: center;
+    }
+    
+    .contact-social-links a {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - Small Mobile
+   ============================================ */
+
+@media (max-width: 480px) {
+    .contact-page-section {
+        padding: 40px 0;
+    }
+    
+    .contact-page-section .container {
+        padding: 0 16px;
+    }
+    
+    .contact-info-card,
+    .contact-form-card {
+        padding: 24px 16px;
+    }
+    
+    .contact-form .btn-submit {
+        width: 100%;
+        justify-content: center;
+    }
+}

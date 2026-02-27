@@ -486,6 +486,8 @@
         ================================================================ */
 
         _showLoader(destinationPage) {
+            // Signal that navigation is in progress — prevents loader.php fallback timer from hiding it
+            window._pageLoaderNavigating = true;
             const l = document.getElementById('page-loader');
             if (l) {
                 // Update loader subtext to show destination page
@@ -503,6 +505,8 @@
         }
 
         _hideLoader() {
+            // Clear navigation flag so the page's fallback timer knows navigation ended
+            window._pageLoaderNavigating = false;
             const l = document.getElementById('page-loader');
             if (l) {
                 // First add hiding state for smooth transition

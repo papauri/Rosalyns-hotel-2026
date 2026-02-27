@@ -399,11 +399,18 @@ function ensureIndividualRoomBlockedDatesTable(PDO $pdo): void {
                 'block_type',
                 "ALTER TABLE blocked_dates ADD COLUMN block_type ENUM('manual', 'maintenance', 'event', 'full') DEFAULT 'manual' AFTER block_date"
             );
-            $ensureColumn(
-                'blocked_dates',
-                'idx_blocked_dates_block_type',
-                "ALTER TABLE blocked_dates ADD INDEX idx_blocked_dates_block_type (block_type)"
-            );
+            
+            // Ensure block_type index exists (check if index exists before creating)
+            try {
+                $indexCheckStmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?");
+                $indexCheckStmt->execute(['blocked_dates', 'idx_blocked_dates_block_type']);
+                $indexExists = (int)$indexCheckStmt->fetchColumn() > 0;
+                if (!$indexExists) {
+                    $pdo->exec("ALTER TABLE blocked_dates ADD INDEX idx_blocked_dates_block_type (block_type)");
+                }
+            } catch (Throwable $e) {
+                // Ignore index creation errors
+            }
         }
     } catch (Throwable $e) {
         error_log('ensureIndividualRoomBlockedDatesTable warning: ' . $e->getMessage());

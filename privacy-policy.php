@@ -279,9 +279,9 @@ $seo_description = "Learn how $site_name collects, uses, and protects your perso
         </div>
     </main>
 
-    <?php require_once 'includes/footer.php'; ?>
-    <?php require_once 'includes/scroll-to-top.php'; ?>
     <script src="js/modal.js"></script>
     <script src="js/main.js" defer></script>
+
+    <?php require_once 'includes/footer.php'; ?>
 </body>
 </html>

@@ -57,78 +57,139 @@ try {
     // Table may be empty or just created
 }
 
-// Fallback services if DB is empty
-if (empty($dbServices)) {
-    $dbServices = [];
+// Fetch facilities from DB (to merge with services)
+$dbFacilities = [];
+try {
+    // Check if table exists first to avoid errors
+    $tableExists = $pdo->query("SHOW TABLES LIKE 'facilities'")->rowCount() > 0;
+    if ($tableExists) {
+        $stmt = $pdo->query("SELECT * FROM facilities WHERE is_active = 1 ORDER BY display_order ASC");
+        $dbFacilities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (PDOException $e) {
+    // Ignore if facilities table issue
+}
 
+// Merge and normalize data
+$unifiedServices = [];
+
+// 1. Add Guest Services from DB
+foreach ($dbServices as $service) {
+    $unifiedServices[] = [
+        'type'        => 'service',
+        'key'         => $service['service_key'],
+        'title'       => $service['title'],
+        'description' => $service['description'],
+        'icon'        => $service['icon_class'],
+        'image'       => $service['image_path'],
+        'link'        => $service['link_url'],
+        'cta'         => $service['link_text'] ?? 'Learn More',
+        'order'       => $service['display_order'] ?? 999
+    ];
+}
+
+// 2. Add Facilities from DB
+foreach ($dbFacilities as $facility) {
+    $unifiedServices[] = [
+        'type'        => 'facility',
+        'key'         => 'facility_' . $facility['id'],
+        'title'       => $facility['name'],
+        'description' => $facility['short_description'],
+        'icon'        => $facility['icon_class'] ?? 'fas fa-star',
+        'image'       => $facility['image_url'],
+        'link'        => $facility['page_url'] ?? null,
+        'cta'         => 'View Details',
+        'order'       => ($facility['display_order'] ?? 999) + 100 // Offset to put after primary services
+    ];
+}
+
+// 3. Fallback/Hardcoded Services if empty
+if (empty($unifiedServices)) {
     if ($restaurantEnabled) {
-        $dbServices[] = [
-            'service_key' => 'restaurant',
+        $unifiedServices[] = [
+            'type'        => 'core',
+            'key'         => 'restaurant',
             'title'       => 'Fine Dining Restaurant',
             'description' => 'Experience exquisite cuisine crafted by our talented chefs. From local delicacies to international dishes, our restaurant offers a culinary journey like no other.',
-            'icon_class'  => 'fas fa-utensils',
-            'image_path'  => 'images/restaurant/image.png',
-            'link_url'    => 'restaurant.php',
-            'link_text'   => 'View Restaurant',
+            'icon'        => 'fas fa-utensils',
+            'image'       => 'images/restaurant/image.png',
+            'link'        => 'restaurant.php',
+            'cta'         => 'View Restaurant',
+            'order'       => 10
         ];
     }
 
     if ($gymEnabled) {
-        $dbServices[] = [
-            'service_key' => 'gym',
+        $unifiedServices[] = [
+            'type'        => 'core',
+            'key'         => 'gym',
             'title'       => 'Fitness & Wellness Center',
             'description' => 'Stay fit during your stay with our fully equipped fitness center. Personal training, group classes, and wellness packages available for all guests.',
-            'icon_class'  => 'fas fa-dumbbell',
-            'image_path'  => 'images/gym/fitness-center.jpg',
-            'link_url'    => 'gym.php',
-            'link_text'   => 'Explore Gym',
+            'icon'        => 'fas fa-dumbbell',
+            'image'       => 'images/gym/fitness-center.jpg',
+            'link'        => 'gym.php',
+            'cta'         => 'Explore Gym',
+            'order'       => 20
         ];
     }
 
     if ($conferenceEnabled) {
-        $dbServices[] = [
-            'service_key' => 'conference',
+        $unifiedServices[] = [
+            'type'        => 'core',
+            'key'         => 'conference',
             'title'       => 'Conference & Meeting Rooms',
             'description' => 'Host your corporate events, meetings, and conferences in our state-of-the-art venues. Full AV equipment, catering, and dedicated event coordination.',
-            'icon_class'  => 'fas fa-briefcase',
-            'image_path'  => 'images/conference/conference_room.jpeg',
-            'link_url'    => 'conference.php',
-            'link_text'   => 'Book Conference',
+            'icon'        => 'fas fa-briefcase',
+            'image'       => 'images/conference/conference_room.jpeg',
+            'link'        => 'conference.php',
+            'cta'         => 'Book Conference',
+            'order'       => 30
         ];
     }
 
-    $dbServices[] = [
-        'service_key' => 'events',
+    $unifiedServices[] = [
+        'type'        => 'core',
+        'key'         => 'events',
         'title'       => 'Events & Entertainment',
         'description' => 'Discover upcoming events, live entertainment, and special occasions at our hotel. From business breakfasts to gala dinners, there is always something happening.',
-        'icon_class'  => 'fas fa-calendar-alt',
-        'image_path'  => 'images/hero/slide1.jpeg',
-        'link_url'    => 'events.php',
-        'link_text'   => 'View Events',
+        'icon'        => 'fas fa-calendar-alt',
+        'image'       => 'images/hero/slide1.jpeg',
+        'link'        => 'events.php',
+        'cta'         => 'View Events',
+        'order'       => 40
     ];
 
     if ($bookingEnabled) {
-        $dbServices[] = [
-            'service_key' => 'rooms',
+        $unifiedServices[] = [
+            'type'        => 'core',
+            'key'         => 'rooms',
             'title'       => 'Rooms & Accommodation',
             'description' => 'Discover our luxurious rooms and suites, each designed for comfort and elegance. Book your perfect stay with us today.',
-            'icon_class'  => 'fas fa-bed',
-            'image_path'  => 'images/rooms/Deluxe_Room.jpg',
-            'link_url'    => 'booking.php',
-            'link_text'   => 'Book a Room',
+            'icon'        => 'fas fa-bed',
+            'image'       => 'images/rooms/Deluxe_Room.jpg',
+            'link'        => 'booking.php',
+            'cta'         => 'Book a Room',
+            'order'       => 50
         ];
     }
 
-    $dbServices[] = [
-        'service_key' => 'concierge',
+    $unifiedServices[] = [
+        'type'        => 'core',
+        'key'         => 'concierge',
         'title'       => 'Concierge Services',
         'description' => 'Our dedicated concierge team is available 24/7 to assist with transportation, tours, restaurant reservations, and any special requests to make your stay memorable.',
-        'icon_class'  => 'fas fa-concierge-bell',
-        'image_path'  => null,
-        'link_url'    => 'contact-us.php',
-        'link_text'   => 'Contact Concierge',
+        'icon'        => 'fas fa-concierge-bell',
+        'image'       => null,
+        'link'        => 'contact-us.php',
+        'cta'         => 'Contact Concierge',
+        'order'       => 60
     ];
 }
+
+// Sort by order
+usort($unifiedServices, function($a, $b) {
+    return $a['order'] <=> $b['order'];
+});
 
 // Contact info for CTA
 $contact_phone = getSetting('phone_main');
@@ -139,11 +200,15 @@ $whatsapp      = getSetting('whatsapp_number');
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
-    <title>Guest Services - <?php echo htmlspecialchars($site_name); ?></title>
-    <meta name="description" content="Explore all guest services at <?php echo htmlspecialchars($site_name); ?>. Restaurant, gym, conference rooms, events, concierge, and more.">
-    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST']; ?>/guest-services.php">
+    <?php
+    $seo_data = [
+        'title' => 'Guest Services - ' . $site_name,
+        'description' => "Explore all guest services at {$site_name}. Restaurant, gym, conference rooms, events, concierge, and more.",
+        'image' => '/images/hero/slide1.jpeg',
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -154,165 +219,161 @@ $whatsapp      = getSetting('whatsapp_number');
     <!-- Main CSS -->
     <link rel="stylesheet" href="css/base/critical.css">
     <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components/cards.css">
+    <link rel="stylesheet" href="css/components/editorial.css">
 
     <style>
-        /* Guest Services page styles */
-        .gs-section { padding: 80px 0; }
-        .gs-section .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        /* Guest Services page styles - Passalacqua Inspired */
+        .gs-section { 
+            padding: 100px 0; 
+            background-color: #fff;
+            position: relative;
+        }
+        
+        /* Subtle background pattern */
+        .gs-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(#8B7355 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+            opacity: 0.03;
+            pointer-events: none;
+        }
 
+        .gs-section .container { max-width: 1400px; margin: 0 auto; padding: 0 40px; }
+
+        /* Premium Grid Layout */
         .gs-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-            gap: 32px;
-            margin-top: 40px;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
         }
 
-        .gs-card {
-            background: var(--color-surface, #fff);
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-            border: 1px solid var(--color-border-light, #eee);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        /* Card refinements for GS context */
+        .room-card.gs-variant {
+            height: 100%;
             display: flex;
             flex-direction: column;
-        }
-        .gs-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+            background: #fff;
         }
 
-        .gs-card__media {
-            position: relative;
-            height: 220px;
-            overflow: hidden;
-            background: linear-gradient(135deg, rgba(139, 115, 85, 0.15), rgba(139, 115, 85, 0.05));
-        }
-        .gs-card__media img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.5s ease;
-        }
-        .gs-card:hover .gs-card__media img { transform: scale(1.05); }
-
-        .gs-card__media-placeholder {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            font-size: 3rem;
-            color: var(--gold, #8B7355);
-            background: linear-gradient(135deg, rgba(139, 115, 85, 0.08), rgba(139, 115, 85, 0.02));
-        }
-
-        .gs-card__body {
-            padding: 28px;
+        .room-card.gs-variant .room-card-content {
             flex: 1;
             display: flex;
             flex-direction: column;
+            padding: 32px;
         }
 
-        .gs-card__icon {
-            width: 52px;
-            height: 52px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(139, 115, 85, 0.1);
-            color: var(--gold, #8B7355);
-            border-radius: 14px;
-            font-size: 1.3rem;
-            margin-bottom: 16px;
-        }
-
-        .gs-card__title {
-            font-family: var(--font-serif, 'Cormorant Garamond', serif);
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--color-text-primary, #1A1A1A);
-        }
-
-        .gs-card__desc {
-            color: var(--color-text-secondary, #666);
-            font-size: 0.95rem;
-            line-height: 1.6;
+        .room-card.gs-variant .room-card-description {
             flex: 1;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
-        .gs-card__cta {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
-            background: var(--gold, #8B7355);
-            color: #fff;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            align-self: flex-start;
-        }
-        .gs-card__cta:hover { background: #7a6548; }
-        .gs-card__cta i { font-size: 0.85rem; }
-
-        /* Quick contact banner */
+        /* Contact Banner - Premium Redesign */
         .gs-contact-banner {
-            background: linear-gradient(135deg, var(--navy, #1A1A1A), #2a2a2a);
-            padding: 60px 0;
+            background: linear-gradient(135deg, #1A1A1A 0%, #2C2C2C 100%);
+            padding: 100px 0;
             text-align: center;
             color: #fff;
+            position: relative;
+            overflow: hidden;
         }
-        .gs-contact-banner .container { max-width: 800px; margin: 0 auto; padding: 0 20px; }
+
+        .gs-contact-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(139, 115, 85, 0.5), transparent);
+        }
+
+        .gs-contact-banner .container { max-width: 800px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 2; }
+        
         .gs-contact-banner h2 {
             font-family: var(--font-serif, 'Cormorant Garamond', serif);
-            font-size: 2rem;
-            font-weight: 400;
-            margin-bottom: 12px;
+            font-size: 3rem;
+            font-weight: 300;
+            margin-bottom: 16px;
+            color: var(--gold, #8B7355);
         }
+        
         .gs-contact-banner p {
-            color: rgba(255,255,255,0.7);
-            margin-bottom: 28px;
-            font-size: 1rem;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+            font-family: var(--font-sans, 'Jost', sans-serif);
+            font-weight: 300;
+            letter-spacing: 0.02em;
         }
+        
         .gs-contact-actions {
             display: flex;
-            gap: 16px;
+            gap: 20px;
             justify-content: center;
             flex-wrap: wrap;
         }
-        .gs-contact-actions a {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 28px;
-            border-radius: 10px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-        .gs-contact-actions .btn-primary-gold {
+        
+        /* Button overrides */
+        .btn-premium-gold {
             background: var(--gold, #8B7355);
             color: #fff;
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-family: var(--font-sans, 'Jost', sans-serif);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.1em;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid var(--gold, #8B7355);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
         }
-        .gs-contact-actions .btn-primary-gold:hover { background: #7a6548; }
-        .gs-contact-actions .btn-outline-light {
-            border: 1px solid rgba(255,255,255,0.3);
+        
+        .btn-premium-gold:hover {
+            background: transparent;
+            color: var(--gold, #8B7355);
+            transform: translateY(-2px);
+        }
+
+        .btn-premium-outline {
+            background: transparent;
             color: #fff;
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-family: var(--font-sans, 'Jost', sans-serif);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.1em;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid rgba(255,255,255,0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
         }
-        .gs-contact-actions .btn-outline-light:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: rgba(255,255,255,0.5);
+
+        .btn-premium-outline:hover {
+            border-color: #fff;
+            background: rgba(255,255,255,0.05);
+            transform: translateY(-2px);
         }
 
         @media (max-width: 768px) {
-            .gs-grid { grid-template-columns: 1fr; }
-            .gs-contact-actions { flex-direction: column; align-items: center; }
+            .gs-grid { grid-template-columns: 1fr; gap: 24px; }
+            .gs-section { padding: 60px 0; }
+            .gs-section .container { padding: 0 20px; }
+            .gs-contact-banner h2 { font-size: 2.2rem; }
+            .gs-contact-actions { flex-direction: column; width: 100%; max-width: 320px; margin: 0 auto; }
+            .btn-premium-gold, .btn-premium-outline { width: 100%; justify-content: center; }
         }
     </style>
 </head>
@@ -323,41 +384,61 @@ $whatsapp      = getSetting('whatsapp_number');
     <!-- Hero Section -->
     <?php include 'includes/hero.php'; ?>
 
+    <main>
     <!-- Services Grid -->
     <section class="gs-section" id="services">
         <div class="container">
             <?php renderSectionHeader('guest_services_main', 'guest-services', [
-                'label' => 'What We Offer',
-                'title' => 'Our Guest Services',
-                'description' => 'Everything you need for a comfortable and memorable stay'
+                'label' => 'At Your Service',
+                'title' => 'Curated Experiences',
+                'description' => 'Discover the exceptional amenities and personalized services designed to make your stay unforgettable.'
             ], 'text-center'); ?>
 
-            <div class="gs-grid">
-                <?php foreach ($dbServices as $service): ?>
-                <div class="gs-card">
-                    <div class="gs-card__media">
-                        <?php if (!empty($service['image_path'])): ?>
-                            <img src="<?php echo htmlspecialchars(function_exists('proxyImageUrl') ? proxyImageUrl($service['image_path']) : $service['image_path']); ?>"
+            <div class="gs-grid" id="gs-grid">
+                <?php foreach ($unifiedServices as $index => $service): 
+                    // Calculate delay for scroll reveal
+                    $delay = ($index % 3) * 100;
+                ?>
+                <div class="card room-card gs-variant reveal-on-scroll" data-scroll-delay="<?php echo $delay; ?>">
+                    <div class="room-card-image">
+                        <?php if (!empty($service['image'])): ?>
+                            <img src="<?php echo htmlspecialchars(function_exists('proxyImageUrl') ? proxyImageUrl($service['image']) : $service['image']); ?>"
                                  alt="<?php echo htmlspecialchars($service['title']); ?>"
-                                 loading="lazy" decoding="async">
+                                 loading="lazy" decoding="async"
+                                 class="room-card-image-img">
                         <?php else: ?>
-                            <div class="gs-card__media-placeholder">
-                                <i class="<?php echo htmlspecialchars($service['icon_class']); ?>"></i>
+                            <div class="room-card-image-placeholder" style="width:100%; height:100%; background:#f5f5f5; display:flex; align-items:center; justify-content:center;">
+                                <i class="<?php echo htmlspecialchars($service['icon']); ?>" style="font-size:3rem; color:#8B7355; opacity:0.3;"></i>
                             </div>
                         <?php endif; ?>
-                    </div>
-                    <div class="gs-card__body">
-                        <div class="gs-card__icon">
-                            <i class="<?php echo htmlspecialchars($service['icon_class']); ?>"></i>
-                        </div>
-                        <h3 class="gs-card__title"><?php echo htmlspecialchars($service['title']); ?></h3>
-                        <p class="gs-card__desc"><?php echo htmlspecialchars($service['description']); ?></p>
-                        <?php if (!empty($service['link_url'])): ?>
-                        <a href="<?php echo htmlspecialchars($service['link_url']); ?>" class="gs-card__cta">
-                            <i class="fas fa-arrow-right"></i>
-                            <?php echo htmlspecialchars($service['link_text'] ?? 'Learn More'); ?>
-                        </a>
+                        
+                        <!-- Badge for type distinction -->
+                        <?php if ($service['type'] === 'facility'): ?>
+                            <div class="room-card-badge">Facility</div>
                         <?php endif; ?>
+                    </div>
+                    
+                    <div class="room-card-content">
+                        <div class="room-card-header">
+                            <h3 class="room-card-title"><?php echo htmlspecialchars($service['title']); ?></h3>
+                            <div class="room-card-meta">
+                                <span><i class="<?php echo htmlspecialchars($service['icon']); ?>"></i> Service</span>
+                            </div>
+                        </div>
+                        
+                        <p class="room-card-description"><?php echo htmlspecialchars($service['description']); ?></p>
+                        
+                        <div class="room-card-actions">
+                            <?php if (!empty($service['link'])): ?>
+                                <a href="<?php echo htmlspecialchars($service['link']); ?>" class="editorial-btn-primary">
+                                    <?php echo htmlspecialchars($service['cta']); ?>
+                                </a>
+                            <?php else: ?>
+                                <span class="editorial-btn-primary disabled" style="opacity:0.7; cursor:default;">
+                                    Available on Request
+                                </span>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -366,36 +447,32 @@ $whatsapp      = getSetting('whatsapp_number');
     </section>
 
     <!-- Contact Banner -->
-    <section class="gs-contact-banner">
+    <section class="gs-contact-banner reveal-on-scroll rh-reveal" id="gs-contact-banner">
         <div class="container">
-            <h2>Need Assistance?</h2>
-            <p>Our team is available around the clock to help with any request, big or small.</p>
+            <h2>Concierge at Your Service</h2>
+            <p>Our dedicated team is available 24/7 to fulfill any request, from restaurant reservations to private excursions.</p>
             <div class="gs-contact-actions">
-                <a href="contact-us.php" class="btn-primary-gold">
-                    <i class="fas fa-envelope"></i> Contact Us
+                <a href="contact-us.php" class="btn-premium-gold">
+                    <i class="fas fa-concierge-bell"></i> Contact Concierge
                 </a>
                 <?php if (!empty($contact_phone)): ?>
-                <a href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', $contact_phone)); ?>" class="btn-outline-light">
-                    <i class="fas fa-phone-alt"></i> <?php echo htmlspecialchars($contact_phone); ?>
-                </a>
-                <?php endif; ?>
-                <?php if (!empty($contact_email)): ?>
-                <a href="mailto:<?php echo htmlspecialchars($contact_email); ?>" class="btn-outline-light">
-                    <i class="fas fa-envelope"></i> <?php echo htmlspecialchars($contact_email); ?>
+                <a href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', $contact_phone)); ?>" class="btn-premium-outline">
+                    <i class="fas fa-phone-alt"></i> Call Front Desk
                 </a>
                 <?php endif; ?>
                 <?php if (!empty($whatsapp)): ?>
-                <a href="https://wa.me/<?php echo htmlspecialchars(preg_replace('/[^0-9]/', '', $whatsapp)); ?>" target="_blank" rel="noopener" class="btn-outline-light">
-                    <i class="fab fa-whatsapp"></i> WhatsApp
+                <a href="https://wa.me/<?php echo htmlspecialchars(preg_replace('/[^0-9]/', '', $whatsapp)); ?>" target="_blank" rel="noopener" class="btn-premium-outline">
+                    <i class="fab fa-whatsapp"></i> WhatsApp Us
                 </a>
                 <?php endif; ?>
             </div>
         </div>
     </section>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
-    <?php include 'includes/footer.php'; ?>
-
+    </main>
+    <!-- Scripts -->
     <script src="js/modal.js" defer></script>
+
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

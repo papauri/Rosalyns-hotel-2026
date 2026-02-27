@@ -182,11 +182,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#1A1A1A">
-    <title>Contact Us - <?php echo htmlspecialchars($site_name); ?></title>
-    <meta name="description" content="Get in touch with <?php echo htmlspecialchars($site_name); ?>. Contact us for reservations, inquiries, or any questions about our services.">
-    <link rel="canonical" href="https://<?php echo $_SERVER['HTTP_HOST']; ?>/contact-us.php">
+    <?php
+    $seo_data = [
+        'title' => 'Contact Us - ' . $site_name,
+        'description' => "Get in touch with {$site_name}. Contact us for reservations, inquiries, or any questions about our services.",
+        'type' => 'website'
+    ];
+    require_once 'includes/seo-meta.php';
+    ?>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,269 +200,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
     <!-- Main CSS -->
     <link rel="stylesheet" href="css/base/critical.css">
     <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/sections/contact.css">
 
-    <style>
-        /* Contact page specific styles */
-        .contact-page-section { padding: 80px 0; }
-        .contact-page-section .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
-
-        .contact-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            margin-top: 40px;
-        }
-
-        .contact-info-card {
-            background: var(--color-surface, #fff);
-            border-radius: 16px;
-            padding: 40px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-            border: 1px solid var(--color-border-light, #eee);
-        }
-
-        .contact-info-card h3 {
-            font-family: var(--font-serif, 'Cormorant Garamond', serif);
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 24px;
-            color: var(--color-text-primary, #1A1A1A);
-        }
-
-        .contact-detail {
-            display: flex;
-            align-items: flex-start;
-            gap: 16px;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
-        }
-
-        .contact-detail:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-
-        .contact-detail-icon {
-            width: 44px;
-            height: 44px;
-            min-width: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(139, 115, 85, 0.1);
-            color: var(--gold, #8B7355);
-            border-radius: 12px;
-            font-size: 1.1rem;
-        }
-
-        .contact-detail-content { flex: 1; }
-        .contact-detail-content strong {
-            display: block;
-            margin-bottom: 4px;
-            color: var(--color-text-primary, #1A1A1A);
-            font-size: 0.95rem;
-        }
-        .contact-detail-content a,
-        .contact-detail-content span {
-            color: var(--color-text-secondary, #666);
-            text-decoration: none;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-        .contact-detail-content a:hover { color: var(--gold, #8B7355); }
-
-        .contact-social-links {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-        }
-        .contact-social-links a {
-            width: 44px; height: 44px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 12px;
-            background: rgba(139, 115, 85, 0.08);
-            color: var(--gold, #8B7355);
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-        }
-        .contact-social-links a:hover {
-            background: var(--gold, #8B7355);
-            color: #fff;
-        }
-
-        /* Contact Form */
-        .contact-form-card {
-            background: var(--color-surface, #fff);
-            border-radius: 16px;
-            padding: 40px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-            border: 1px solid var(--color-border-light, #eee);
-        }
-
-        .contact-form-card h3 {
-            font-family: var(--font-serif, 'Cormorant Garamond', serif);
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 24px;
-            color: var(--color-text-primary, #1A1A1A);
-        }
-
-        .contact-form .form-group {
-            margin-bottom: 20px;
-        }
-
-        .contact-form .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 500;
-            font-size: 0.9rem;
-            color: var(--color-text-primary, #1A1A1A);
-        }
-
-        .contact-form .form-group input,
-        .contact-form .form-group textarea,
-        .contact-form .form-group select {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid var(--color-border-light, #ddd);
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-family: inherit;
-            transition: border-color 0.3s ease;
-            background: var(--color-surface, #fff);
-            color: var(--color-text-primary, #1A1A1A);
-        }
-        .contact-form .form-group input:focus,
-        .contact-form .form-group textarea:focus {
-            outline: none;
-            border-color: var(--gold, #8B7355);
-            box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.1);
-        }
-        .contact-form .form-group textarea { min-height: 140px; resize: vertical; }
-
-        .contact-form .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .contact-form .consent-label {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            font-size: 0.85rem;
-            color: var(--color-text-secondary, #666);
-            cursor: pointer;
-        }
-        .contact-form .consent-label input[type="checkbox"] { margin-top: 3px; }
-
-        .contact-form .btn-submit {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 32px;
-            background: var(--gold, #8B7355);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-        }
-        .contact-form .btn-submit:hover { background: #7a6548; }
-
-        .contact-form-success {
-            text-align: center;
-            padding: 40px 20px;
-        }
-        .contact-form-success i {
-            font-size: 3rem;
-            color: #28a745;
-            margin-bottom: 16px;
-        }
-        .contact-form-success h3 { color: var(--color-text-primary, #1A1A1A); margin-bottom: 12px; }
-        .contact-form-success p { color: var(--color-text-secondary, #666); }
-        .contact-form-success .ref-badge {
-            display: inline-block;
-            padding: 8px 20px;
-            background: rgba(139, 115, 85, 0.1);
-            border-radius: 8px;
-            font-weight: 600;
-            margin-top: 12px;
-            color: var(--gold, #8B7355);
-        }
-
-        .contact-form-error {
-            background: #fff3f3;
-            border: 1px solid #f5c6cb;
-            border-radius: 10px;
-            padding: 14px 20px;
-            color: #721c24;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-        }
-
-        /* Map section */
-        .contact-map-section {
-            padding: 0 0 80px 0;
-        }
-        .contact-map-section .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
-        .contact-map-wrap {
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-            border: 1px solid var(--color-border-light, #eee);
-        }
-        .contact-map-wrap iframe {
-            display: block;
-            width: 100%;
-            height: 400px;
-            border: 0;
-        }
-
-        /* Quick action buttons */
-        .contact-quick-actions {
-            display: flex;
-            gap: 16px;
-            margin-top: 24px;
-            flex-wrap: wrap;
-        }
-        .contact-quick-actions a {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-        .contact-quick-actions .btn-call {
-            background: rgba(40, 167, 69, 0.1);
-            color: #28a745;
-            border: 1px solid rgba(40, 167, 69, 0.2);
-        }
-        .contact-quick-actions .btn-call:hover { background: #28a745; color: #fff; }
-        .contact-quick-actions .btn-email {
-            background: rgba(139, 115, 85, 0.1);
-            color: var(--gold, #8B7355);
-            border: 1px solid rgba(139, 115, 85, 0.2);
-        }
-        .contact-quick-actions .btn-email:hover { background: var(--gold, #8B7355); color: #fff; }
-        .contact-quick-actions .btn-whatsapp {
-            background: rgba(37, 211, 102, 0.1);
-            color: #25d366;
-            border: 1px solid rgba(37, 211, 102, 0.2);
-        }
-        .contact-quick-actions .btn-whatsapp:hover { background: #25d366; color: #fff; }
-
-        @media (max-width: 768px) {
-            .contact-grid { grid-template-columns: 1fr; gap: 30px; }
-            .contact-form .form-row { grid-template-columns: 1fr; }
-            .contact-quick-actions { flex-direction: column; }
-        }
-    </style>
 </head>
 <body class="contact-us-page">
     <?php include 'includes/loader.php'; ?>
@@ -468,6 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
     <!-- Hero Section -->
     <?php include 'includes/hero.php'; ?>
 
+    <main>
     <!-- Contact Section -->
     <section class="contact-page-section" id="contact-info">
         <div class="container">
@@ -477,9 +220,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
                 'description' => 'We are here to help. Reach out to us with any questions, reservations, or special requests.'
             ], 'text-center'); ?>
 
-            <div class="contact-grid">
+            <div class="contact-grid" id="contact-grid">
                 <!-- Left: Contact Info -->
-                <div class="contact-info-card">
+                <div class="contact-info-card revealed">
                     <h3>Our Contact Details</h3>
 
                     <?php if (!empty($contact['phone_main'])): ?>
@@ -576,7 +319,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
                 </div>
 
                 <!-- Right: Contact Form -->
-                <div class="contact-form-card">
+                <div class="contact-form-card revealed">
                     <h3>Send Us a Message</h3>
 
                     <?php if ($formSuccess): ?>
@@ -654,9 +397,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 
     <!-- Map Section -->
     <?php if (!empty($contact['google_maps_embed']) || !empty($contact['address_line1'])): ?>
-    <section class="contact-map-section">
+    <section class="contact-map-section" id="map">
         <div class="container">
-            <div class="contact-map-wrap">
+            <div class="contact-map-wrap" id="contact-map-wrap">
                 <?php if (!empty($contact['google_maps_embed'])): ?>
                     <?php echo $contact['google_maps_embed']; ?>
                 <?php else: ?>
@@ -672,9 +415,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
     </section>
     <?php endif; ?>
 
-    <?php include 'includes/scroll-to-top.php'; ?>
-    <?php include 'includes/footer.php'; ?>
-
+    </main>
+    <!-- Scripts -->
     <script src="js/modal.js" defer></script>
+
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>

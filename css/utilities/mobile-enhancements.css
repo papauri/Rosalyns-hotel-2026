@@ -699,7 +699,14 @@ section {
         grid-template-columns: 1fr;
         gap: var(--space-5);
     }
-    
+
+    .footer__grid--3,
+    .footer__grid--4,
+    .footer__grid--5,
+    .footer__grid--6 {
+        grid-template-columns: 1fr;
+    }
+
     .footer__section {
         margin-bottom: var(--space-4);
     }

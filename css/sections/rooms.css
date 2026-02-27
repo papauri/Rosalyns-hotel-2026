@@ -5,6 +5,163 @@
  */
 
 /* ============================================
+   ROOMS HERO (luxury cinematic intro)
+   ============================================ */
+
+.rooms-hero {
+    position: relative;
+    min-height: clamp(520px, 66vh, 820px);
+    background: #0e1319;
+    color: #fff;
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.rooms-hero__image,
+.rooms-hero__video {
+    position: absolute;
+    inset: 0;
+}
+
+.rooms-hero__image {
+    background-size: cover;
+    background-position: center 45%;
+    transform: scale(1.06);
+    will-change: transform, filter;
+    filter: saturate(1.02) contrast(1.02);
+    transition: transform 1.4s cubic-bezier(0.16, 1, 0.3, 1),
+                filter 0.8s ease;
+}
+
+.rooms-hero__video iframe,
+.rooms-hero__video video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.rooms-hero__overlay {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(1200px 520px at 15% 40%, rgba(10, 20, 32, 0.65) 10%, transparent 70%),
+        radial-gradient(1200px 520px at 85% 60%, rgba(10, 20, 32, 0.55) 10%, transparent 70%),
+        linear-gradient(180deg, rgba(8, 12, 18, 0.55) 0%, rgba(8, 12, 18, 0.15) 40%, rgba(8, 12, 18, 0.65) 100%);
+    pointer-events: none;
+}
+
+.rooms-hero .container {
+    position: relative;
+    height: 100%;
+}
+
+.rooms-hero__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: end;
+    min-height: clamp(520px, 66vh, 820px);
+    padding-block: clamp(64px, 9vh, 120px);
+}
+
+.rooms-hero__content .pill {
+    display: inline-block;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 168, 108, 0.42);
+    background: linear-gradient(180deg, rgba(201, 168, 108, 0.1), rgba(201, 168, 108, 0.02));
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+}
+
+.rooms-hero__content h1 {
+    margin: 14px 0 10px 0;
+    font-family: var(--font-serif, 'Cormorant Garamond', Georgia, serif);
+    font-weight: 400;
+    font-size: clamp(2.2rem, 6vw, 4.6rem);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+    color: #ffffff !important;
+}
+
+.rooms-hero__content p {
+    max-width: 64ch;
+    font-size: clamp(1.02rem, 1.6vw, 1.28rem);
+    line-height: 1.75;
+    color: rgba(255, 255, 255, 0.86) !important;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Reveal choreography (no layout shifts) */
+.rooms-hero.rh-reveal .rooms-hero__content > * {
+    opacity: 0;
+    transform: translateY(26px);
+    filter: blur(6px);
+    will-change: transform, opacity, filter;
+    transition: opacity 900ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 900ms cubic-bezier(0.16, 1, 0.3, 1),
+                filter 900ms ease;
+}
+
+.rooms-hero.rh-reveal.is-revealed .rooms-hero__content > * {
+    opacity: 1;
+    transform: translateY(0px);
+    filter: blur(0px);
+}
+
+.rooms-hero.rh-reveal.is-revealed .rooms-hero__content .pill { transition-delay: 80ms; }
+.rooms-hero.rh-reveal.is-revealed .rooms-hero__content h1  { transition-delay: 160ms; }
+.rooms-hero.rh-reveal.is-revealed .rooms-hero__content p   { transition-delay: 280ms; }
+
+/* Subtle hero de-zoom once revealed for cinematic feel */
+.rooms-hero.rh-reveal.is-revealed .rooms-hero__image {
+    transform: scale(1.0);
+    filter: saturate(1.04) contrast(1.06);
+}
+
+/* Light sweep accent on heading */
+.rooms-hero__content h1::after {
+    content: '';
+    display: block;
+    height: 1px;
+    margin-top: 14px;
+    width: min(20vw, 240px);
+    background: linear-gradient(90deg, rgba(255,255,255,0.0), rgba(255,255,255,0.6), rgba(255,255,255,0.0));
+    opacity: 0;
+    transform: translateX(-12%);
+    transition: transform 1200ms cubic-bezier(0.16, 1, 0.3, 1), opacity 600ms ease;
+}
+
+.rooms-hero.rh-reveal.is-revealed .rooms-hero__content h1::after {
+    opacity: 0.9;
+    transform: translateX(0%);
+}
+
+/* Responsive hero typesetting */
+@media (max-width: 768px) {
+    .rooms-hero {
+        min-height: 520px;
+    }
+    .rooms-hero__grid {
+        align-items: end;
+        padding-block: 72px;
+    }
+    .rooms-hero__content p {
+        max-width: 52ch;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .rooms-hero__image,
+    .rooms-hero.rh-reveal .rooms-hero__content > * {
+        transition: none !important;
+    }
+}
+
+/* ============================================
    ROOM GRID
    ============================================ */
 

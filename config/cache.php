@@ -225,6 +225,207 @@ function clearImageCache() {
 }
 
 /**
+ * Delete a specific proxied image from the image cache by its source URL
+ * The image proxy stores files as md5(url).jpg in IMAGE_CACHE_DIR
+ */
+function deleteImageProxyCacheByUrl($url) {
+    if (empty($url)) return false;
+    $cacheFile = IMAGE_CACHE_DIR . '/' . md5($url) . '.jpg';
+    if (file_exists($cacheFile)) {
+        return @unlink($cacheFile);
+    }
+    return false;
+}
+
+// --- Extensions for SEO/Favicon purge integration (idempotent) ---
+if (!function_exists('purge_all_page_caches')) {
+    /**
+     * Purge all page caches used by the page-cache system.
+     * Attempts to use clearPageCache() from config/page-cache.php, otherwise
+     * falls back to deleting files within the default pages dir.
+     */
+    function purge_all_page_caches() {
+        // Ensure page-cache config is loaded for constants and helpers
+        $pageConfig = __DIR__ . '/page-cache.php';
+        if (file_exists($pageConfig)) {
+            require_once $pageConfig;
+        }
+
+        // Use provided helper if available
+        if (function_exists('clearPageCache')) {
+            return (bool) clearPageCache();
+        }
+
+        // Fallback: try to clear PAGE_CACHE_DIR if constant is defined
+        if (defined('PAGE_CACHE_DIR') && is_dir(PAGE_CACHE_DIR)) {
+            $files = glob(PAGE_CACHE_DIR . '/*');
+            $ok = true;
+            if ($files) {
+                foreach ($files as $file) {
+                    if (is_file($file) && !@unlink($file)) {
+                        $ok = false;
+                    }
+                    if (is_dir($file)) {
+                        // Defensive: remove nested directories if any
+                        recursiveDelete($file);
+                    }
+                }
+            }
+            return $ok;
+        }
+
+        // Last resort: attempt default location used in config/page-cache.php
+        $defaultDir = dirname(__DIR__) . '/cache/pages';
+        if (is_dir($defaultDir)) {
+            $files = glob($defaultDir . '/*');
+            if ($files) {
+                foreach ($files as $file) {
+                    if (is_file($file)) @unlink($file);
+                    if (is_dir($file)) recursiveDelete($file);
+                }
+            }
+            return true;
+        }
+
+        // Nothing to clear
+        return false;
+    }
+}
+
+if (!function_exists('purge_proxied_image_for_url')) {
+    /**
+     * Remove cached proxied image file(s) corresponding to an absolute URL.
+     * Uses IMAGE_CACHE_DIR and md5 hash file mapping, falls back gracefully.
+     */
+    function purge_proxied_image_for_url($absoluteUrl) {
+        if (empty($absoluteUrl)) return false;
+
+        // Prefer existing helper if present
+        if (function_exists('deleteImageProxyCacheByUrl')) {
+            return (bool) deleteImageProxyCacheByUrl($absoluteUrl);
+        }
+
+        // Manual fallback mirroring includes/image-proxy.php
+        $dir = defined('IMAGE_CACHE_DIR') ? IMAGE_CACHE_DIR : (dirname(__DIR__) . '/data/image-cache');
+        if (!is_dir($dir)) return false;
+        $target = $dir . '/' . md5($absoluteUrl) . '.jpg';
+        if (file_exists($target)) {
+            return @unlink($target);
+        }
+        return false;
+    }
+}
+
+if (!function_exists('bump_seo_asset_version')) {
+    /**
+     * Bump version string used on favicon/SEO assets, to force cache refresh.
+     * Tries to use bumpSeoAssetVersion() if available; otherwise attempts a
+     * direct DB upsert via $pdo. Returns the new version string on success
+     * or false on failure.
+     */
+    function bump_seo_asset_version() {
+        // Prefer the existing implementation if defined
+        if (function_exists('bumpSeoAssetVersion')) {
+            return bumpSeoAssetVersion();
+        }
+
+        $newVersion = (string) time();
+        try {
+            if (!function_exists('setSetting')) {
+                /**
+                 * Set a site setting in the database.
+                 * @param string $key
+                 * @param string $value
+                 * @return bool
+                 */
+                function setSetting($key, $value) {
+                    global $pdo;
+                    if (!$pdo) return false;
+                    try {
+                        $stmt = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value, updated_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
+                        return $stmt->execute([$key, $value]);
+                    } catch (Exception $e) {
+                        error_log('setSetting failed: ' . $e->getMessage());
+                        return false;
+                    }
+                }
+            }
+            // If a higher-level setter exists, use it
+            $ok = setSetting('seo_asset_version', $newVersion);
+            return $ok ? $newVersion : false;
+
+            // Fallback: write directly via PDO if available
+            global $pdo;
+            if ($pdo instanceof PDO) {
+                $stmt = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value, updated_at) VALUES ('seo_asset_version', ?, NOW()) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
+                $stmt->execute([$newVersion]);
+                // Invalidate any cached setting variant
+                if (function_exists('deleteCache')) {
+                    @deleteCache('setting_seo_asset_version');
+                }
+                return $newVersion;
+            }
+        } catch (Exception $e) {
+            error_log('bump_seo_asset_version fallback failed: ' . $e->getMessage());
+        }
+        return false;
+    }
+}
+
+/**
+ * Bump the SEO asset version setting so browsers request fresh favicons/meta-related assets
+ * Returns the new version string.
+ */
+function bumpSeoAssetVersion($newVersion = null) {
+    $version = $newVersion ?? (string) time();
+    try {
+        global $pdo;
+        if ($pdo) {
+            $stmt = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value, updated_at) VALUES ('seo_asset_version', ?, NOW()) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
+            $stmt->execute([$version]);
+        }
+    } catch (Exception $e) {
+        error_log('bumpSeoAssetVersion failed: ' . $e->getMessage());
+    }
+    // Invalidate cached setting
+    deleteCache('setting_seo_asset_version');
+    return $version;
+}
+
+/**
+ * Purge SEO & Favicon related caches in one call
+ * - Clears all page HTML cache (to refresh meta tags)
+ * - Deletes proxied logo cache if present
+ * - Bumps SEO asset version
+ */
+function purgeSeoAndFaviconCaches($logoAbsoluteUrl = null) {
+    $result = [
+        'page_cache_cleared' => false,
+        'proxied_logo_deleted' => false,
+        'new_version' => null,
+    ];
+
+    // Clear all page caches if page cache functions are available
+    if (function_exists('clearPageCache')) {
+        $result['page_cache_cleared'] = clearPageCache();
+    }
+
+    // Remove proxied logo cache if provided
+    if (!empty($logoAbsoluteUrl)) {
+        $result['proxied_logo_deleted'] = deleteImageProxyCacheByUrl($logoAbsoluteUrl);
+    }
+
+    // Bump version for asset URLs used in meta
+    $result['new_version'] = bumpSeoAssetVersion();
+
+    // Also clear relevant setting caches so templates see fresh values
+    clearCacheByPattern('setting_site_*');
+    clearCacheByPattern('setting_default_*');
+
+    return $result;
+}
+
+/**
  * List all cache files with their details
  */
 function listCache() {
