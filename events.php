@@ -100,11 +100,9 @@ $site_logo = getSetting('site_logo');
     </head>
 <body class="events-page">
     <?php include 'includes/loader.php'; ?>
-    
-    <?php include 'includes/header.php'; ?>
 
-    <!-- Mobile Menu Overlay -->
-    <div class="mobile-menu-overlay" role="presentation"></div>
+    <?php include 'includes/header.php'; ?>
+    <!-- Mobile menu overlay is now included in header.php -->
 
     <main>
     <!-- Hero Section -->
@@ -217,14 +215,14 @@ $site_logo = getSetting('site_logo');
                         <div class="editorial-events-grid events-showcase__grid" id="editorial-expired-events-grid">
                             <?php foreach ($expired_events as $event): ?>
                                 <?php
-                                $event_date = new DateTime($event['event_date']);
-                                $day = $event_date->format('d');
-                                $month = $event_date->format('M');
-                                $formatted_date = $event_date->format('F j, Y');
-                                $start_time = !empty($event['start_time']) ? date('g:i A', strtotime($event['start_time'])) : '';
-                                $end_time = !empty($event['end_time']) ? date('g:i A', strtotime($event['end_time'])) : '';
-                                $event_image = proxyImageUrl(resolveEventImagePath($event['image_path'] ?? ''));
-                                ?>
+                                    $event_date = new DateTime($event['event_date']);
+                                    $day = $event_date->format('d');
+                                    $month = $event_date->format('M');
+                                    $formatted_date = $event_date->format('F j, Y');
+                                    $start_time = !empty($event['start_time']) ? date('g:i A', strtotime($event['start_time'])) : '';
+                                    $end_time = !empty($event['end_time']) ? date('g:i A', strtotime($event['end_time'])) : '';
+                                    $event_image = proxyImageUrl(resolveEventImagePath($event['image_path'] ?? ''));
+                                    ?>
                                 <article class="editorial-event-card events-showcase__card is-expired" data-event-status="expired">
                                     <div class="event-expired-ribbon" aria-label="Expired event">
                                         <span>Expired</span>
@@ -302,3 +300,65 @@ $site_logo = getSetting('site_logo');
     <?php include 'includes/footer.php'; ?>
 </body>
 </html>
+
+<!-- Fallback Mobile Menu Toggle Script for events.php -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[events.php] Fallback Mobile Menu Script loaded');
+    const toggleBtn = document.querySelector('[data-mobile-toggle]');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const mobileOverlay = document.querySelector('[data-mobile-overlay]');
+    const mobileCloseBtn = document.querySelector('[data-mobile-close]');
+    
+    if (toggleBtn && mobileMenu) {
+        // Remove existing listeners to prevent duplicates
+        const newToggle = toggleBtn.cloneNode(true);
+        toggleBtn.parentNode.replaceChild(newToggle, toggleBtn);
+        
+        newToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[events.php] Toggle clicked');
+            
+            const isOpen = mobileMenu.classList.contains('header__mobile--active');
+            
+            if (isOpen) {
+                mobileMenu.classList.remove('header__mobile--active');
+                if (mobileOverlay) mobileOverlay.classList.remove('header__overlay--active');
+                newToggle.setAttribute('aria-expanded', 'false');
+                document.body.style.overflow = '';
+            } else {
+                mobileMenu.classList.add('header__mobile--active');
+                if (mobileOverlay) mobileOverlay.classList.add('header__overlay--active');
+                newToggle.setAttribute('aria-expanded', 'true');
+                document.body.style.overflow = 'hidden';
+            }
+        });
+        
+        // Handle close button click
+        if (mobileCloseBtn) {
+            mobileCloseBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[events.php] Close clicked');
+                mobileMenu.classList.remove('header__mobile--active');
+                if (mobileOverlay) mobileOverlay.classList.remove('header__overlay--active');
+                if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+                document.body.style.overflow = '';
+            };
+        }
+        
+        // Handle overlay click to close
+        if (mobileOverlay) {
+            mobileOverlay.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[events.php] Overlay clicked');
+                mobileMenu.classList.remove('header__mobile--active');
+                if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+                document.body.style.overflow = '';
+            };
+        }
+    }
+});
+</script>

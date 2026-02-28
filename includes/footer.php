@@ -5,11 +5,11 @@
     <div class="footer__lazy-overlay"></div>
     <div class="footer__content">
         <?php
-        // Initialize footer_links to empty array to prevent count() error
+        // Initialize arrays before fetching data
         $footer_links = [];
+        $policies = [];
         
         // Fetch policies from database
-        $policies = [];
         try {
             $stmt = $pdo->query("SELECT slug, title, summary, content FROM policies WHERE is_active = 1 ORDER BY display_order ASC");
             $policies = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -46,7 +46,7 @@
             // Fallback if table doesn't exist
         }
 
-        // Count total sections for dynamic grid class (now footer_links is defined)
+        // Count total sections for dynamic grid class (now footer_links is properly initialized)
         $total_sections = count($footer_links) + 3; // +3 for Policies, Contact, Connect sections
         $grid_class = 'footer__grid';
         if ($total_sections >= 6) {
@@ -60,113 +60,34 @@
         }
         ?>
         <div class="<?php echo $grid_class; ?>">
-            <?php
-            // Fetch policies from database
-            $policies = [];
-            try {
-                $stmt = $pdo->query("SELECT slug, title, summary, content FROM policies WHERE is_active = 1 ORDER BY display_order ASC");
-                $policies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (PDOException $e) {
-                // Fallback if table doesn't exist
-            }
-
-            // Fetch footer links from database
-            $footer_links = [];
-            try {
-                // Determine current page for link selection
-                $request_uri = $_SERVER['REQUEST_URI'];
-                $path = parse_url($request_uri, PHP_URL_PATH);
-                $current_page = basename($path, '.php');
-                if (empty($current_page) || $current_page === '') {
-                    $current_page = 'index';
-                }
-                $is_index_page = ($current_page === 'index');
-
-                // Select appropriate URL based on page
-                if ($is_index_page) {
-                    // On index page, use link_url (hash only)
-                    $stmt = $pdo->query("SELECT column_name, link_text, link_url FROM footer_links WHERE is_active = 1 ORDER BY column_name, display_order ASC");
-                } else {
-                    // On other pages, use secondary_link_url if available, otherwise link_url
-                    $stmt = $pdo->query("SELECT column_name, link_text,
-                        COALESCE(NULLIF(secondary_link_url, ''), link_url) as link_url
-                        FROM footer_links WHERE is_active = 1 ORDER BY column_name, display_order ASC");
-                }
-                $all_links = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                foreach ($all_links as $link) {
-                    $footer_links[$link['column_name']][] = $link;
-                }
-            } catch (PDOException $e) {
-                // Fallback if table doesn't exist
-            }
-
-            // Fetch contact settings
-            $contact = [
-                'phone_main' => getSetting('phone_main'),
-                'email_main' => getSetting('email_main'),
-                'address_line1' => getSetting('address_line1'),
-                'working_hours' => getSetting('working_hours')
-            ];
-
-            // Fetch social links
-            $social = [
-                'facebook_url' => getSetting('facebook_url'),
-                'instagram_url' => getSetting('instagram_url'),
-                'twitter_url' => getSetting('twitter_url'),
-                'linkedin_url' => getSetting('linkedin_url')
-            ];
-
-            foreach ($footer_links as $column_name => $links):
-            ?>
+            <?php foreach ($footer_links as $column_name => $links): ?>
             <div class="footer__section">
                 <h4 class="footer__section-title"><?php echo htmlspecialchars($column_name); ?></h4>
                 <ul class="footer__links">
                     <?php foreach ($links as $link): ?>
                     <?php
-                        // Normalize footer quick links for consistent behavior on desktop/mobile
                         $rawHref = trim((string)($link['link_url'] ?? ''));
                         
-                        // Strip any accidental api/ prefix from stored links (common DB entry mistake)
+                        // Normalize footer links
                         $rawHref = preg_replace('#^api/#i', '', $rawHref);
-                        
                         $normalizedHref = $rawHref;
 
                         $isAbsolute = preg_match('/^https?:\/\//i', $rawHref);
-                        $isRooted  = preg_match('/^\//', $rawHref);
+                        $isRooted = preg_match('/^\//', $rawHref);
                         $startsHash = strpos($rawHref, '#') === 0;
                         $hasHashAnywhere = strpos($rawHref, '#') !== false;
                         $hasPhp = (bool)preg_match('/\.php(\b|#|\?|$)/i', $rawHref);
 
-                        // 1) Special-case Contact links from DB variations
-                        //    Map: contact, #contact, contact-us, contact-us.php → contact-us.php[#contact-info]
+                        // Normalize special cases
                         if ($rawHref !== '') {
                             $lc = strtolower($rawHref);
                             if ($lc === 'contact' || $lc === '#contact') {
                                 $normalizedHref = $is_index_page ? '#contact' : 'contact-us.php#contact-info';
                             } elseif ($lc === 'contact-us' || $lc === 'contact-us.php') {
                                 $normalizedHref = 'contact-us.php' . ($hasHashAnywhere ? '' : '#contact-info');
-                            }
-                        }
-
-                        // 2) Bare ID like editorial-about-container (no #, no path) → convert to hash / index.php#id
-                        if ($normalizedHref === $rawHref) { // not already handled above
-                            if ($rawHref !== ''
-                                && !$startsHash
-                                && !$isAbsolute
-                                && !$isRooted
-                                && preg_match('/^[A-Za-z][A-Za-z0-9_\-:.]*$/', $rawHref)) {
+                            } elseif (!$startsHash && !$isAbsolute && !$isRooted && !$hasPhp && preg_match('/^[A-Za-z][A-Za-z0-9_\-:.]*$/', $rawHref)) {
                                 $normalizedHref = $is_index_page ? ('#' . $rawHref) : ('index.php#' . $rawHref);
-                            }
-                        }
-
-                        // 3) Slug without extension (e.g., contact-us, rooms-gallery) → append .php
-                        if ($normalizedHref === $rawHref) {
-                            if ($rawHref !== ''
-                                && !$isAbsolute
-                                && !$isRooted
-                                && !$startsHash
-                                && !$hasPhp
-                                && preg_match('/^[A-Za-z][A-Za-z0-9_\-]*$/', $rawHref)) {
+                            } elseif ($normalizedHref === $rawHref && !$hasPhp) {
                                 $normalizedHref = $rawHref . '.php';
                             }
                         }
@@ -198,19 +119,19 @@
                 <ul class="footer__contact">
                     <li class="footer__contact-item">
                         <i class="fas fa-phone footer__contact-icon"></i>
-                        <a href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', $contact['phone_main'])); ?>"><?php echo htmlspecialchars($contact['phone_main']); ?></a>
+                        <a href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', getSetting('phone_main', ''))); ?>"><?php echo htmlspecialchars(getSetting('phone_main', '')); ?></a>
                     </li>
                     <li class="footer__contact-item">
                         <i class="fas fa-envelope footer__contact-icon"></i>
-                        <a href="mailto:<?php echo htmlspecialchars($contact['email_main']); ?>"><?php echo htmlspecialchars($contact['email_main']); ?></a>
+                        <a href="mailto:<?php echo htmlspecialchars(getSetting('email_main', '')); ?>"><?php echo htmlspecialchars(getSetting('email_main', '')); ?></a>
                     </li>
                     <li class="footer__contact-item">
                         <i class="fas fa-map-marker-alt footer__contact-icon"></i>
-                        <a href="https://www.google.com/maps/search/<?php echo urlencode($contact['address_line1']); ?>" target="_blank"><?php echo htmlspecialchars($contact['address_line1']); ?></a>
+                        <a href="https://www.google.com/maps/search/<?php echo urlencode(getSetting('address_line1', '')); ?>" target="_blank"><?php echo htmlspecialchars(getSetting('address_line1', '')); ?></a>
                     </li>
                     <li class="footer__contact-item">
                         <i class="fas fa-clock footer__contact-icon"></i>
-                        <span><?php echo htmlspecialchars($contact['working_hours']); ?></span>
+                        <span><?php echo htmlspecialchars(getSetting('working_hours', '')); ?></span>
                     </li>
                 </ul>
                 <div style="margin-top: 16px;">
@@ -223,45 +144,29 @@
             <div class="footer__section">
                 <h4 class="footer__section-title">Connect With Us</h4>
                 <div class="footer__social">
-                    <?php if (!empty($social['facebook_url'])): ?>
-                    <a href="<?php echo htmlspecialchars($social['facebook_url']); ?>" class="footer__social-link" target="_blank" aria-label="Facebook" title="Follow us on Facebook">
-                        <i class="fab fa-facebook-f"></i>
-                    </a>
+                    <?php if (!empty(getSetting('facebook_url', ''))): ?>
+                        <a href="<?php echo htmlspecialchars(getSetting('facebook_url', '')); ?>" class="footer__social-link" target="_blank" aria-label="Facebook" title="Follow us on Facebook">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
                     <?php endif; ?>
 
-                    <?php if (!empty($social['instagram_url'])): ?>
-                    <a href="<?php echo htmlspecialchars($social['instagram_url']); ?>" class="footer__social-link" target="_blank" aria-label="Instagram" title="Follow us on Instagram">
-                        <i class="fab fa-instagram"></i>
-                    </a>
+                    <?php if (!empty(getSetting('instagram_url', ''))): ?>
+                        <a href="<?php echo htmlspecialchars(getSetting('instagram_url', '')); ?>" class="footer__social-link" target="_blank" aria-label="Instagram" title="Follow us on Instagram">
+                            <i class="fab fa-instagram"></i>
+                        </a>
                     <?php endif; ?>
 
-                    <?php if (!empty($social['twitter_url'])): ?>
-                    <a href="<?php echo htmlspecialchars($social['twitter_url']); ?>" class="footer__social-link" target="_blank" aria-label="Twitter" title="Follow us on Twitter">
-                        <i class="fab fa-twitter"></i>
-                    </a>
+                    <?php if (!empty(getSetting('twitter_url', ''))): ?>
+                        <a href="<?php echo htmlspecialchars(getSetting('twitter_url', '')); ?>" class="footer__social-link" target="_blank" aria-label="Twitter" title="Follow us on Twitter">
+                            <i class="fab fa-twitter"></i>
+                        </a>
                     <?php endif; ?>
 
-                    <?php if (!empty($social['linkedin_url'])): ?>
-                    <a href="<?php echo htmlspecialchars($social['linkedin_url']); ?>" class="footer__social-link" target="_blank" aria-label="LinkedIn" title="Connect with us on LinkedIn">
-                        <i class="fab fa-linkedin-in"></i>
-                    </a>
+                    <?php if (!empty(getSetting('linkedin_url', ''))): ?>
+                        <a href="<?php echo htmlspecialchars(getSetting('linkedin_url', '')); ?>" class="footer__social-link" target="_blank" aria-label="LinkedIn" title="Connect with us on LinkedIn">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
                     <?php endif; ?>
-                </div>
-
-                <h4 class="footer__share-title">Share</h4>
-                <div class="footer__share">
-                    <button class="footer__share-btn" onclick="sharePage('facebook')" aria-label="Share on Facebook">
-                        <i class="fab fa-facebook-f"></i>
-                    </button>
-                    <button class="footer__share-btn" onclick="sharePage('twitter')" aria-label="Share on Twitter">
-                        <i class="fab fa-twitter"></i>
-                    </button>
-                    <button class="footer__share-btn" onclick="sharePage('whatsapp')" aria-label="Share on WhatsApp">
-                        <i class="fab fa-whatsapp"></i>
-                    </button>
-                    <button class="footer__share-btn" onclick="sharePage('email')" aria-label="Share via Email">
-                        <i class="fas fa-envelope"></i>
-                    </button>
                 </div>
             </div>
         </div>
@@ -327,7 +232,7 @@
             [
                 'slug' => 'dining-policy',
                 'title' => 'Dining Policy',
-                'content' => "Our on-site restaurant serves breakfast, lunch, and dinner daily.\n\nBreakfast hours: 6:30 AM - 10:00 AM\nLunch hours: 12:00 PM - 2:30 PM\nDinner hours: 6:30 PM - 10:00 PM\n\nReservations are recommended for dinner, especially on weekends.\n\nDress code: Smart casual for dinner. No beachwear or flip-flops in the dining room.\n\nWe accommodate dietary restrictions and food allergies. Please inform us when making your reservation.\n\nRoom service is available from 7:00 AM to 10:00 PM.\n\nAlcoholic beverages will only be served to guests aged 18 and above."
+                'content' => "Our on-site restaurant serves breakfast, lunch, and dinner daily.\n\nBreakfast hours: 6:30 AM - 10:00 AM\nLunch hours: 12:00 PM - 2:30 PM\nDinner hours: 6:30 PM - 10:00 PM\n\nReservations are recommended for dinner, especially on weekends.\n\nDress code: Smart casual for dinner. No beachwear or flip-flops in dining room.\n\nWe accommodate dietary restrictions and food allergies. Please inform us when making your reservation.\n\nRoom service is available from 7:00 AM to 10:00 PM.\n\nAlcoholic beverages will only be served to guests aged 18 and above."
             ],
             [
                 'slug' => 'faqs',
@@ -358,20 +263,14 @@
 <link rel="stylesheet" href="<?php echo assetUrl('css/main.css'); ?>">
 <?php endif; ?>
 
-<!-- Unified Navigation — SPA routing so only content swaps, header never reloads.
+<!-- Unified Navigation - SPA routing so only content swaps, header never reloads.
      Loaded globally here so every page (including index.php) gets it.
-     Singleton guard inside the script prevents double-init when a page also loads it. -->
-<?php if (!function_exists('assetUrl')): ?>
+     Singleton guard inside of script prevents double-init when a page also loads it.
+ -->
 <script src="js/modal.js" defer></script>
 <script src="js/navigation-unified.js" defer></script>
 <script src="js/scroll-lazy-animations.js" defer></script>
 <script src="js/page-transitions.js" defer></script>
-<?php else: ?>
-<script src="<?php echo assetUrl('js/modal.js'); ?>" defer></script>
-<script src="<?php echo assetUrl('js/navigation-unified.js'); ?>" defer></script>
-<script src="<?php echo assetUrl('js/scroll-lazy-animations.js'); ?>" defer></script>
-<script src="<?php echo assetUrl('js/page-transitions.js'); ?>" defer></script>
-<?php endif; ?>
 
 <!-- Share Script -->
 <script>
@@ -408,13 +307,13 @@ function sharePage(platform) {
         const footer = document.querySelector('.footer[data-footer-lazy]');
         if (!footer) return;
         
-        // Remove and re-add the attribute to restart CSS animations
+        // Remove and re-add attribute to restart CSS animations
         footer.removeAttribute('data-footer-lazy');
         
-        // Force reflow to ensure the browser recognizes the removal
+        // Force reflow to ensure browser recognizes removal
         void footer.offsetWidth;
         
-        // Re-add the attribute to restart animations
+        // Re-add attribute to restart animations
         footer.setAttribute('data-footer-lazy', '');
     }
     

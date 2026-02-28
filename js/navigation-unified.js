@@ -2,17 +2,20 @@
  * Unified Navigation System
  * Rosalyn's Hotel 2026
  *
- * Full SPA routing: clicks on internal nav links swap only the content between
- * <header> and <footer> — the header never reloads, transitions are seamless.
+ * Full SPA routing: clicks on internal nav links swap only
+ * content between <header> and <footer> — The header
+ * never reloads, transitions are seamless.
  *
  * Key behaviours:
- *  • Wraps content between header and footer in #spa-content (display:contents)
+ *  • Wraps content between header and footer in #spa-content
  *  • Intercepts clicks on SPA-allowed pages, fetches via api/page-content.php
  *  • Fades old content out, swaps innerHTML, fades new content in
  *  • Re-runs inline <script> tags found in new content
  *  • Updates active nav state in both desktop and mobile menus
  *  • Handles browser back/forward via popstate
  *  • Singleton guard — safe when loaded from both page footer AND individual pages
+ *  • Global Click Delegation for Mobile Menu Toggle — Ensures consistent
+ *     behavior across all pages regardless of DOM structure changes.
  */
 
 (function () {
@@ -80,6 +83,7 @@
             history.replaceState({ page: this.currentPage }, '', window.location.href);
 
             console.log('[UnifiedNavigation] Ready — SPA wrapper:', !!this.spaWrapper);
+            console.log('[UnifiedNavigation] Mobile toggle bound:', document.querySelector('[data-mobile-toggle]')?.hasAttribute('data-spa-toggle-bound'));
         }
 
         /* ================================================================
@@ -91,11 +95,28 @@
         _buildSPAWrapper() {
             // Already exists (e.g. double-include)
             const existing = document.getElementById('spa-content');
-            if (existing) { this.spaWrapper = existing; return; }
+            if (existing) { 
+                this.spaWrapper = existing; 
+                
+                // Re-ensure footer is after of SPA wrapper
+                const header = document.querySelector('header.header');
+                const footer = document.querySelector('footer.footer');
+                if (header && footer) {
+                    // If footer is before of wrapper, move it after
+                    if (wrapper && footer.nextSibling !== null && wrapper.contains(footer)) {
+                        header.after(wrapper);
+                        wrapper.after(footer);
+                    }
+                }
+                return true; 
+            }
 
             const header = document.querySelector('header.header');
             const footer = document.querySelector('footer.footer');
-            if (!header || !footer) return;
+            if (!header || !footer) {
+                console.warn('[UnifiedNavigation] No header/footer found, SPA wrapper skipped');
+                return false;
+            }
 
             // Gather sibling nodes that sit between header and footer
             const nodes = [];
@@ -111,6 +132,13 @@
             header.after(wrapper);
             nodes.forEach(n => wrapper.appendChild(n));
 
+            // CRITICAL: Ensure footer is placed AFTER of wrapper
+            // This prevents the footer from being lost during navigation
+            if (footer.parentNode !== document.body) {
+                document.body.appendChild(footer);
+            }
+            wrapper.after(footer);
+
             // Make the wrapper layout-transparent so CSS that targets
             // body > main, body > section, etc. keeps working
             const style = document.createElement('style');
@@ -118,6 +146,7 @@
             document.head.appendChild(style);
 
             this.spaWrapper = wrapper;
+            return true;
         }
 
         /* ================================================================
@@ -125,42 +154,100 @@
         ================================================================ */
 
         _setupMobileMenu() {
-            // 1. Bind the static toggle button (only once)
-            const toggleBtn = document.querySelector('[data-mobile-toggle]');
-            if (toggleBtn && !toggleBtn.dataset.navMobileInit) {
-                toggleBtn.dataset.navMobileInit = '1';
-
-                toggleBtn.addEventListener('click', () => {
-                    const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-                    if (isExpanded) {
-                        this._closeMobileMenu();
-                    } else {
-                        this._openMobileMenu();
-                    }
-                });
-
-                // Global Escape key (only once)
+            // Global Escape key (only bind once)
+            if (!this._escapeKeyBound) {
+                this._escapeKeyBound = true;
                 document.addEventListener('keydown', e => {
                     if (e.key === 'Escape') this._closeMobileMenu();
                 });
             }
 
-            // 2. Bind dynamic elements (panel, close btn, overlay)
+            // Bind toggle button and dynamic elements
+            // Note: We also use global event delegation (see _setupGlobalMobileMenu) to ensure
+            // the toggle works even if this re-binding fails.
             this._bindMobileMenuDynamicElements();
         }
 
         _bindMobileMenuDynamicElements() {
             const closeBtn = document.querySelector('[data-mobile-close]');
             const overlay = document.querySelector('[data-mobile-overlay]');
-            
-            // Use one-time event listeners or rely on element replacement to avoid duplicates
+            const toggleBtn = document.querySelector('[data-mobile-toggle]');
+
+            // Bind toggle button using event delegation (doesn't clone/replace)
+            // The toggle button is in the header (outside SPA wrapper), so it persists across navigation
+            if (toggleBtn) {
+                // Check if already bound using a data attribute on the button itself
+                if (!toggleBtn.hasAttribute('data-spa-toggle-bound')) {
+                    toggleBtn.addEventListener('click', function spaToggleHandler(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const btn = e.currentTarget;
+                        const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+                        if (isExpanded) {
+                            window.unifiedNav._closeMobileMenu();
+                        } else {
+                            window.unifiedNav._openMobileMenu();
+                        }
+                    });
+                    toggleBtn.setAttribute('data-spa-toggle-bound', 'true');
+                }
+            }
+
+            // Bind close button (in mobile panel, which IS inside SPA wrapper - needs re-binding)
             if (closeBtn) {
-                closeBtn.onclick = () => this._closeMobileMenu();
+                closeBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this._closeMobileMenu();
+                };
             }
-            
+
+            // Bind overlay (in mobile panel, which IS inside SPA wrapper - needs re-binding)
             if (overlay) {
-                overlay.onclick = () => this._closeMobileMenu();
+                overlay.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this._closeMobileMenu();
+                };
             }
+        }
+
+        /* ================================================================
+           Global Mobile Menu Handling
+           Uses event delegation to ensure the mobile menu toggle works
+           consistently across ALL pages, even after SPA content swaps.
+           This is the most robust solution.
+        ================================================================ */
+
+        _setupGlobalMobileMenu() {
+            document.addEventListener('click', function(e) {
+                // Mobile Toggle Button
+                if (e.target.closest('[data-mobile-toggle]')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const btn = e.target.closest('[data-mobile-toggle]');
+                    const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+                    if (isExpanded) {
+                        window.unifiedNav._closeMobileMenu();
+                    } else {
+                        window.unifiedNav._openMobileMenu();
+                    }
+                }
+
+                // Mobile Overlay - Close menu when clicking overlay
+                if (e.target.closest('[data-mobile-overlay]')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.unifiedNav._closeMobileMenu();
+                }
+
+                // Mobile Close Button
+                if (e.target.closest('[data-mobile-close]')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.unifiedNav._closeMobileMenu();
+                }
+            }, true); // Use capture phase to ensure we intercept before specific element handlers
         }
 
         _openMobileMenu() {
@@ -223,9 +310,13 @@
             const pageName = this._pageName(href);
             if (!this._isSPA(pageName)) return;
 
-            // Build absolute URL
+            // Build absolute URL and normalize (strip any /api/ prefix)
             let url;
-            try { url = new URL(href, window.location.origin).href; }
+            try {
+                url = new URL(href, window.location.origin).href;
+                // Strip /api/ prefix if accidentally present (e.g., /api/events.php → /events.php)
+                url = url.replace(/\/api\/([a-z0-9_-]+\.php)/i, '/$1');
+            }
             catch { url = href; }
 
             // Don't re-navigate to the same page (without params)
@@ -301,8 +392,8 @@
             this._showLoader(pageName); // Pass destination page for correct subtext
 
             try {
-                // Build API URL
-                let apiUrl = `api/page-content.php?page=${encodeURIComponent(pageName)}`;
+                // Build API URL - use absolute path to avoid double /api/ issue
+                let apiUrl = `/api/page-content.php?page=${encodeURIComponent(pageName)}`;
                 if (pageName === 'room') {
                     const slug = new URL(url, window.location.origin).searchParams.get('room');
                     if (slug) apiUrl += `&slug=${encodeURIComponent(slug)}`;
@@ -346,7 +437,7 @@
 
         /* ================================================================
            Content swap with fade transition
-           Preloads the hero image before fading in so the hero never
+           Preloads hero image before fading in so that the hero never
            appears after the rest of the content.
         ================================================================ */
 
@@ -354,26 +445,44 @@
             const target = this.spaWrapper || document.querySelector('main');
             if (!target) return;
 
-            // ── 1. Fade out ───────────────────────────────────────────────
+            // ── 1. Fade out ───────────────────────────────────────
             target.style.transition = 'opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1)';
             target.style.opacity    = '0';
             await new Promise(r => setTimeout(r, 230));
 
-            // ── 2. Inject markup ──────────────────────────────────────────
-            target.innerHTML = data.html;
+            // ── 2. Fix relative paths in HTML before injecting ───────────
+            // Convert relative paths to absolute to avoid /api/ prefix issues
+            const fixedHtml = this._fixRelativePaths(data.html);
+
+            // Inject fixed markup
+            target.innerHTML = fixedHtml;
             if (data.title) document.title = data.title;
 
             // Re-execute inline <script> tags
             // (innerHTML assignment does NOT run scripts automatically)
             target.querySelectorAll('script').forEach(old => {
+                const src = old.getAttribute('src');
+                
+                // Skip scripts without src and without content (empty scripts)
+                if (!src && !old.textContent.trim()) {
+                    return;
+                }
+                
                 const fresh = document.createElement('script');
+                
+                // Copy all attributes
                 Array.from(old.attributes).forEach(a => fresh.setAttribute(a.name, a.value));
-                fresh.textContent = old.textContent;
+                
+                // For inline scripts (no src), wrap in try-catch to avoid breaking on re-declaration
+                if (!src) {
+                    fresh.textContent = `(function() { try { ${old.textContent} } catch(e) { console.warn('[SPA Script] Ignored re-declaration error:', e); } })();`;
+                }
+                
                 old.parentNode.replaceChild(fresh, old);
             });
 
             // ── 3. Preload hero image BEFORE revealing content ─────────────
-            // This ensures the hero image is ready so it never pops in late.
+            // This ensures that the hero image is ready so it never pops in late.
             await this._preloadHeroImage(target);
 
             // ── 4. Fade in ────────────────────────────────────────────────
@@ -403,14 +512,14 @@
             // If the browser has it cached it's already complete
             if (heroImg.complete && heroImg.naturalWidth > 0) return Promise.resolve();
 
-            // Kick off loading the best available source from the <picture> srcset
+            // Kick off loading of best available source from the <picture> srcset
             const src = heroImg.currentSrc || heroImg.getAttribute('src');
             if (!src) return Promise.resolve();
 
             return new Promise(resolve => {
                 const done    = () => { clearTimeout(timer); resolve(); };
                 const timer   = setTimeout(resolve, 2500); // safety net
-                heroImg.addEventListener('load',  done, { once: true });
+                heroImg.addEventListener('load', done, { once: true });
                 heroImg.addEventListener('error', done, { once: true });
                 // Trigger load if not already started
                 if (!heroImg.src) heroImg.src = src;
@@ -449,8 +558,10 @@
                 detail: { page: this.currentPage }
             }));
 
-            // Re-bind mobile menu dynamic elements (panel, overlay, close btn)
-            this._bindMobileMenuDynamicElements();
+            // Re-bind mobile menu (toggle, panel, overlay, close btn)
+            // Note: We also rely on the new global event delegation added in boot(), so this
+            // re-binding is secondary safety, but the primary logic is global.
+            this._setupMobileMenu();
 
             // Explicit re-init for known modules
             // Use try/catch to prevent any module errors from breaking SPA navigation
@@ -505,7 +616,7 @@
         }
 
         _hideLoader() {
-            // Clear navigation flag so the page's fallback timer knows navigation ended
+            // Clear navigation flag so that page's fallback timer knows navigation ended
             window._pageLoaderNavigating = false;
             const l = document.getElementById('page-loader');
             if (l) {
@@ -523,6 +634,73 @@
         /* ================================================================
            Helpers
         ================================================================ */
+
+        /**
+         * Fix relative paths in fetched HTML content.
+         * Converts relative paths to absolute paths to avoid issues when
+         * content is fetched from /api/ but assets are in root directories.
+         * Also strips any accidental /api/ prefix from page links.
+         */
+        _fixRelativePaths(html) {
+            // Create a temporary DOM element to parse HTML
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+
+            // Fix src attributes (images, scripts, iframes, videos, sources)
+            temp.querySelectorAll('[src]').forEach(el => {
+                const src = el.getAttribute('src');
+                if (src && !src.startsWith('/') && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('blob:')) {
+                    el.setAttribute('src', '/' + src);
+                }
+            });
+
+            // Fix href attributes on <a> and <link> tags
+            temp.querySelectorAll('a[href], link[href]').forEach(el => {
+                const href = el.getAttribute('href');
+                let fixedHref = href;
+                
+                // Strip any accidental /api/ prefix from page links (e.g., /api/events.php → /events.php)
+                if (fixedHref && fixedHref.match(/^\/api\/[a-z0-9_-]+\.php/i)) {
+                    fixedHref = fixedHref.replace(/^\/api\//i, '/');
+                    el.setAttribute('href', fixedHref);
+                }
+                
+                // Only fix relative paths, skip absolute, protocol-relative, anchors, mailto, tel, javascript
+                if (fixedHref && !fixedHref.startsWith('/') && !fixedHref.startsWith('http') && 
+                    !fixedHref.startsWith('#') && !fixedHref.startsWith('mailto:') && 
+                    !fixedHref.startsWith('tel:') && !fixedHref.startsWith('javascript:')) {
+                    el.setAttribute('href', '/' + fixedHref);
+                }
+            });
+
+            // Fix srcset attributes on <img> and <source> tags
+            temp.querySelectorAll('[srcset]').forEach(el => {
+                const srcset = el.getAttribute('srcset');
+                if (srcset && !srcset.startsWith('http')) {
+                    // Parse srcset and fix each URL
+                    const fixedSrcset = srcset.split(',').map(part => {
+                        const [url, descriptor] = part.trim().split(/\s+/);
+                        const fixedUrl = url.startsWith('/') || url.startsWith('http') ? url : '/' + url;
+                        return descriptor ? `${fixedUrl} ${descriptor}` : fixedUrl;
+                    }).join(', ');
+                    el.setAttribute('srcset', fixedSrcset);
+                }
+            });
+
+            // Fix background-image in style attributes (for inline styles)
+            temp.querySelectorAll('[style*="background-image"]').forEach(el => {
+                const style = el.getAttribute('style');
+                if (style) {
+                    const fixedStyle = style.replace(
+                        /background-image:\s*url\(['"]?(?!['"]?\/)(?!['"]?http)(?!['"]?data:)([^'")\s]+)['"]?\)/gi,
+                        'background-image: url(/$1)'
+                    );
+                    el.setAttribute('style', fixedStyle);
+                }
+            });
+
+            return temp.innerHTML;
+        }
 
         _pageName(url) {
             try {
@@ -546,7 +724,7 @@
         }
 
         _isSPA(pageName) {
-            for (const ex of EXCLUDED_PAGES) { if (pageName.includes(ex)) return false; }
+            for (const ex of EXCLUDED_PAGES) { if (mobile_menu_pageName.includes(ex)) return false; }
             return SPA_PAGES.includes(pageName);
         }
 
