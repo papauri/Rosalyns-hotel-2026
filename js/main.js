@@ -258,10 +258,8 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     applyLazyLoadingDefaults(document);
-    window.addEventListener('spa:contentLoaded', () => applyLazyLoadingDefaults(document));
-
+    
     // JS lazy sources/backgrounds for progressively-loaded sections
-    const lazyTargets = document.querySelectorAll('[data-src], [data-bg], [data-lazy-bg]');
     const hydrateLazyTarget = (target) => {
         if (!target) return;
 
@@ -282,8 +280,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    let sharedLazyObserver = null;
     if (supportsIntersectionObserver) {
-        const lazyObserver = new IntersectionObserver((entries, observer) => {
+        sharedLazyObserver = new IntersectionObserver((entries, observer) => {
             entries.forEach((entry) => {
                 if (!entry.isIntersecting) return;
                 hydrateLazyTarget(entry.target);
@@ -294,33 +293,49 @@ document.addEventListener('DOMContentLoaded', function() {
             rootMargin: isMobileViewport() ? '650px 0px' : '420px 0px',
             threshold: 0.01
         });
-
-        lazyTargets.forEach((target) => lazyObserver.observe(target));
-    } else {
-        lazyTargets.forEach(hydrateLazyTarget);
     }
 
-    // Reduced-motion-safe reveal fallback for data-lazy-reveal hooks
-    const lazyRevealItems = document.querySelectorAll('[data-lazy-reveal]');
-    if (lazyRevealItems.length) {
-        if (prefersReducedMotion || !supportsIntersectionObserver || isMobileViewport()) {
-            lazyRevealItems.forEach((el) => el.classList.add('is-revealed'));
-        } else {
-            const revealObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach((entry) => {
-                    if (!entry.isIntersecting) return;
-                    entry.target.classList.add('is-revealed');
-                    observer.unobserve(entry.target);
-                });
-            }, {
-                root: null,
-                rootMargin: '120px 0px',
-                threshold: 0.1
+    let sharedRevealObserver = null;
+    if (supportsIntersectionObserver && !prefersReducedMotion && !isMobileViewport()) {
+        sharedRevealObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add('is-revealed');
+                observer.unobserve(entry.target);
             });
-
-            lazyRevealItems.forEach((el) => revealObserver.observe(el));
-        }
+        }, {
+            root: null,
+            rootMargin: '120px 0px',
+            threshold: 0.1
+        });
     }
+
+    const initLazyObservers = (root = document) => {
+        // JS lazy sources/backgrounds for progressively-loaded sections
+        const lazyTargets = root.querySelectorAll('[data-src], [data-bg], [data-lazy-bg]');
+        if (supportsIntersectionObserver && sharedLazyObserver) {
+            lazyTargets.forEach((target) => sharedLazyObserver.observe(target));
+        } else {
+            lazyTargets.forEach(hydrateLazyTarget);
+        }
+
+        // Reduced-motion-safe reveal fallback for data-lazy-reveal hooks
+        const lazyRevealItems = root.querySelectorAll('[data-lazy-reveal]');
+        if (lazyRevealItems.length) {
+            if (prefersReducedMotion || !supportsIntersectionObserver || isMobileViewport()) {
+                lazyRevealItems.forEach((el) => el.classList.add('is-revealed'));
+            } else if (sharedRevealObserver) {
+                lazyRevealItems.forEach((el) => sharedRevealObserver.observe(el));
+            }
+        }
+    };
+
+    initLazyObservers(document);
+
+    window.addEventListener('spa:contentLoaded', () => {
+        applyLazyLoadingDefaults(document);
+        initLazyObservers(document);
+    });
 
     // Policy modals - Using new Modal component
     const policyLinks = document.querySelectorAll('.policy-link');

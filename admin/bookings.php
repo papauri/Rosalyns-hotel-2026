@@ -817,6 +817,131 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'data' => $availableRooms
             ]);
             exit;
+        } elseif ($action === 'extend_stay') {
+            // Extend the checkout date for a checked-in booking
+            if (!isAjaxRequest()) {
+                throw new Exception('Invalid request');
+            }
+            $booking_id   = (int)($_POST['booking_id'] ?? 0);
+            $new_checkout = trim($_POST['new_checkout'] ?? '');
+
+            if ($booking_id <= 0 || !$new_checkout) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+                exit;
+            }
+
+            // Validate date format
+            $newCheckoutDt = DateTime::createFromFormat('Y-m-d', $new_checkout);
+            if (!$newCheckoutDt) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid date format']);
+                exit;
+            }
+
+            // Fetch booking
+            $bk_stmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ? AND status = 'checked-in'");
+            $bk_stmt->execute([$booking_id]);
+            $bk = $bk_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$bk) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Booking not found or not checked-in']);
+                exit;
+            }
+
+            $oldCheckout = $bk['check_out_date'];
+            $checkIn     = $bk['check_in_date'];
+
+            // New checkout must be after check-in
+            $checkInDt = new DateTime($checkIn);
+            if ($newCheckoutDt <= $checkInDt) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'New checkout date must be after check-in date']);
+                exit;
+            }
+
+            // Recalculate nights and total
+            $newNights = (int)$newCheckoutDt->diff($checkInDt)->days;
+            if ($newNights < 1) $newNights = 1;
+
+            // Get room price
+            $room_stmt = $pdo->prepare("SELECT * FROM rooms WHERE id = ?");
+            $room_stmt->execute([$bk['room_id']]);
+            $room = $room_stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Use occupancy-based price
+            $occupancy = $bk['occupancy_type'] ?? 'single';
+            if ($occupancy === 'double' && !empty($room['price_double_occupancy'])) {
+                $pricePerNight = (float)$room['price_double_occupancy'];
+            } elseif ($occupancy === 'triple' && !empty($room['price_triple_occupancy'])) {
+                $pricePerNight = (float)$room['price_triple_occupancy'];
+            } elseif (!empty($room['price_single_occupancy'])) {
+                $pricePerNight = (float)$room['price_single_occupancy'];
+            } else {
+                $pricePerNight = (float)$room['price_per_night'];
+            }
+
+            $childGuests    = (int)($bk['child_guests'] ?? 0);
+            $childMultiplier = (float)($bk['child_price_multiplier'] ?? 50);
+            $baseAmount     = $pricePerNight * $newNights;
+            $childSupplement = $childGuests > 0 ? ($pricePerNight * ($childMultiplier / 100) * $childGuests * $newNights) : 0;
+            $newTotal       = $baseAmount + $childSupplement;
+
+            // Check for conflicts with other bookings on the extended dates
+            $blockingStatuses = getBookingStatusesThatBlockAvailability(false);
+            $placeholders = implode(',', array_fill(0, count($blockingStatuses), '?'));
+            $conflict_stmt = $pdo->prepare(
+                "SELECT COUNT(*) FROM bookings
+                 WHERE room_id = ? AND id != ? AND status IN ({$placeholders})
+                 AND NOT (check_out_date <= ? OR check_in_date >= ?)"
+            );
+            $conflict_stmt->execute(array_merge(
+                [$bk['room_id'], $booking_id],
+                $blockingStatuses,
+                [$oldCheckout, $new_checkout]
+            ));
+            $conflicts = (int)$conflict_stmt->fetchColumn();
+
+            if ($conflicts > 0) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Cannot extend: another booking conflicts with the new checkout date range']);
+                exit;
+            }
+
+            // Update booking
+            $upd_stmt = $pdo->prepare("
+                UPDATE bookings
+                SET check_out_date = ?,
+                    number_of_nights = ?,
+                    total_amount = ?,
+                    child_supplement_total = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+            ");
+            $upd_stmt->execute([$new_checkout, $newNights, $newTotal, $childSupplement, $booking_id]);
+
+            // Log the extension
+            $log_stmt = $pdo->prepare("
+                INSERT INTO booking_status_log (booking_id, old_status, new_status, changed_by, change_reason, created_at)
+                VALUES (?, 'checked-in', 'checked-in', ?, ?, NOW())
+            ");
+            $log_stmt->execute([
+                $booking_id,
+                $user['id'] ?? null,
+                "Stay extended from {$oldCheckout} to {$new_checkout}. New total: K " . number_format($newTotal, 2)
+            ]);
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success'      => true,
+                'message'      => 'Stay extended successfully to ' . date('M j, Y', strtotime($new_checkout)),
+                'new_checkout' => $new_checkout,
+                'new_nights'   => $newNights,
+                'new_total'    => number_format($newTotal, 2)
+            ]);
+            exit;
+
         } elseif ($action === 'upgrade_room_type') {
             if (!isAjaxRequest()) {
                 throw new Exception('Invalid request');
@@ -1143,6 +1268,60 @@ foreach ($bookings as $booking) {
     }
 }
 
+// ─── Missed check-ins: confirmed bookings whose check-in date has PASSED ───
+$missed_checkins = [];
+try {
+    $missed_stmt = $pdo->query("
+        SELECT b.*, r.name as room_name,
+               ir.room_number as individual_room_number,
+               ir.room_name as individual_room_name,
+               DATEDIFF(CURDATE(), b.check_in_date) as days_overdue
+        FROM bookings b
+        LEFT JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN individual_rooms ir ON b.individual_room_id = ir.id
+        WHERE b.status = 'confirmed'
+          AND b.check_in_date < CURDATE()
+        ORDER BY b.check_in_date ASC
+    ");
+    $missed_checkins = $missed_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error fetching missed check-ins: " . $e->getMessage());
+}
+
+// ─── Overdue checkouts: checked-in bookings whose checkout date has PASSED (or today and past checkout time) ───
+$overdue_checkouts = [];
+try {
+    $checkout_time = getSetting('check_out_time', '11:00'); // Assuming standard 11:00 checkout
+    $current_time = date('H:i');
+    $is_past_checkout_time = ($current_time >= $checkout_time);
+    
+    $date_condition = $is_past_checkout_time 
+        ? "b.check_out_date <= CURDATE()" 
+        : "b.check_out_date < CURDATE()";
+
+    $overdue_stmt = $pdo->query("
+        SELECT b.*, r.name as room_name,
+               ir.room_number as individual_room_number,
+               ir.room_name as individual_room_name,
+               DATEDIFF(CURDATE(), b.check_out_date) as days_overdue
+        FROM bookings b
+        LEFT JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN individual_rooms ir ON b.individual_room_id = ir.id
+        WHERE b.status = 'checked-in'
+          AND {$date_condition}
+        ORDER BY b.check_out_date ASC
+    ");
+    $overdue_checkouts = $overdue_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error fetching overdue checkouts: " . $e->getMessage());
+}
+
+// ─── Handle extend-stay POST action ───────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'extend_stay') {
+    // This is handled in the main POST block above, but we need to add it there.
+    // Handled below in the main POST block.
+}
+
 // Count today's check-ins (confirmed bookings with check-in today)
 $today = new DateTime();
 $today_str = $today->format('Y-m-d');
@@ -1220,6 +1399,46 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
 
         <?php if ($error): ?>
             <?php showAlert($error, 'error'); ?>
+        <?php endif; ?>
+
+        <!-- Missed Check-ins Alert Banner -->
+        <?php if (!empty($missed_checkins)): ?>
+            <div class="alert-banner" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4444 100%); color: white; padding: 16px 20px; margin-bottom: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 24px;"></i>
+                        <div>
+                            <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Missed Check-ins!</h3>
+                            <p style="margin: 0; font-size: 14px; opacity: 0.9;">
+                                <?php echo count($missed_checkins); ?> confirmed bookings have passed their check-in date without checking in.
+                            </p>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="toggleMissedCheckins()" style="padding: 8px 12px; font-size: 12px;">
+                        <i class="fas fa-eye"></i> View Details
+                    </button>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Overdue Checkouts Alert Banner -->
+        <?php if (!empty($overdue_checkouts)): ?>
+            <div class="alert-banner" style="background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%); color: var(--deep-navy); padding: 16px 20px; margin-bottom: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-clock" style="font-size: 24px;"></i>
+                        <div>
+                            <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Overdue Checkouts!</h3>
+                            <p style="margin: 0; font-size: 14px; opacity: 0.9;">
+                                <?php echo count($overdue_checkouts); ?> checked-in guests have passed their checkout date.
+                            </p>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="toggleOverdueCheckouts()" style="padding: 8px 12px; font-size: 12px;">
+                        <i class="fas fa-eye"></i> View Details
+                    </button>
+                </div>
+            </div>
         <?php endif; ?>
 
         <!-- Search & Tools Bar -->
@@ -1392,12 +1611,36 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                                     $hours_until_expiry = ($expires_at->getTimestamp() - $now->getTimestamp()) / 3600;
                                     $expires_soon = $hours_until_expiry <= 24 && $hours_until_expiry > 0;
                                 }
+                                
+                                $is_missed_checkin = ($booking['status'] === 'confirmed' && $booking['check_in_date'] < $today_str);
+                                
+                                $is_overdue_checkout = false;
+                                if ($booking['status'] === 'checked-in') {
+                                    if ($booking['check_out_date'] < $today_str) {
+                                        $is_overdue_checkout = true;
+                                    } elseif ($booking['check_out_date'] === $today_str && $is_past_checkout_time) {
+                                        $is_overdue_checkout = true;
+                                    }
+                                }
+                                
+                                $row_style = '';
+                                if ($is_missed_checkin) {
+                                    $row_style = 'style="background: rgba(220, 53, 69, 0.05); border-left: 4px solid #dc3545;"';
+                                } elseif ($is_overdue_checkout) {
+                                    $row_style = 'style="background: rgba(255, 193, 7, 0.05); border-left: 4px solid #ffc107;"';
+                                } elseif ($is_tentative) {
+                                    $row_style = 'style="background: linear-gradient(90deg, rgba(139, 115, 85, 0.05) 0%, white 10%);"';
+                                }
                             ?>
-                            <tr <?php echo $is_tentative ? 'style="background: linear-gradient(90deg, rgba(139, 115, 85, 0.05) 0%, white 10%);"' : ''; ?>>
+                            <tr <?php echo $row_style; ?>>
                                 <td>
                                     <strong><?php echo htmlspecialchars($booking['booking_reference']); ?></strong>
                                     <?php if ($is_tentative): ?>
                                         <br><span class="tentative-indicator"><i class="fas fa-clock"></i> Tentative</span>
+                                    <?php elseif ($is_missed_checkin): ?>
+                                        <br><span style="color: #dc3545; font-size: 11px; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> Missed Check-in</span>
+                                    <?php elseif ($is_overdue_checkout): ?>
+                                        <br><span style="color: #856404; font-size: 11px; font-weight: 600;"><i class="fas fa-clock"></i> Overdue Checkout</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -1542,24 +1785,28 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                                         $room_assigned_bool = $room_assigned ? 'true' : 'false';
                                         $booking_status = $booking['status'];
                                         ?>
-                                        <button class="quick-action upgrade" data-action="upgrade-room" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-current-room-id="<?php echo $booking['room_id']; ?>" data-current-room-name="<?php echo htmlspecialchars($booking['room_name'], ENT_QUOTES); ?>" data-guest-name="<?php echo $guest_name; ?>" data-check-in="<?php echo htmlspecialchars($booking['check_in_date'], ENT_QUOTES); ?>" data-check-out="<?php echo htmlspecialchars($booking['check_out_date'], ENT_QUOTES); ?>" data-total-amount="<?php echo $booking['total_amount']; ?>" data-payment-status="<?php echo $payment_status; ?>">
-                                            <i class="fas fa-arrow-up"></i> Upgrade
-                                        </button>
-                                        <?php
-                                        // NEVER show "Make Tentative" button for confirmed bookings
-                                        // Once confirmed, a booking cannot revert to tentative (business rule)
-                                        // This prevents accounting issues and maintains booking integrity
-                                        ?>
-                                        <button class="quick-action checkin <?php echo $can_checkin ? '' : 'disabled'; ?>" data-action="check-in" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-guest-name="<?php echo $guest_name; ?>" data-check-in-date="<?php echo $check_in_date; ?>" data-payment-status="<?php echo $payment_status; ?>" data-room-assigned="<?php echo $room_assigned_bool; ?>" data-booking-status="<?php echo $booking_status; ?>"<?php if (!$can_checkin): ?> title="<?php echo htmlspecialchars($checkin_error); ?>"<?php endif; ?>>
-                                            <i class="fas fa-sign-in-alt"></i> Check In
-                                        </button>
-                                        <?php
-                                            // Show no-show button if check-in date has passed
-                                            if ($checkin_date_obj < $today_dt):
-                                        ?>
-                                        <button class="quick-action" style="background: #795548; color: white;" onclick="markNoShow(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')">
-                                            <i class="fas fa-user-slash"></i> No-Show
-                                        </button>
+                                        <?php if ($is_missed_checkin): ?>
+                                            <button class="quick-action checkin <?php echo $can_checkin ? '' : 'disabled'; ?>" style="background: #dc3545; color: white;" data-action="check-in" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-guest-name="<?php echo $guest_name; ?>" data-check-in-date="<?php echo $check_in_date; ?>" data-payment-status="<?php echo $payment_status; ?>" data-room-assigned="<?php echo $room_assigned_bool; ?>" data-booking-status="<?php echo $booking_status; ?>"<?php if (!$can_checkin): ?> title="<?php echo htmlspecialchars($checkin_error); ?>"<?php endif; ?>>
+                                                <i class="fas fa-sign-in-alt"></i> Late Check-in
+                                            </button>
+                                            <button class="quick-action" style="background: #795548; color: white;" onclick="markNoShow(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')">
+                                                <i class="fas fa-user-slash"></i> Mark No-Show
+                                            </button>
+                                        <?php else: ?>
+                                            <button class="quick-action upgrade" data-action="upgrade-room" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-current-room-id="<?php echo $booking['room_id']; ?>" data-current-room-name="<?php echo htmlspecialchars($booking['room_name'], ENT_QUOTES); ?>" data-guest-name="<?php echo $guest_name; ?>" data-check-in="<?php echo htmlspecialchars($booking['check_in_date'], ENT_QUOTES); ?>" data-check-out="<?php echo htmlspecialchars($booking['check_out_date'], ENT_QUOTES); ?>" data-total-amount="<?php echo $booking['total_amount']; ?>" data-payment-status="<?php echo $payment_status; ?>">
+                                                <i class="fas fa-arrow-up"></i> Upgrade
+                                            </button>
+                                            <button class="quick-action checkin <?php echo $can_checkin ? '' : 'disabled'; ?>" data-action="check-in" data-booking-id="<?php echo $booking['id']; ?>" data-booking-ref="<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>" data-guest-name="<?php echo $guest_name; ?>" data-check-in-date="<?php echo $check_in_date; ?>" data-payment-status="<?php echo $payment_status; ?>" data-room-assigned="<?php echo $room_assigned_bool; ?>" data-booking-status="<?php echo $booking_status; ?>"<?php if (!$can_checkin): ?> title="<?php echo htmlspecialchars($checkin_error); ?>"<?php endif; ?>>
+                                                <i class="fas fa-sign-in-alt"></i> Check In
+                                            </button>
+                                            <?php
+                                                // Show no-show button if check-in date has passed
+                                                if ($checkin_date_obj < $today_dt):
+                                            ?>
+                                            <button class="quick-action" style="background: #795548; color: white;" onclick="markNoShow(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')">
+                                                <i class="fas fa-user-slash"></i> No-Show
+                                            </button>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                         <button class="quick-action cancel" onclick="openCancelBookingModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($booking['guest_name'], ENT_QUOTES); ?>')">
                                             <i class="fas fa-times"></i> Cancel
@@ -1574,12 +1821,21 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
                                         // Allow checkout if today is on or after check-in date, or if check-out date is within 1 day
                                         $checkout_allowed = $checkout_date_obj <= $today_dt_checkout->modify('+1 day');
                                         ?>
-                                        <button class="quick-action" style="background: #6c757d; color: white;" onclick="checkoutBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')"<?php if (!$checkout_allowed): ?> disabled title="Check-out date is too far in the future"<?php endif; ?>>
-                                            <i class="fas fa-sign-out-alt"></i> Checkout
-                                        </button>
-                                        <button class="quick-action undo-checkin" onclick="updateStatus(<?php echo $booking['id']; ?>, 'cancel-checkin')">
-                                            <i class="fas fa-undo"></i> Cancel Check-in
-                                        </button>
+                                        <?php if ($is_overdue_checkout): ?>
+                                            <button class="quick-action" style="background: #007bff; color: white;" onclick="checkoutBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')"<?php if (!$checkout_allowed): ?> disabled title="Check-out date is too far in the future"<?php endif; ?>>
+                                                <i class="fas fa-sign-out-alt"></i> Checkout Now
+                                            </button>
+                                            <button class="quick-action" style="background: #28a745; color: white;" onclick="openExtendStayModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>', '<?php echo $booking['check_out_date']; ?>', '<?php echo htmlspecialchars($booking['guest_name'], ENT_QUOTES); ?>')">
+                                                <i class="fas fa-calendar-plus"></i> Extend Stay
+                                            </button>
+                                        <?php else: ?>
+                                            <button class="quick-action" style="background: #6c757d; color: white;" onclick="checkoutBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_reference'], ENT_QUOTES); ?>')"<?php if (!$checkout_allowed): ?> disabled title="Check-out date is too far in the future"<?php endif; ?>>
+                                                <i class="fas fa-sign-out-alt"></i> Checkout
+                                            </button>
+                                            <button class="quick-action undo-checkin" onclick="updateStatus(<?php echo $booking['id']; ?>, 'cancel-checkin')">
+                                                <i class="fas fa-undo"></i> Cancel Check-in
+                                            </button>
+                                        <?php endif; ?>
                                         <!-- Note: Cancel button is hidden for checked-in bookings -->
                                     <?php endif; ?>
                                     <?php
@@ -2572,6 +2828,137 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
         </div>
     </div>
     
+    <!-- Missed Check-ins Modal -->
+    <div id="missedCheckinsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4444 100%); color: white;">
+                <h3><i class="fas fa-exclamation-triangle"></i> Missed Check-ins</h3>
+                <button class="close-modal" onclick="toggleMissedCheckins()" style="color: white;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <table class="booking-table" style="margin: 0; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Guest</th>
+                            <th>Room</th>
+                            <th>Check-in Date</th>
+                            <th>Overdue</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($missed_checkins)): foreach ($missed_checkins as $bk): ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($bk['booking_reference']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($bk['guest_name']); ?><br><small><?php echo htmlspecialchars($bk['guest_phone']); ?></small></td>
+                            <td><?php echo htmlspecialchars($bk['room_name']); ?><br><small><?php echo $bk['individual_room_name'] ? htmlspecialchars($bk['individual_room_name'] . ' (' . $bk['individual_room_number'] . ')') : 'Unassigned'; ?></small></td>
+                            <td style="color: #dc3545; font-weight: 600;"><?php echo date('M j, Y', strtotime($bk['check_in_date'])); ?></td>
+                            <td><span class="badge" style="background: #dc3545; color: white;"><?php echo $bk['days_overdue']; ?> day(s)</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="openCheckInModal(<?php echo $bk['id']; ?>, '<?php echo htmlspecialchars($bk['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($bk['guest_name'], ENT_QUOTES); ?>', '<?php echo $bk['check_in_date']; ?>', '<?php echo $bk['payment_status']; ?>', '<?php echo !empty($bk['individual_room_id']) ? 'true' : 'false'; ?>', '<?php echo $bk['status']; ?>')" style="padding: 6px 10px; font-size: 12px; margin-bottom: 4px; display: block; width: 100%;">Late Check-in</button>
+                                <button class="btn btn-sm" style="background: #795548; color: white; padding: 6px 10px; font-size: 12px; margin-bottom: 4px; display: block; width: 100%; border: none;" onclick="markNoShow(<?php echo $bk['id']; ?>, '<?php echo htmlspecialchars($bk['booking_reference'], ENT_QUOTES); ?>')">Mark No-Show</button>
+                                <button class="btn btn-sm btn-secondary" onclick="openCancelBookingModal(<?php echo $bk['id']; ?>, '<?php echo htmlspecialchars($bk['booking_reference'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($bk['guest_name'], ENT_QUOTES); ?>')" style="padding: 6px 10px; font-size: 12px; display: block; width: 100%;">Cancel Booking</button>
+                            </td>
+                        </tr>
+                        <?php endforeach; else: ?>
+                        <tr><td colspan="6" style="text-align: center; padding: 20px;">No missed check-ins.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="toggleMissedCheckins()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Checkouts Modal -->
+    <div id="overdueCheckoutsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%); color: var(--deep-navy);">
+                <h3><i class="fas fa-clock"></i> Overdue Checkouts</h3>
+                <button class="close-modal" onclick="toggleOverdueCheckouts()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <div style="padding: 15px; background: #fff8e1; border-bottom: 1px solid #ffe082;">
+                    <p style="margin: 0; font-size: 14px; color: #856404;"><i class="fas fa-info-circle"></i> These guests have passed their scheduled checkout date. You can process their checkout immediately to free up the room, or extend their stay to accurately bill them for extra nights.</p>
+                </div>
+                <table class="booking-table" style="margin: 0; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Guest</th>
+                            <th>Room</th>
+                            <th>Check-out Date</th>
+                            <th>Overdue</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($overdue_checkouts)): foreach ($overdue_checkouts as $bk): ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($bk['booking_reference']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($bk['guest_name']); ?></td>
+                            <td><?php echo htmlspecialchars($bk['room_name']); ?><br><small><?php echo $bk['individual_room_name'] ? htmlspecialchars($bk['individual_room_name'] . ' (' . $bk['individual_room_number'] . ')') : 'Unassigned'; ?></small></td>
+                            <td style="color: #dc3545; font-weight: 600;"><?php echo date('M j, Y', strtotime($bk['check_out_date'])); ?></td>
+                            <td><span class="badge" style="background: #ffc107; color: #333;"><?php echo $bk['days_overdue'] == 0 ? 'Today' : $bk['days_overdue'] . ' day(s)'; ?></span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="checkoutBooking(<?php echo $bk['id']; ?>, '<?php echo htmlspecialchars($bk['booking_reference'], ENT_QUOTES); ?>')" style="padding: 6px 10px; font-size: 12px; margin-bottom: 4px; display: block; width: 100%;"><i class="fas fa-sign-out-alt"></i> Checkout Now</button>
+                                <button class="btn btn-sm" style="background: #28a745; color: white; padding: 6px 10px; font-size: 12px; display: block; width: 100%; border: none;" onclick="openExtendStayModal(<?php echo $bk['id']; ?>, '<?php echo htmlspecialchars($bk['booking_reference'], ENT_QUOTES); ?>', '<?php echo $bk['check_out_date']; ?>', '<?php echo htmlspecialchars($bk['guest_name'], ENT_QUOTES); ?>')"><i class="fas fa-calendar-plus"></i> Extend Stay</button>
+                            </td>
+                        </tr>
+                        <?php endforeach; else: ?>
+                        <tr><td colspan="6" style="text-align: center; padding: 20px;">No overdue checkouts.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="toggleOverdueCheckouts()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extend Stay Modal -->
+    <div id="extendStayModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="background: #28a745; color: white;">
+                <h3><i class="fas fa-calendar-plus"></i> Extend Stay</h3>
+                <button class="close-modal" onclick="closeExtendStayModal()" style="color: white;">&times;</button>
+            </div>
+            <form id="extendStayForm">
+                <input type="hidden" name="action" value="extend_stay">
+                <input type="hidden" name="booking_id" id="extend_booking_id" value="">
+                
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Booking Reference:</label>
+                        <input type="text" id="extend_booking_ref" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label>Guest Name:</label>
+                        <input type="text" id="extend_guest_name" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label>Current Check-out Date:</label>
+                        <input type="text" id="extend_current_checkout" class="form-control" readonly style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label for="new_checkout" style="font-weight: 600; color: #28a745;">New Check-out Date:</label>
+                        <input type="date" id="new_checkout" name="new_checkout" class="form-control" required style="border-color: #28a745;">
+                        <small style="color: #666; margin-top: 4px; display: block;">The booking total will be recalculated based on the new dates.</small>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeExtendStayModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background: #28a745; border-color: #28a745;"><i class="fas fa-check"></i> Save Extension</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- View Booking Details Modal -->
     <div id="viewBookingModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 700px;">
@@ -3246,6 +3633,89 @@ $month_bookings = count(array_filter($bookings, fn($b) =>
             });
         });
         
+        // Admin Banner Modals Functions
+        function toggleMissedCheckins() {
+            const modal = document.getElementById('missedCheckinsModal');
+            if (modal.style.display === 'none' || modal.style.display === '') {
+                modal.style.display = 'flex';
+                modal.classList.add('modal--active');
+            } else {
+                modal.style.display = 'none';
+                modal.classList.remove('modal--active');
+            }
+        }
+        
+        function toggleOverdueCheckouts() {
+            const modal = document.getElementById('overdueCheckoutsModal');
+            if (modal.style.display === 'none' || modal.style.display === '') {
+                modal.style.display = 'flex';
+                modal.classList.add('modal--active');
+            } else {
+                modal.style.display = 'none';
+                modal.classList.remove('modal--active');
+            }
+        }
+
+        function openExtendStayModal(bookingId, bookingRef, currentCheckout, guestName) {
+            const modal = document.getElementById('extendStayModal');
+            modal.style.display = 'flex';
+            modal.classList.add('modal--active');
+            
+            document.getElementById('extend_booking_id').value = bookingId;
+            document.getElementById('extend_booking_ref').value = bookingRef;
+            document.getElementById('extend_guest_name').value = guestName;
+            document.getElementById('extend_current_checkout').value = currentCheckout;
+            
+            // Set min date for new checkout to day after current checkout
+            const d = new Date(currentCheckout);
+            d.setDate(d.getDate() + 1);
+            const minDateStr = d.toISOString().split('T')[0];
+            
+            const newCheckoutInput = document.getElementById('new_checkout');
+            newCheckoutInput.value = minDateStr;
+            newCheckoutInput.min = minDateStr;
+        }
+
+        function closeExtendStayModal() {
+            const modal = document.getElementById('extendStayModal');
+            modal.style.display = 'none';
+            modal.classList.remove('modal--active');
+        }
+
+        document.getElementById('extendStayForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            if (submitBtn) setButtonLoading(submitBtn, true);
+            showLoadingOverlay('Extending stay...');
+            
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Alert.show(data.message, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    hideLoadingOverlay();
+                    if (submitBtn) setButtonLoading(submitBtn, false);
+                    Alert.show(data.message || 'Failed to extend stay.', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                hideLoadingOverlay();
+                if (submitBtn) setButtonLoading(submitBtn, false);
+                Alert.show('An error occurred while extending the stay.', 'error');
+            });
+        });
+
         // Upgrade Room Type Modal Functions
         let availableRoomsForUpgrade = [];
         

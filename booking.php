@@ -379,12 +379,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Keep $maxPerBooking for occupancy pricing selection in split booking loop
         $maxPerBooking = !empty($occupancyPolicy['triple_enabled']) ? 3 : (!empty($occupancyPolicy['double_enabled']) ? 2 : 1);
 
-        $conflict_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE room_id = ? AND status IN ('pending', 'confirmed', 'checked-in') AND NOT (check_out_date <= ? OR check_in_date >= ?)");
-        $conflict_count_stmt->execute([$room_id, $check_in_date, $check_out_date]);
+        // Use total_rooms (actual capacity) not rooms_available (a counter that can drift out of sync)
+        $blockingStatuses = getBookingStatusesThatBlockAvailability(false);
+        $placeholders = implode(',', array_fill(0, count($blockingStatuses), '?'));
+        $conflict_count_stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM bookings WHERE room_id = ? AND status IN ({$placeholders}) AND NOT (check_out_date <= ? OR check_in_date >= ?)"
+        );
+        $conflict_count_stmt->execute(array_merge([$room_id], $blockingStatuses, [$check_in_date, $check_out_date]));
         $conflictsCount = (int)$conflict_count_stmt->fetchColumn();
-        $roomsAvailableNow = (int)($room['rooms_available'] ?? 0);
-        if (($conflictsCount + $roomsNeeded) > $roomsAvailableNow) {
-            throw new Exception('Not enough rooms available for the selected dates and guest count.');
+        $totalRoomsCapacity = max(1, (int)($room['total_rooms'] ?? 1));
+        if (($conflictsCount + $roomsNeeded) > $totalRoomsCapacity) {
+            $remaining = max(0, $totalRoomsCapacity - $conflictsCount);
+            if ($remaining === 0) {
+                throw new Exception("Sorry, {$room['name']} is fully booked for {$check_in_date} to {$check_out_date}. Please choose different dates or another room type.");
+            } else {
+                throw new Exception("Only {$remaining} room" . ($remaining === 1 ? '' : 's') . " available for {$room['name']} on those dates, but your group requires {$roomsNeeded}. Please adjust your guest count or dates.");
+            }
         }
 
         // Insert booking(s) with transaction for data integrity
@@ -1149,7 +1159,68 @@ try {
     <script src="js/modal.js"></script>
     <script src="js/main.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Availability Modal -->
+    <div id="availabilityModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px; text-align: center;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <button class="close-modal" onclick="closeAvailabilityModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 0;">
+                <div style="font-size: 48px; color: #dc3545; margin-bottom: 16px;">
+                    <i class="fas fa-calendar-times"></i>
+                </div>
+                <h3 style="font-family: var(--font-heading); font-size: 28px; color: var(--navy); margin-bottom: 12px; font-weight: 500;">Room Unavailable</h3>
+                <p id="availabilityModalMessage" style="color: #666; margin-bottom: 24px; font-size: 16px; line-height: 1.6;">
+                    The selected room is fully booked for your chosen dates.
+                </p>
+                <div style="background: rgba(255, 193, 7, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #ffc107; text-align: left;">
+                    <strong style="color: #856404; display: block; margin-bottom: 8px;"><i class="fas fa-lightbulb"></i> Suggested Options:</strong>
+                    <ul style="color: #666; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.5;">
+                        <li style="margin-bottom: 4px;">Try selecting different check-in or check-out dates</li>
+                        <li style="margin-bottom: 4px;">Choose another available room type from the list</li>
+                        <li>Contact us directly if you need special assistance</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center; border-top: none; padding-top: 0;">
+                <button type="button" class="btn-submit" onclick="closeAvailabilityModal()" style="width: auto; padding: 12px 32px; background: var(--gold); border-color: var(--gold); color: white;">Try Different Dates</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        function showAvailabilityModal(message) {
+            const modal = document.getElementById('availabilityModal');
+            const msgEl = document.getElementById('availabilityModalMessage');
+            if (msgEl) msgEl.innerHTML = message;
+            if (modal) {
+                modal.style.display = 'flex';
+                // Trigger reflow
+                void modal.offsetWidth;
+                modal.classList.add('modal--active');
+                document.body.classList.add('modal-open');
+            }
+        }
+        
+        function closeAvailabilityModal() {
+            const modal = document.getElementById('availabilityModal');
+            if (modal) {
+                modal.classList.remove('modal--active');
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    document.body.classList.remove('modal-open');
+                }, 300);
+            }
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('availabilityModal');
+            if (event.target === modal) {
+                closeAvailabilityModal();
+            }
+        });
+
         // Site settings
         const emailReservations = '<?php echo $email_reservations_esc; ?>';
         const currencySymbol = '<?php echo htmlspecialchars($currency_symbol); ?>';
@@ -1776,13 +1847,6 @@ try {
                 });
         }
         
-        function showAvailabilityMessage(message, isSuccess) {
-            // Use new Alert component
-            Alert.show(message, isSuccess ? 'success' : 'error', {
-                timeout: 5000,
-                position: 'top'
-            });
-        }
         
         function updateSummary() {
             const checkIn = document.getElementById('check_in_date').value;
@@ -2172,16 +2236,13 @@ try {
                             
                             if (roomStatus && !roomStatus.available) {
                                 e.preventDefault();
-                                // Show user-friendly message with tip when room is unavailable
-                                const friendlyMessage = `
-                                    <i class="fas fa-calendar-times"></i>
-                                    <strong>Sorry, this room is fully booked for your selected dates.</strong>
-                                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(220, 53, 69, 0.2);">
-                                        <i class="fas fa-lightbulb" style="color: #ffc107; margin-right: 6px;"></i>
-                                        <strong>Tip:</strong> Try changing your dates slightly or check our other available room types above.
-                                    </div>
-                                `;
-                                showAvailabilityMessage(friendlyMessage, 'error');
+                                
+                                // Clean up any raw HTML that might be in the error message
+                                let reasonText = roomStatus.error || "This room is fully booked for your selected dates.";
+                                // Strip HTML tags
+                                reasonText = reasonText.replace(/<\/?[^>]+(>|$)/g, "");
+                                
+                                showAvailabilityModal(`<strong>Room Unavailable:</strong><br>${reasonText}`);
                                 return false;
                             }
                         }

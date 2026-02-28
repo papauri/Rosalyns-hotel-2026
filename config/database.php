@@ -2135,13 +2135,13 @@ function getBookingActionErrorMessage(string $action, string $reason): string {
 function isRoomAvailable($room_id, $check_in_date, $check_out_date, $exclude_booking_id = null) {
     global $pdo;
     try {
-        // First check if there are any rooms available at all
-        $room_stmt = $pdo->prepare("SELECT rooms_available, total_rooms FROM rooms WHERE id = ?");
+        // Fetch room total capacity (ignore the legacy static rooms_available counter)
+        $room_stmt = $pdo->prepare("SELECT total_rooms FROM rooms WHERE id = ? AND is_active = 1");
         $room_stmt->execute([$room_id]);
         $room = $room_stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$room || $room['rooms_available'] <= 0) {
-            return false; // No rooms available
+        if (!$room) {
+            return false; // Room doesn't exist or is inactive
         }
         
         // Check for blocked dates (both room-specific and global blocks)
@@ -2183,10 +2183,10 @@ function isRoomAvailable($room_id, $check_in_date, $check_out_date, $exclude_boo
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         // Check if number of overlapping bookings is less than total capacity
-        // Note: rooms_available is a counter of (total - confirmed), so comparing overlapping (which includes confirmed)
-        // against rooms_available would double-count confirmed bookings. We must compare against total_rooms.
         $overlapping_bookings = $result['bookings'];
         $capacity = (int)($room['total_rooms'] ?? 1);
+        
+        if ($capacity <= 0) return false;
         
         return $overlapping_bookings < $capacity;
     } catch (PDOException $e) {
