@@ -2252,43 +2252,41 @@ function checkRoomAvailability($room_id, $check_in_date, $check_out_date, $exclu
             return $result;
         }
         
-        // Check for blocked dates at room-type level (both room-specific and global blocks)
-        $blocked_sql = "
-            SELECT
-                bd.id,
-                bd.room_id,
-                bd.block_date,
-                COALESCE(bd.block_type, 'manual') as block_type,
-                bd.reason,
-                'type' as block_scope,
-                r.name as scope_name
-            FROM blocked_dates bd
-            LEFT JOIN rooms r ON bd.room_id = r.id
-            WHERE bd.block_date >= ? AND bd.block_date < ?
-            AND (bd.room_id = ? OR bd.room_id IS NULL)
-            ORDER BY bd.block_date ASC
-        ";
-        $blocked_stmt = $pdo->prepare($blocked_sql);
-        $blocked_stmt->execute([$check_in_date, $check_out_date, $room_id]);
-        $type_blocked_dates = $blocked_stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Check for blocked dates (both room-type level and individual room level)
+        // Use getBlockedDates() which correctly queries both blocked_dates and individual_room_blocked_dates tables
+        $all_blocked_dates = getBlockedDates($room_id, $check_in_date, $check_out_date);
         
-        if (!empty($type_blocked_dates)) {
+        if (!empty($all_blocked_dates)) {
             $result['available'] = false;
-            $result['blocked_dates'] = $type_blocked_dates;
-            $result['block_scope'] = 'type';
+            $result['blocked_dates'] = $all_blocked_dates;
             $result['error'] = 'Selected dates are not available for booking';
             
             // Build blocked dates message
             $blocked_details = [];
-            foreach ($type_blocked_dates as $blocked) {
+            foreach ($all_blocked_dates as $blocked) {
                 $blocked_date = new DateTime($blocked['block_date']);
-                $room_name = $blocked['room_id'] ? $blocked['scope_name'] : 'All rooms';
-                $blocked_details[] = sprintf(
-                    "%s on %s (%s)",
-                    $room_name,
-                    $blocked_date->format('M j, Y'),
-                    $blocked['block_type']
-                );
+                
+                if ($blocked['block_scope'] === 'type') {
+                    // Room-type level block
+                    $room_name = $blocked['room_id'] ? $blocked['room_name'] : 'All rooms';
+                    $blocked_details[] = sprintf(
+                        "%s on %s (%s)",
+                        $room_name,
+                        $blocked_date->format('M j, Y'),
+                        $blocked['block_type']
+                    );
+                } else {
+                    // Individual room level block
+                    $room_name = $blocked['room_name'] ?? 'Unknown room';
+                    $room_number = $blocked['individual_room_number'] ?? '';
+                    $blocked_details[] = sprintf(
+                        "%s %s on %s (%s)",
+                        $room_name,
+                        $room_number ? '#' . $room_number : '',
+                        $blocked_date->format('M j, Y'),
+                        $blocked['block_type']
+                    );
+                }
             }
             $result['blocked_message'] = implode('; ', $blocked_details);
             return $result;

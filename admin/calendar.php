@@ -59,21 +59,14 @@ try {
     $roomTypes = [];
 }
 
-// Get blocked dates for current month
+// Get blocked dates for current month (both room-type and individual room level)
 $blockedDatesByDate = [];
 try {
     $startDate = sprintf('%04d-%02d-01', $currentYear, $currentMonth);
     $endDate = sprintf('%04d-%02d-31', $currentYear, $currentMonth);
 
-    $stmt = $pdo->prepare("
-        SELECT bd.*, r.name as room_name
-        FROM blocked_dates bd
-        LEFT JOIN rooms r ON bd.room_id = r.id
-        WHERE bd.block_date >= :start_date AND bd.block_date <= :end_date
-        ORDER BY bd.block_date ASC, bd.room_id ASC
-    ");
-    $stmt->execute(['start_date' => $startDate, 'end_date' => $endDate]);
-    $blockedDates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Use getBlockedDates() which correctly queries both blocked_dates and individual_room_blocked_dates tables
+    $blockedDates = getBlockedDates(null, $startDate, $endDate);
     
     // Group blocked dates by date
     foreach ($blockedDates as $blocked) {
@@ -311,20 +304,38 @@ $today = date('Y-m-d');
                                         <div class="day-number"><?php echo $day; ?></div>
                                           
                                         <?php
-                                            // Check if this date is blocked for this room type or all rooms
+                                            // Check if this date is blocked for this room type, all rooms, or individual room
                                             $isBlocked = false;
                                             if (isset($blockedDatesByDate[$dateKey])) {
                                                 foreach ($blockedDatesByDate[$dateKey] as $blocked) {
-                                                    // Check if blocked for this specific room type or all rooms
-                                                    if ($blocked['room_id'] == $indRoom['room_type_id'] || $blocked['room_id'] === null) {
+                                                    $showBlock = false;
+                                                    $blockScope = $blocked['block_scope'] ?? 'type';
+                                                    
+                                                    if ($blockScope === 'type') {
+                                                        // Room-type level block - check if it applies to this room type or all rooms
+                                                        if ($blocked['room_id'] == $indRoom['room_type_id'] || $blocked['room_id'] === null) {
+                                                            $showBlock = true;
+                                                        }
+                                                    } else {
+                                                        // Individual room level block - check if it applies to this specific individual room
+                                                        if ($blocked['individual_room_id'] == $indRoom['id']) {
+                                                            $showBlock = true;
+                                                        }
+                                                    }
+                                                    
+                                                    if ($showBlock) {
                                                         $isBlocked = true;
                                                         $blockType = htmlspecialchars($blocked['block_type']);
                                                         $blockReason = htmlspecialchars($blocked['reason'] ?? 'No reason provided');
+                                                        $scopeLabel = $blockScope === 'individual' ? 'Individual Room' : 'Room Type';
                                                         ?>
-                                                        <div class="blocked-indicator"
-                                                             title="Blocked: <?php echo $blockType; ?> - <?php echo $blockReason; ?>"
+                                                        <div class="blocked-indicator <?php echo $blockScope === 'individual' ? 'blocked-individual' : ''; ?>"
+                                                             title="Blocked (<?php echo $scopeLabel; ?>): <?php echo $blockType; ?> - <?php echo $blockReason; ?>"
                                                              onclick="window.location.href='blocked-dates.php'">
                                                             <?php echo ucfirst($blockType); ?>
+                                                            <?php if ($blockScope === 'individual'): ?>
+                                                                <span class="block-scope-badge">Individual</span>
+                                                            <?php endif; ?>
                                                         </div>
                                                         <?php
                                                     }
