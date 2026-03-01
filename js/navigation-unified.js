@@ -724,7 +724,7 @@
         }
 
         _isSPA(pageName) {
-            for (const ex of EXCLUDED_PAGES) { if (mobile_menu_pageName.includes(ex)) return false; }
+            for (const ex of EXCLUDED_PAGES) { if (pageName.includes(ex)) return false; }
             return SPA_PAGES.includes(pageName);
         }
 

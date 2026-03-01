@@ -597,7 +597,10 @@ try {
                                         'style' => 'width:100%;height:100%;object-fit:cover;'
                                     ]); ?>
                                 <?php else: ?>
-                                <img src="<?php echo htmlspecialchars($image['image_path']); ?>" alt="<?php echo htmlspecialchars($image['caption']); ?>" loading="lazy">
+                                <img src="<?php echo htmlspecialchars($image['image_path']); ?>" 
+                                     alt="<?php echo htmlspecialchars($image['caption']); ?>" 
+                                     loading="lazy"
+                                     onerror="this.onerror=null;this.src='images/restaurant/bar-area.jpg';this.alt='Restaurant Image';">
                                 <?php endif; ?>
                                 <div class="editorial-gallery-caption"><?php echo htmlspecialchars($image['caption']); ?></div>
                             </div>

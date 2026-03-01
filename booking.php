@@ -826,7 +826,7 @@ try {
             <?php showAlert($error_message, 'error'); ?>
         <?php endif; ?>
 
-        <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] . (isset($_GET['room_id']) ? '?room_id=' . (int)$_GET['room_id'] : '')); ?>" class="booking-form-card" id="bookingForm">
+        <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" class="booking-form-card" id="bookingForm">
             <!-- Room Selection (hidden if pre-selected) -->
             <?php if (!$preselected_room): ?>
             <div class="form-section form-section--room">
@@ -1462,38 +1462,44 @@ try {
             
             // If room is pre-selected, initialize with that room
             if (preselectedRoomId) {
-                // Find the pre-selected room option and call selectRoom to ensure consistent initialization
-                const preselectedRoomOption = document.querySelector(`.room-option[data-room-id="${preselectedRoomId}"]`);
-                if (preselectedRoomOption) {
+                // Find the pre-selected room data from roomsData
+                const preselectedRoom = roomsData.find(room => room.id === preselectedRoomId);
+                
+                if (preselectedRoom) {
+                    // Create a synthetic room option to call selectRoom
+                    // This ensures all room-specific settings are properly initialized
+                    const syntheticRoomOption = {
+                        querySelector: function(selector) {
+                            if (selector === 'input[type="radio"]') {
+                                return { value: preselectedRoom.id, checked: true };
+                            }
+                            if (selector === 'h4') {
+                                return { textContent: preselectedRoom.name };
+                            }
+                            if (selector === '.room-price-amount') {
+                                return { textContent: currencySymbol + preselectedRoom.price_per_night.toLocaleString() };
+                            }
+                            if (selector === '.room-price-period') {
+                                return { textContent: 'per night' };
+                            }
+                            return null;
+                        },
+                        getAttribute: function(attr) {
+                            if (attr === 'data-room-id') return preselectedRoom.id;
+                            if (attr === 'data-room-name') return preselectedRoom.name;
+                            if (attr === 'data-room-price') return preselectedRoom.price_per_night;
+                            if (attr === 'data-max-guests') return preselectedRoom.max_guests;
+                            return null;
+                        },
+                        classList: { add: function() {} },
+                        classList: { contains: function() { return false; } },
+                        closest: function() { return this; }
+                    };
+                    
                     // Call selectRoom to ensure all room-specific settings are applied
-                    selectRoom(preselectedRoomOption);
-                } else {
-                    // Fallback if room option not found (room is pre-selected via URL)
-                    // This happens when room_id is passed in URL, so room options are not rendered
-                    selectedRoomId = preselectedRoomId;
-                    selectedRoomPrice = preselectedRoomPrice;
-                    selectedRoomName = preselectedRoomName;
-                    selectedRoomMaxGuests = preselectedRoomMaxGuests;
-                    
-                    // Update occupancy prices first (doesn't depend on guest selection)
-                    updateOccupancyPrices(preselectedRoomId);
-                    
-                    // Update price based on max guests BEFORE updating guest options
-                    // (updateGuestOptions resets the value, so we need to calculate price first)
-                    updatePriceBasedOnGuestCount();
-                    
-                    // Now update guest options (this will reset the value)
-                    updateGuestOptions(preselectedRoomMaxGuests);
-                    
-                    // Set number of guests to max capacity for pre-selected room
-                    const guestSelect = document.getElementById('number_of_guests');
-                    if (guestSelect) {
-                        guestSelect.value = preselectedRoomMaxGuests;
-                    }
-                    
-                    // Apply blocked dates for pre-selected room
-                    applyBlockedDatesToCalendars(preselectedRoomId);
+                    selectRoom(syntheticRoomOption);
                 }
+            }
                 
                 // Trigger availability check for pre-selected room if dates are provided
                 if (heroCheckIn && heroCheckOut) {
