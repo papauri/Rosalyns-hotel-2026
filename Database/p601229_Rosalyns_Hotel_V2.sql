@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Feb 24, 2026 at 04:20 PM
+-- Generation Time: Mar 01, 2026 at 09:08 PM
 -- Server version: 8.0.44-cll-lve
 -- PHP Version: 8.4.17
 
@@ -131,7 +131,16 @@ INSERT INTO `admin_activity_log` (`id`, `user_id`, `username`, `action`, `detail
 (49, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-23 15:18:09'),
 (50, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-23 16:13:12'),
 (51, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-23 23:42:08'),
-(52, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-24 15:56:26');
+(52, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-24 15:56:26'),
+(53, 1, 'admin', 'login_success', 'Role: admin', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-27 20:14:59'),
+(54, 1, 'admin', 'login_success', 'Role: admin', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-28 09:01:18'),
+(55, 1, 'admin', 'login_success', 'Role: admin', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-28 09:15:30'),
+(56, 1, 'admin', 'login_success', 'Role: admin', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-28 10:04:52'),
+(57, 1, 'admin', 'login_success', 'Role: admin', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-02-28 16:45:20'),
+(58, 1, 'admin', 'login_success', 'Role: admin', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', '2026-02-28 16:53:01'),
+(59, 1, 'admin', 'logout', 'User logged out', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', '2026-02-28 16:55:05'),
+(60, 1, 'admin', 'login_success', 'Role: admin', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-03-01 17:15:54'),
+(61, 1, 'admin', 'login_success', 'Role: admin', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '2026-03-01 20:37:53');
 
 -- --------------------------------------------------------
 
@@ -158,7 +167,7 @@ CREATE TABLE `admin_users` (
 --
 
 INSERT INTO `admin_users` (`id`, `username`, `email`, `password_hash`, `full_name`, `role`, `is_active`, `last_login`, `created_at`, `updated_at`, `failed_login_attempts`) VALUES
-(1, 'admin', 'johnpaulchirwa@gmail.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'System Administrator', 'admin', 1, '2026-02-24 15:56:26', '2026-01-20 19:08:40', '2026-02-24 15:56:26', 0),
+(1, 'admin', 'johnpaulchirwa@gmail.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'System Administrator', 'admin', 1, '2026-03-01 20:37:53', '2026-01-20 19:08:40', '2026-03-01 20:37:53', 0),
 (2, 'receptionist', 'reception@liwondesunhotel.com', '$2y$10$OFHlFcgoqltOd7X6Z3IqVeg0961Adk9LxyfW8UBBfENSawMRZ3fF6', 'Front Desk', 'receptionist', 1, '2026-02-22 01:56:50', '2026-01-20 19:08:40', '2026-02-22 01:56:50', 0);
 
 -- --------------------------------------------------------
@@ -293,10 +302,7 @@ CREATE TABLE `bookings` (
 --
 
 INSERT INTO `bookings` (`id`, `booking_reference`, `room_id`, `individual_room_id`, `guest_name`, `guest_email`, `guest_phone`, `guest_country`, `guest_address`, `number_of_guests`, `adult_guests`, `child_guests`, `child_price_multiplier`, `check_in_date`, `check_out_date`, `number_of_nights`, `total_amount`, `child_supplement_total`, `amount_paid`, `amount_due`, `vat_rate`, `vat_amount`, `total_with_vat`, `last_payment_date`, `special_requests`, `status`, `is_tentative`, `tentative_expires_at`, `deposit_required`, `deposit_amount`, `deposit_paid`, `deposit_paid_at`, `reminder_sent`, `reminder_sent_at`, `converted_to_confirmed_at`, `expired_at`, `tentative_notes`, `payment_status`, `payment_amount`, `payment_date`, `created_at`, `updated_at`, `expires_at`, `converted_from_tentative`, `occupancy_type`, `final_invoice_generated`, `final_invoice_path`, `final_invoice_number`, `final_invoice_sent_at`, `checkout_completed_at`, `folio_charges_total`, `tourism_levy_amount`, `tourism_levy_percent`) VALUES
-(36, 'LSH20263047', 1, 11, 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', 'Ireland', '10 Lois na Coille\r\nBallykilmurray, Tullamore', 5, 5, 0, 0.00, '2026-02-23', '2026-02-25', 2, 920000.00, 0.00, 1071800.00, 0.00, 16.50, 151800.00, 1071800.00, '2026-02-21', '', 'confirmed', 0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, 'paid', 0.00, NULL, '2026-02-21 11:50:33', '2026-02-21 12:15:48', NULL, 0, 'triple', 0, NULL, NULL, NULL, NULL, 0.00, 0.00, 0.00),
-(37, 'LSH20268184', 2, 1, 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', 'Ireland', '10 Lois na Coille\r\nBallykilmurray, Tullamore', 2, 2, 0, 0.00, '2026-02-23', '2026-02-24', 1, 250000.00, 0.00, 291250.00, 0.00, 16.50, 41250.00, 291250.00, '2026-02-21', '', 'confirmed', 0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, 'paid', 0.00, NULL, '2026-02-21 16:11:51', '2026-02-21 18:28:51', NULL, 0, 'double', 0, NULL, NULL, NULL, NULL, 16426.50, 0.00, 0.00),
-(38, 'LSH20261303', 2, NULL, 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', 'Ireland', '10 Lois na Coille\r\nBallykilmurray, Tullamore', 2, 2, 0, 0.00, '2026-02-24', '2026-02-26', 2, 500000.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, NULL, '', 'pending', 0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, 'unpaid', 0.00, NULL, '2026-02-22 22:44:17', '2026-02-22 22:44:17', NULL, 0, 'double', 0, NULL, NULL, NULL, NULL, 0.00, 0.00, 0.00),
-(39, 'LSH20262692', 2, NULL, 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', 'Ireland', '10 Lois na Coille\r\nBallykilmurray, Tullamore', 1, 1, 0, 0.00, '2026-02-27', '2026-02-28', 1, 250000.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, NULL, '', 'pending', 0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, 'unpaid', 0.00, NULL, '2026-02-24 00:12:07', '2026-02-24 00:12:07', NULL, 0, 'single', 0, NULL, NULL, NULL, NULL, 0.00, 0.00, 0.00);
+(41, 'LSH20266943', 2, NULL, 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', 'Ireland', '10 Lois na Coille\r\nBallykilmurray, Tullamore', 2, 2, 0, 0.00, '2026-03-14', '2026-03-15', 1, 250000.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, NULL, '', 'pending', 0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, 'unpaid', 0.00, NULL, '2026-02-28 16:49:42', '2026-02-28 16:49:42', NULL, 0, 'double', 0, NULL, NULL, NULL, NULL, 0.00, 0.00, 0.00);
 
 -- --------------------------------------------------------
 
@@ -325,13 +331,6 @@ CREATE TABLE `booking_charges` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Booking folio charges - tracks all extras and room charges with audit trail';
-
---
--- Dumping data for table `booking_charges`
---
-
-INSERT INTO `booking_charges` (`id`, `booking_id`, `charge_type`, `source_item_id`, `description`, `quantity`, `unit_price`, `line_subtotal`, `vat_rate`, `vat_amount`, `line_total`, `posted_at`, `added_by`, `voided`, `voided_at`, `void_reason`, `voided_by`, `created_at`, `updated_at`) VALUES
-(1, 37, 'food', 64, 'Ice Cream', 1.00, 14100.00, 14100.00, 16.50, 2326.50, 16426.50, '2026-02-21 18:28:51', 1, 0, NULL, NULL, NULL, '2026-02-21 18:28:51', '2026-02-21 18:28:51');
 
 -- --------------------------------------------------------
 
@@ -455,10 +454,7 @@ CREATE TABLE `booking_timeline_logs` (
 --
 
 INSERT INTO `booking_timeline_logs` (`id`, `booking_id`, `booking_reference`, `action`, `action_type`, `description`, `old_value`, `new_value`, `performed_by_type`, `performed_by_id`, `performed_by_name`, `ip_address`, `user_agent`, `metadata`, `created_at`) VALUES
-(4, 36, 'LSH20263047', 'Booking created', 'create', 'New booking created for 2 night(s) - Total: 920000', NULL, 'pending', 'guest', NULL, 'JOHN-PAUL CHIRWA', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '{\"total\": 920000, \"guests\": 5, \"room_id\": 1, \"check_in\": \"2026-02-23\", \"check_out\": \"2026-02-25\", \"is_tentative\": 0}', '2026-02-21 11:50:33'),
-(5, 37, 'LSH20268184', 'Booking created', 'create', 'New booking created for 1 night(s) - Total: 250000', NULL, 'pending', 'guest', NULL, 'JOHN-PAUL CHIRWA', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '{\"total\": 250000, \"guests\": 2, \"room_id\": 2, \"check_in\": \"2026-02-23\", \"check_out\": \"2026-02-24\", \"is_tentative\": 0}', '2026-02-21 16:11:51'),
-(6, 38, 'LSH20261303', 'Booking created', 'create', 'New booking created for 2 night(s) - Total: 500000', NULL, 'pending', 'guest', NULL, 'JOHN-PAUL CHIRWA', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '{\"total\": 500000, \"guests\": 2, \"room_id\": \"2\", \"check_in\": \"2026-02-24\", \"check_out\": \"2026-02-26\", \"is_tentative\": 0}', '2026-02-22 22:44:17'),
-(7, 39, 'LSH20262692', 'Booking created', 'create', 'New booking created for 1 night(s) - Total: 250000', NULL, 'pending', 'guest', NULL, 'JOHN-PAUL CHIRWA', '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', '{\"total\": 250000, \"guests\": 1, \"room_id\": 2, \"check_in\": \"2026-02-27\", \"check_out\": \"2026-02-28\", \"is_tentative\": 0}', '2026-02-24 00:12:08');
+(9, 41, 'LSH20266943', 'Booking created', 'create', 'New booking created for 1 night(s) - Total: 250000', NULL, 'pending', 'guest', NULL, 'JOHN-PAUL CHIRWA', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', '{\"total\": 250000, \"guests\": 2, \"room_id\": \"2\", \"check_in\": \"2026-03-14\", \"check_out\": \"2026-03-15\", \"is_tentative\": 0}', '2026-02-28 16:49:42');
 
 -- --------------------------------------------------------
 
@@ -555,14 +551,6 @@ CREATE TABLE `conference_inquiries` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `conference_inquiries`
---
-
-INSERT INTO `conference_inquiries` (`id`, `inquiry_reference`, `conference_room_id`, `company_name`, `contact_person`, `email`, `phone`, `event_date`, `start_time`, `end_time`, `number_of_attendees`, `event_type`, `special_requirements`, `catering_required`, `av_equipment`, `status`, `total_amount`, `amount_paid`, `amount_due`, `vat_rate`, `vat_amount`, `total_with_vat`, `last_payment_date`, `deposit_required`, `deposit_amount`, `deposit_paid`, `payment_status`, `total_paid`, `notes`, `created_at`, `updated_at`) VALUES
-(6, 'CONF-2026-97744', 1, 'ProManaged', 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', '2026-02-11', '23:04:00', '23:09:00', 220, 'Meeting', '', 0, '', 'pending', 400000.00, 0.00, 0.00, 0.00, 0.00, 0.00, NULL, 0, NULL, 0, 'pending', 0.00, NULL, '2026-02-09 12:12:18', '2026-02-09 12:12:18'),
-(7, 'CONF-2026-83277', 1, 'ProManaged', 'JOHN-PAUL CHIRWA', 'johnpaulchirwa@gmail.com', '0860081635', '2026-02-11', '23:04:00', '23:09:00', 220, 'Meeting', '', 0, '', 'pending', 400000.00, 0.00, 0.00, 0.00, 0.00, 0.00, NULL, 0, NULL, 0, 'pending', 0.00, NULL, '2026-02-09 12:14:57', '2026-02-09 12:14:57');
-
 -- --------------------------------------------------------
 
 --
@@ -630,86 +618,11 @@ CREATE TABLE `cookie_consent_log` (
 --
 
 INSERT INTO `cookie_consent_log` (`id`, `ip_address`, `user_agent`, `consent_level`, `created_at`) VALUES
-(1, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-09 10:14:29'),
-(2, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-09 10:21:31'),
-(3, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-09 11:51:54'),
-(4, '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-09 12:03:25'),
-(5, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-09 15:37:56'),
-(6, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36', 'all', '2026-02-09 16:39:58'),
-(7, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36', 'all', '2026-02-09 16:42:25'),
-(8, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36', 'all', '2026-02-10 00:21:44'),
-(9, '137.115.5.18', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-10 10:50:21'),
-(10, '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-10 10:52:38'),
-(11, '216.234.217.230', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/29.0 Chrome/136.0.0.0 Mobile Safari/537.36', 'all', '2026-02-10 11:40:33'),
-(12, '102.70.96.91', 'Mozilla/5.0 (Android 10; Mobile; rv:147.0) Gecko/147.0 Firefox/147.0', 'all', '2026-02-10 18:18:38'),
-(13, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-11 11:14:34'),
-(14, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36', 'all', '2026-02-11 20:50:45'),
-(15, '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36', 'all', '2026-02-12 00:18:44'),
-(16, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 07:48:59'),
-(17, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 09:25:33'),
-(18, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 11:37:13'),
-(19, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 16:06:51'),
-(20, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 16:29:24'),
-(21, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 20:10:02'),
-(22, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 20:20:13'),
-(23, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 20:59:13'),
-(24, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:00:12'),
-(25, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:07:57'),
-(26, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:15:46'),
-(27, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:18:54'),
-(28, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:23:40'),
-(29, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:28:28'),
-(30, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:29:24'),
-(31, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:32:02'),
-(32, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:32:19'),
-(33, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:40:53'),
-(34, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:41:31'),
-(35, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 21:45:39'),
-(36, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-12 22:21:32'),
-(37, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 00:17:06'),
-(38, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 00:30:27'),
-(39, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 07:18:30'),
-(40, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 07:19:10'),
-(41, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 11:22:27'),
-(42, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 11:33:17'),
-(43, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 11:47:47'),
-(44, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 12:34:53'),
-(45, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 12:50:40'),
-(46, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 14:29:42'),
-(47, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 15:36:56'),
-(48, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 15:38:31'),
-(49, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 15:41:11'),
-(50, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'all', '2026-02-13 16:07:06'),
-(51, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 16:15:13'),
-(52, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 16:53:53'),
-(53, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 17:59:50'),
-(54, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 18:01:46'),
-(55, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 18:38:56'),
-(56, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-13 19:29:45'),
-(57, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'all', '2026-02-15 21:35:20'),
-(58, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-15 22:18:09'),
-(59, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-15 22:28:26'),
-(60, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-15 22:35:53'),
-(61, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-16 13:13:59'),
-(62, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'declined', '2026-02-16 13:24:40'),
-(63, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-16 23:05:35'),
-(64, '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36', 'all', '2026-02-16 23:48:34'),
-(65, '192.168.2.18', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'all', '2026-02-16 23:52:20'),
-(66, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-17 08:57:56'),
-(67, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-18 08:57:11'),
-(68, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-18 09:38:35'),
-(69, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-18 22:17:03'),
-(70, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-19 09:19:44'),
-(71, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-19 10:58:13'),
-(72, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'all', '2026-02-22 18:06:47'),
-(73, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'all', '2026-02-23 01:14:11'),
-(74, '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-23 12:56:24'),
-(75, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-23 14:54:46'),
-(76, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-23 16:12:04'),
-(77, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-23 16:20:07'),
-(78, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-23 17:36:04'),
-(79, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-23 22:23:20'),
-(80, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'all', '2026-02-24 15:54:40');
+(85, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'all', '2026-02-28 16:47:32'),
+(86, '102.70.92.212', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3 Mobile/15E148 Safari/604.1', 'all', '2026-02-28 19:44:50'),
+(87, '216.234.217.124', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/29.0 Chrome/136.0.0.0 Mobile Safari/537.36', 'declined', '2026-02-28 20:16:19'),
+(88, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'all', '2026-03-01 17:15:40'),
+(89, '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'all', '2026-03-01 17:17:08');
 
 -- --------------------------------------------------------
 
@@ -944,7 +857,7 @@ INSERT INTO `footer_links` (`id`, `column_name`, `link_text`, `link_url`, `secon
 (18, 'Guest Services', 'All Services', 'guest-services.php', NULL, 4, 1),
 (26, 'Dining & Entertainment', 'Restaurant', 'restaurant.php#menu', NULL, 1, 1),
 (28, 'Guest Services', 'Conference Rooms', 'conference.php', NULL, 5, 1),
-(31, 'Quick Links', 'Contact Us', 'contact-us.php', NULL, 1, 1);
+(31, 'Quick Links', 'Contact Us', 'contact-us.php', 'contact-us.php', 1, 1);
 
 -- --------------------------------------------------------
 
@@ -1891,14 +1804,6 @@ CREATE TABLE `payments` (
   `refund_notes` text COLLATE utf8mb4_unicode_ci COMMENT 'Additional notes about refund'
 ) ;
 
---
--- Dumping data for table `payments`
---
-
-INSERT INTO `payments` (`id`, `payment_reference`, `booking_type`, `booking_id`, `conference_id`, `booking_reference`, `payment_date`, `payment_amount`, `vat_rate`, `vat_amount`, `total_amount`, `payment_method`, `payment_type`, `payment_reference_number`, `payment_status`, `invoice_generated`, `invoice_number`, `amount`, `status`, `transaction_id`, `invoice_path`, `notes`, `recorded_by`, `created_at`, `updated_at`, `cc_emails`, `receipt_number`, `processed_by`, `deleted_at`, `original_payment_id`, `refund_reason`, `refund_status`, `refund_amount`, `refund_date_processed`, `refund_notes`) VALUES
-(13, 'PAY-2026-000036', 'room', 36, NULL, 'LSH20263047', '2026-02-21', 920000.00, 16.50, 151800.00, 1071800.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001002', 0.00, 'completed', NULL, 'invoices/INV-2026-001002.html', NULL, 1, '2026-02-21 12:12:07', '2026-02-21 15:37:45', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL),
-(14, 'PAY-2026-000037', 'room', 37, NULL, 'LSH20268184', '2026-02-21', 250000.00, 16.50, 41250.00, 291250.00, 'cash', 'full_payment', NULL, 'completed', 1, 'INV-2026-001006', 0.00, 'completed', NULL, 'invoices/INV-2026-001006.pdf', NULL, 1, '2026-02-21 16:15:06', '2026-02-22 11:31:57', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL);
-
 -- --------------------------------------------------------
 
 --
@@ -2007,7 +1912,8 @@ CREATE TABLE `review_responses` (
 --
 
 INSERT INTO `review_responses` (`id`, `review_id`, `admin_id`, `response`, `created_at`) VALUES
-(2, 6, 2, 'Okay thank yo very much', '2026-02-04 02:21:37');
+(2, 6, 2, 'Okay thank yo very much', '2026-02-04 02:21:37'),
+(3, 2, 1, 'Thank you very much', '2026-02-24 18:13:55');
 
 -- --------------------------------------------------------
 
@@ -2265,7 +2171,17 @@ INSERT INTO `session_logs` (`id`, `session_id`, `ip_address`, `device_type`, `br
 (147, '73v6u0p31n9i8vji7p054jngmu', '51.37.179.253', 'desktop', 'Chrome', 'Windows 10/11', '/rosalyns/contact-us.php', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '2026-02-22 22:38:03', '2026-02-23 09:59:01', 6, 'all'),
 (151, '7vd27dri4cm4dqjaa2b1fik6gt', '51.37.179.253', 'mobile', 'Chrome', 'Android', '/rosalyns/submit-review.php', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '2026-02-23 01:14:33', '2026-02-23 01:14:33', 1, 'all'),
 (154, '7ac14nsd90a9j71g8ks9cecbp5', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/contact-us.php', '', 'Local', '2026-02-23 22:48:33', '2026-02-23 23:49:30', 5, 'all'),
-(159, 'tpvp8bd9h51rf9eoajjukren5j', '192.168.2.5', 'mobile', 'Chrome', 'Android', '/booking.php', '192.168.2.13', 'Local', '2026-02-24 00:10:59', '2026-02-24 00:12:27', 2, 'all');
+(159, 'tpvp8bd9h51rf9eoajjukren5j', '192.168.2.5', 'mobile', 'Chrome', 'Android', '/booking.php', '192.168.2.13', 'Local', '2026-02-24 00:10:59', '2026-02-24 00:12:27', 2, 'all'),
+(161, '7hogg49ajqk5s0d062vh7nk1v7', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/submit-review.php', 'localhost', 'Local', '2026-02-24 18:41:12', '2026-02-24 19:06:08', 6, 'all'),
+(167, '8e7l51h4bcug7u1de0ci7f0p5v', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/conference.php', 'localhost', 'Local', '2026-02-25 13:47:44', '2026-02-25 15:16:40', 3, 'all'),
+(170, 'tp6sgdl8v97roq377gt79ltkli', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/conference.php', 'localhost', 'Local', '2026-02-26 17:25:26', '2026-02-26 23:56:27', 4, 'all'),
+(174, 's2l6js4f7d9kejlbqi2a3sdn6c', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/conference.php', '', 'Local', '2026-02-27 00:18:13', '2026-02-27 00:18:13', 1, 'all'),
+(175, '3rsbq26n4unf1v2u4v8hpiti8m', '127.0.0.1', 'desktop', 'Chrome', 'Windows 10/11', '/contact-us.php', 'localhost', 'Local', '2026-02-27 20:10:12', '2026-02-28 16:41:55', 3, 'all'),
+(176, 'ctkrmts05gu1ct53q59bions2q', '51.37.179.253', 'mobile', 'Chrome', 'Android', '/rosalyns/booking-confirmation.php?ref=LSH20264588', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '2026-02-27 20:16:13', '2026-02-28 10:03:23', 4, 'all'),
+(178, 'vbj425n30pt7pe4eejrqaro66q', '142.250.32.34', 'mobile', 'Chrome', 'Android', '/rosalyns/booking.php', '', 'Mountain View, California, United States', '2026-02-27 20:16:36', '2026-02-27 20:16:36', 1, 'pending'),
+(181, '7t7a025cikg3ql8t4cnck5at3g', '142.250.32.34', 'mobile', 'Chrome', 'Android', '/rosalyns/booking-confirmation.php?ref=LSH20264588', '', 'Mountain View, California, United States', '2026-02-28 10:03:25', '2026-02-28 10:03:25', 1, 'pending'),
+(184, '9v2kqg1lghia5jd7nnme5sst9v', '51.37.179.253', 'mobile', 'Chrome', 'Android', '/rosalyns/conference.php', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '2026-02-28 16:49:16', '2026-02-28 16:51:27', 3, 'all'),
+(187, 'u8vijpmr4fcvuhtde8j68p33dr', '51.37.179.253', 'desktop', 'Chrome', 'Windows 10/11', '/rosalyns/conference.php', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '2026-03-01 20:55:36', '2026-03-01 20:55:54', 2, 'pending');
 
 -- --------------------------------------------------------
 
@@ -2415,7 +2331,7 @@ INSERT INTO `site_settings` (`id`, `setting_key`, `setting_value`, `setting_grou
 (307, 'whatsapp_admin_numbers', '', NULL, '2026-02-18 21:43:20', NULL, NULL),
 (308, 'whatsapp_confirmed_template', 'booking_confirmed', NULL, '2026-02-18 21:43:20', NULL, NULL),
 (309, 'whatsapp_cancelled_template', 'booking_cancelled', NULL, '2026-02-18 21:43:20', NULL, NULL),
-(341, 'logo_url', 'https://promanaged-it.com/hotelsmw/images/logo/logo.png', NULL, '2026-02-22 01:43:36', NULL, NULL),
+(341, 'logo_url', 'https://promanaged-it.com/rosalyns/images/logo/logo.png', NULL, '2026-02-28 11:32:16', NULL, NULL),
 (342, 'tourism_levy_enabled', '0', 'booking', '2026-02-23 01:03:06', NULL, NULL),
 (343, 'tourism_levy_percent', '1.00', 'booking', '2026-02-23 01:03:06', NULL, NULL);
 
@@ -2608,7 +2524,35 @@ INSERT INTO `site_visitors` (`id`, `session_id`, `ip_address`, `user_agent`, `de
 (157, '7ac14nsd90a9j71g8ks9cecbp5', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/guest-services.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-23 23:46:40'),
 (158, '7ac14nsd90a9j71g8ks9cecbp5', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/guest-services.php', 'localhost', 'Local', '/contact-us.php', NULL, 0, NULL, '2026-02-23 23:49:30'),
 (159, 'tpvp8bd9h51rf9eoajjukren5j', '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'http://192.168.2.13:8000/guest-services.php', '192.168.2.13', 'Local', '/booking.php', NULL, 1, NULL, '2026-02-24 00:10:58'),
-(160, 'tpvp8bd9h51rf9eoajjukren5j', '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'http://192.168.2.13:8000/booking.php', '192.168.2.13', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-24 00:12:27');
+(160, 'tpvp8bd9h51rf9eoajjukren5j', '192.168.2.5', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'http://192.168.2.13:8000/booking.php', '192.168.2.13', 'Local', '/booking.php', NULL, 0, NULL, '2026-02-24 00:12:27'),
+(161, '7hogg49ajqk5s0d062vh7nk1v7', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/submit-review.php', NULL, 1, NULL, '2026-02-24 18:41:11'),
+(162, '7hogg49ajqk5s0d062vh7nk1v7', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/submit-review.php', NULL, 0, NULL, '2026-02-24 18:44:52'),
+(163, '7hogg49ajqk5s0d062vh7nk1v7', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/submit-review.php', NULL, 0, NULL, '2026-02-24 18:47:10'),
+(164, '7hogg49ajqk5s0d062vh7nk1v7', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/submit-review.php', NULL, 0, NULL, '2026-02-24 18:50:20'),
+(165, '7hogg49ajqk5s0d062vh7nk1v7', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/submit-review.php', NULL, 0, NULL, '2026-02-24 18:51:43'),
+(166, '7hogg49ajqk5s0d062vh7nk1v7', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/submit-review.php', NULL, 0, NULL, '2026-02-24 19:06:08'),
+(167, '8e7l51h4bcug7u1de0ci7f0p5v', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/conference.php', NULL, 1, NULL, '2026-02-25 13:47:44'),
+(168, '8e7l51h4bcug7u1de0ci7f0p5v', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-25 15:13:06'),
+(169, '8e7l51h4bcug7u1de0ci7f0p5v', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-25 15:16:40'),
+(170, 'tp6sgdl8v97roq377gt79ltkli', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/contact-us.php', NULL, 1, NULL, '2026-02-26 17:25:26'),
+(171, 'tp6sgdl8v97roq377gt79ltkli', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/contact-us.php', NULL, 0, NULL, '2026-02-26 17:35:51'),
+(172, 'tp6sgdl8v97roq377gt79ltkli', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/contact-us.php', NULL, 0, NULL, '2026-02-26 17:39:01'),
+(173, 'tp6sgdl8v97roq377gt79ltkli', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/rooms-gallery.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-26 23:56:27'),
+(174, 's2l6js4f7d9kejlbqi2a3sdn6c', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', '', '', 'Local', '/conference.php', NULL, 1, NULL, '2026-02-27 00:18:13'),
+(175, '3rsbq26n4unf1v2u4v8hpiti8m', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/', 'localhost', 'Local', '/contact-us.php', NULL, 1, NULL, '2026-02-27 20:10:12'),
+(176, 'ctkrmts05gu1ct53q59bions2q', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'https://promanaged-it.com/rosalyns/', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns//booking.php?check_in=2026-02-28&check_out=2026-03-03&guests=2&children=0&room_type=VIP+Beach+Front+Villa', NULL, 1, NULL, '2026-02-27 20:16:13'),
+(177, 'ctkrmts05gu1ct53q59bions2q', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'https://promanaged-it.com/rosalyns//booking.php?check_in=2026-02-28&check_out=2026-03-03&guests=2&children=0&room_type=VIP+Beach+Front+Villa', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns/booking.php', NULL, 0, NULL, '2026-02-27 20:16:34'),
+(178, 'vbj425n30pt7pe4eejrqaro66q', '142.250.32.34', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36 (compatible; Google-Read-Aloud; +https://support.google.com/webmasters/answer/1061943)', 'mobile', 'Chrome', 'Android', '', '', 'Mountain View, California, United States', '/rosalyns/booking.php', NULL, 1, NULL, '2026-02-27 20:16:36'),
+(179, 'ctkrmts05gu1ct53q59bions2q', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'https://promanaged-it.com/rosalyns/', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns//booking.php?check_in=2026-03-12&check_out=2026-03-20&guests=2&children=0&room_type=VIP+Beach+Front+Villa', NULL, 1, NULL, '2026-02-28 10:03:02'),
+(180, 'ctkrmts05gu1ct53q59bions2q', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'https://promanaged-it.com/rosalyns//booking.php?check_in=2026-03-12&check_out=2026-03-20&guests=2&children=0&room_type=VIP+Beach+Front+Villa', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns/booking-confirmation.php?ref=LSH20264588', NULL, 0, NULL, '2026-02-28 10:03:23'),
+(181, '7t7a025cikg3ql8t4cnck5at3g', '142.250.32.34', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36 (compatible; Google-Read-Aloud; +https://support.google.com/webmasters/answer/1061943)', 'mobile', 'Chrome', 'Android', '', '', 'Mountain View, California, United States', '/rosalyns/booking-confirmation.php?ref=LSH20264588', NULL, 1, NULL, '2026-02-28 10:03:25'),
+(182, '3rsbq26n4unf1v2u4v8hpiti8m', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/restaurant.php', 'localhost', 'Local', '/conference.php', NULL, 0, NULL, '2026-02-28 16:41:08'),
+(183, '3rsbq26n4unf1v2u4v8hpiti8m', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'http://localhost:8000/index.php', 'localhost', 'Local', '/contact-us.php', NULL, 0, NULL, '2026-02-28 16:41:55'),
+(184, '9v2kqg1lghia5jd7nnme5sst9v', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'https://promanaged-it.com/rosalyns/', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns//booking.php?check_in=2026-03-14&check_out=2026-03-15&guests=2&room_type=Superior+Suite', NULL, 1, NULL, '2026-02-28 16:49:16'),
+(185, '9v2kqg1lghia5jd7nnme5sst9v', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'https://promanaged-it.com/rosalyns//booking.php?check_in=2026-03-14&check_out=2026-03-15&guests=2&room_type=Superior+Suite', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns/booking-confirmation.php?ref=LSH20266943', NULL, 0, NULL, '2026-02-28 16:49:43'),
+(186, '9v2kqg1lghia5jd7nnme5sst9v', '51.37.179.253', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36', 'mobile', 'Chrome', 'Android', 'https://promanaged-it.com/rosalyns/events.php', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns/conference.php', NULL, 0, NULL, '2026-02-28 16:51:27'),
+(187, 'u8vijpmr4fcvuhtde8j68p33dr', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'https://promanaged-it.com/rosalyns/restaurant.php', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns/conference.php', NULL, 1, NULL, '2026-03-01 20:55:36'),
+(188, 'u8vijpmr4fcvuhtde8j68p33dr', '51.37.179.253', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', 'desktop', 'Chrome', 'Windows 10/11', 'https://promanaged-it.com/rosalyns/events.php', 'promanaged-it.com', 'Dublin, Leinster, Ireland', '/rosalyns/conference.php', NULL, 0, NULL, '2026-03-01 20:55:54');
 
 -- --------------------------------------------------------
 
@@ -3561,7 +3505,7 @@ ALTER TABLE `about_us`
 -- AUTO_INCREMENT for table `admin_activity_log`
 --
 ALTER TABLE `admin_activity_log`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
 
 --
 -- AUTO_INCREMENT for table `admin_users`
@@ -3591,7 +3535,7 @@ ALTER TABLE `blocked_dates`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 
 --
 -- AUTO_INCREMENT for table `booking_charges`
@@ -3627,7 +3571,7 @@ ALTER TABLE `booking_payments`
 -- AUTO_INCREMENT for table `booking_timeline_logs`
 --
 ALTER TABLE `booking_timeline_logs`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `cancellation_log`
@@ -3663,7 +3607,7 @@ ALTER TABLE `contact_inquiries`
 -- AUTO_INCREMENT for table `cookie_consent_log`
 --
 ALTER TABLE `cookie_consent_log`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=90;
 
 --
 -- AUTO_INCREMENT for table `drink_menu`
@@ -3891,7 +3835,7 @@ ALTER TABLE `reviews`
 -- AUTO_INCREMENT for table `review_responses`
 --
 ALTER TABLE `review_responses`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `rooms`
@@ -3933,7 +3877,7 @@ ALTER TABLE `section_headers`
 -- AUTO_INCREMENT for table `session_logs`
 --
 ALTER TABLE `session_logs`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=161;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=189;
 
 --
 -- AUTO_INCREMENT for table `site_pages`
@@ -3951,7 +3895,7 @@ ALTER TABLE `site_settings`
 -- AUTO_INCREMENT for table `site_visitors`
 --
 ALTER TABLE `site_visitors`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=161;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=189;
 
 --
 -- AUTO_INCREMENT for table `tentative_booking_log`
