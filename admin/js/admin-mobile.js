@@ -28,14 +28,34 @@
     function initMobileNavToggle() {
         const navToggle = document.querySelector('.admin-nav-toggle');
         const adminNav = document.querySelector('.admin-nav');
+        const adminHeader = document.querySelector('.admin-header');
         
         if (!navToggle || !adminNav) return;
+
+        // Function to update nav position based on header height
+        function updateNavPosition() {
+            if (window.innerWidth <= 768 && adminHeader) {
+                const headerHeight = adminHeader.offsetHeight;
+                adminNav.style.top = headerHeight + 'px';
+            } else {
+                adminNav.style.top = '';
+            }
+        }
+
+        // Update position on load
+        updateNavPosition();
+        
+        // Update position on window resize
+        window.addEventListener('resize', updateNavPosition);
 
         navToggle.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             
             adminNav.classList.toggle('nav-open');
+            
+            // Update position when toggling
+            updateNavPosition();
             
             // Update aria-expanded
             const isExpanded = adminNav.classList.contains('nav-open');
@@ -87,7 +107,23 @@
      * Transform tables into card layouts on mobile
      */
     function enhanceMobileTables() {
-        const tables = document.querySelectorAll('.table');
+        // Target ALL table types used in admin
+        const tableSelectors = [
+            '.table',
+            '.booking-table',
+            '.bookings-table',
+            '.folio-table',
+            '.staff-workload-table',
+            '.portal-table',
+            '.menu-table',
+            '.pm-table',
+            '.report-table',
+            '.users-table',
+            '.visitors-table',
+            '.cache-table'
+        ];
+        
+        const tables = document.querySelectorAll(tableSelectors.join(','));
         
         tables.forEach(table => {
             if (window.innerWidth <= 480) {
@@ -157,7 +193,23 @@
      * These are used by CSS to show labels on mobile
      */
     function addTableDataLabels() {
-        const tables = document.querySelectorAll('.booking-table, .table');
+        // Target ALL table types used in admin
+        const tableSelectors = [
+            '.table',
+            '.booking-table',
+            '.bookings-table',
+            '.folio-table',
+            '.staff-workload-table',
+            '.portal-table',
+            '.menu-table',
+            '.pm-table',
+            '.report-table',
+            '.users-table',
+            '.visitors-table',
+            '.cache-table'
+        ];
+        
+        const tables = document.querySelectorAll(tableSelectors.join(','));
         
         tables.forEach(table => {
             const headers = table.querySelectorAll('thead th');

@@ -102,14 +102,10 @@ function _canShowNavItem($permission_key) {
         <?php if (_canShowNavItem('reports')): ?>
         <li><a href="reports.php" class="<?php echo $current_page === 'reports.php' ? 'active' : ''; ?>"><i class="fas fa-chart-bar"></i> Reports</a></li>
         <?php endif; ?>
-        <li><a href="../index.php" target="_blank"><i class="fas fa-external-link-alt"></i> View Website</a></li>
-        <?php if (_canShowNavItem('section_headers')): ?>
-        <li><a href="section-headers-management.php" class="<?php echo $current_page === 'section-headers' ? 'active' : ''; ?>"><i class="fas fa-heading"></i> Section Headers</a></li>
-        <?php endif; ?>
         <?php if (_canShowNavItem('booking_settings')): ?>
         <li><a href="booking-settings.php" class="<?php echo $current_page === 'booking-settings.php' ? 'active' : ''; ?>"><i class="fas fa-cog"></i> Booking Settings</a></li>
         <?php endif; ?>
-        <?php if (_canShowNavItem('booking_settings')): ?>
+        <?php if (_canShowNavItem('whatsapp_settings')): ?>
         <li><a href="whatsapp-settings.php" class="<?php echo $current_page === 'whatsapp-settings.php' ? 'active' : ''; ?>"><i class="fab fa-whatsapp" style="color: #25D366;"></i> WhatsApp Settings</a></li>
         <?php endif; ?>
         <?php if (_canShowNavItem('pages')): ?>
@@ -127,37 +123,9 @@ function _canShowNavItem($permission_key) {
         <?php if (_canShowNavItem('reports')): ?>
         <li><a href="visitor-analytics.php" class="<?php echo $current_page === 'visitor-analytics.php' ? 'active' : ''; ?>"><i class="fas fa-chart-line"></i> Visitor Analytics</a></li>
         <?php endif; ?>
+        <?php if (_canShowNavItem('section_headers')): ?>
+        <li><a href="section-headers-management.php" class="<?php echo $current_page === 'section-headers' ? 'active' : ''; ?>"><i class="fas fa-heading"></i> Section Headers</a></li>
+        <?php endif; ?>
+        <li><a href="../index.php" target="_blank"><i class="fas fa-external-link-alt"></i> View Website</a></li>
     </ul>
 </nav>
-<script>
-(function() {
-    var toggle = document.getElementById('adminNavToggle');
-    var nav = document.querySelector('.admin-nav');
-    var icon = document.getElementById('navToggleIcon');
-    if (toggle && nav) {
-        toggle.addEventListener('click', function() {
-            var isOpen = nav.classList.toggle('nav-open');
-            toggle.setAttribute('aria-expanded', isOpen);
-            icon.className = isOpen ? 'fas fa-times' : 'fas fa-bars';
-        });
-        // Close nav when a link is clicked (mobile)
-        nav.querySelectorAll('a').forEach(function(link) {
-            link.addEventListener('click', function() {
-                if (window.innerWidth <= 768) {
-                    nav.classList.remove('nav-open');
-                    toggle.setAttribute('aria-expanded', 'false');
-                    icon.className = 'fas fa-bars';
-                }
-            });
-        });
-        // Close nav when clicking outside
-        document.addEventListener('click', function(e) {
-            if (window.innerWidth <= 768 && !nav.contains(e.target) && !toggle.contains(e.target)) {
-                nav.classList.remove('nav-open');
-                toggle.setAttribute('aria-expanded', 'false');
-                icon.className = 'fas fa-bars';
-            }
-        });
-    }
-})();
-</script>
