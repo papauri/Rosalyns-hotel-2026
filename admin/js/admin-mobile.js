@@ -384,9 +384,18 @@
      * Add swipe functionality to tabs on mobile
      */
     function initTabSwipeGestures() {
-        const tabsHeaders = document.querySelectorAll('.tabs-header');
+        // Target all tab header types
+        const tabSelectors = [
+            '.tabs-header',
+            '.filter-tabs',
+            '.report-tabs',
+            '.menu-type-tabs',
+            '.tab-nav'
+        ];
         
-        tabsHeaders.forEach(header => {
+        const tabHeaders = document.querySelectorAll(tabSelectors.join(','));
+        
+        tabHeaders.forEach(header => {
             let startX = 0;
             let scrollLeft = 0;
 

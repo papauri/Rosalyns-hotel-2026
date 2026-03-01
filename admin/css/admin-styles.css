@@ -581,6 +581,415 @@ footer {
 }
 
 /* ============================================
+   TABS HEADER - Bookings Page
+   ============================================ */
+.tabs-header {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    background: #f8f9fb;
+    border-bottom: 1px solid var(--admin-surface-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.tabs-header::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tabs-header::-webkit-scrollbar-track {
+    background: #f0f0f0;
+}
+
+.tabs-header::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 2px;
+}
+
+.tab-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: white;
+    border: 1px solid var(--admin-surface-border);
+    border-radius: 6px;
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.tab-button:hover {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+}
+
+.tab-button.active {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+    box-shadow: 0 2px 6px rgba(139, 115, 85, 0.3);
+}
+
+.tab-button i {
+    font-size: 14px;
+}
+
+.tab-count {
+    background: rgba(0, 0, 0, 0.1);
+    color: inherit;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.tab-button.active .tab-count {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+/* ============================================
+   FILTER TABS - Gym Inquiries
+   ============================================ */
+.filter-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #f8f9fb;
+    border-bottom: 1px solid var(--admin-surface-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.filter-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.filter-tabs::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 2px;
+}
+
+.filter-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: white;
+    border: 1px solid var(--admin-surface-border);
+    border-radius: 6px;
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.filter-tab:hover {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+}
+
+.filter-tab.active {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+}
+
+.filter-tab .count {
+    background: rgba(0, 0, 0, 0.1);
+    color: inherit;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.filter-tab.active .count {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+/* ============================================
+   REPORT TABS - Reports Page
+   ============================================ */
+.report-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    background: #f8f9fb;
+    border-bottom: 1px solid var(--admin-surface-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.report-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.report-tabs::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 2px;
+}
+
+.report-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    background: white;
+    border: 1px solid var(--admin-surface-border);
+    border-radius: 8px;
+    color: var(--admin-text);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.report-tab:hover {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 115, 85, 0.2);
+}
+
+.report-tab.active {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+    box-shadow: 0 4px 12px rgba(139, 115, 85, 0.3);
+}
+
+.report-tab i {
+    font-size: 16px;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   MENU TYPE TABS - Menu Management
+   ============================================ */
+.menu-type-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    background: #f8f9fb;
+    border-bottom: 1px solid var(--admin-surface-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.menu-type-tab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 24px;
+    background: white;
+    border: 2px solid var(--admin-surface-border);
+    border-radius: 10px;
+    color: var(--admin-text);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.menu-type-tab:hover {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+    transform: scale(1.05);
+}
+
+.menu-type-tab.active {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+    box-shadow: 0 4px 12px rgba(139, 115, 85, 0.3);
+}
+
+.menu-type-tab i {
+    font-size: 18px;
+}
+
+/* ============================================
+   TAB NAV - Booking Details
+   ============================================ */
+.tab-nav {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: #f8f9fb;
+    border-bottom: 1px solid var(--admin-surface-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: white;
+    border: 2px solid var(--admin-surface-border);
+    border-radius: 8px;
+    color: var(--admin-text);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.tab-btn:hover {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+}
+
+.tab-btn.active {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+    box-shadow: 0 4px 12px rgba(139, 115, 85, 0.3);
+}
+
+/* ============================================
+   SECTIONS - Mobile Optimized
+   ============================================ */
+
+/* Section Headers */
+.section-title {
+    font-family: 'Jost', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--admin-text);
+    margin-bottom: 16px;
+    letter-spacing: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title i {
+    color: var(--gold);
+    font-size: 16px;
+}
+
+/* Stats Grid - Mobile Responsive */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+    }
+    
+    .stat-card {
+        padding: 16px 18px;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    
+    .stat-card {
+        padding: 12px 14px;
+    }
+    
+    .stat-card .stat-icon {
+        width: 28px;
+        height: 28px;
+        margin-bottom: 10px;
+    }
+    
+    .stat-card .stat-icon i {
+        font-size: 13px;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 20px;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 10px;
+        line-height: 1.3;
+    }
+}
+
+/* Section Headers Mobile */
+@media (max-width: 480px) {
+    .section-title {
+        font-size: 13px;
+        margin-bottom: 12px;
+    }
+    
+    .section-title i {
+        font-size: 14px;
+    }
+}
+
+/* Cards Mobile */
+@media (max-width: 480px) {
+    .card {
+        padding: 16px;
+        margin-bottom: 16px;
+        border-radius: 8px;
+    }
+}
+
+/* Table Containers Mobile */
+@media (max-width: 480px) {
+    .table-container {
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+}
+
+/* ============================================
    ADMIN ALERTS
    ============================================ */
 .alert {
@@ -940,5 +1349,129 @@ footer {
     .booking-details-container,
     .admin-content {
         padding: 28px 32px;
+    }
+}
+
+/* ============================================
+   MOBILE TAB STYLES
+   ============================================ */
+
+/* Tabs Header Mobile */
+@media (max-width: 768px) {
+    .tabs-header,
+    .filter-tabs,
+    .report-tabs,
+    .menu-type-tabs,
+    .tab-nav {
+        padding: 8px 12px;
+        gap: 6px;
+    }
+
+    .tab-button,
+    .filter-tab {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .tab-button i,
+    .filter-tab i {
+        font-size: 12px;
+    }
+
+    .tab-count,
+    .filter-tab .count {
+        font-size: 10px;
+        padding: 1px 6px;
+    }
+
+    .report-tab {
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+
+    .report-tab i {
+        font-size: 14px;
+    }
+
+    .menu-type-tab {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+
+    .menu-type-tab i {
+        font-size: 16px;
+    }
+
+    .tab-btn {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tabs-header,
+    .filter-tabs,
+    .report-tabs,
+    .menu-type-tabs,
+    .tab-nav {
+        padding: 8px;
+        gap: 4px;
+    }
+
+    .tab-button,
+    .filter-tab {
+        padding: 6px 10px;
+        font-size: 11px;
+        border-radius: 4px;
+    }
+
+    .tab-button i,
+    .filter-tab i {
+        font-size: 11px;
+        display: none; /* Hide icons on very small screens */
+    }
+
+    .tab-count,
+    .filter-tab .count {
+        font-size: 9px;
+        padding: 1px 5px;
+    }
+
+    .report-tab {
+        padding: 8px 12px;
+        font-size: 12px;
+        border-radius: 6px;
+    }
+
+    .report-tab i {
+        font-size: 13px;
+    }
+
+    .report-tab:hover {
+        transform: none; /* Remove scale effect on small screens */
+    }
+
+    .menu-type-tab {
+        padding: 10px 14px;
+        font-size: 12px;
+        border-radius: 8px;
+    }
+
+    .menu-type-tab i {
+        font-size: 14px;
+    }
+
+    .menu-type-tab:hover {
+        transform: none; /* Remove scale effect on small screens */
+    }
+
+    .tab-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+        border-radius: 6px;
+    }
+
+    .tab-btn i {
+        display: none; /* Hide emoji on very small screens */
     }
 }
