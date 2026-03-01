@@ -446,17 +446,19 @@ try {
                                 <span>Live from our kitchen</span>
                             </div>
                         </div>
-                        <div class="qr-menu-qr">
-                            <div class="qr-wrap">
-                                <div class="qr-pulse-ring"></div>
-                                <div class="qr-code-container">
-                                    <img src="<?php echo $menu_qr_image; ?>" alt="QR code to view the restaurant menu" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22%3E%3Crect fill=%22%23ffffff%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22monospace%22 font-size=%2214%22 fill=%22%23000%22%3EScan QR Code%3C/text%3E%3Crect x=%2240%22 y=%2240%22 width=%2230%22 height=%2230%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%224%22/%3E%3Crect x=%22130%22 y=%2240%22 width=%2230%22 height=%2230%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%224%22/%3E%3Crect x=%2240%22 y=%22130%22 width=%2230%22 height=%2230%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%224%22/%3E%3Crect x=%2275%22 y=%2275%22 width=%2250%22 height=%2250%22 fill=%22%23000%22/%3E%3C/svg%3E';">
-                                    <div class="scan-corners"><span></span></div>
+                            <div class="qr-menu-qr">
+                                <div class="qr-wrap">
+                                    <div class="qr-glow"></div>
+                                    <div class="qr-pulse-ring"></div>
+                                    <div class="qr-pulse-ring-2"></div>
+                                    <div class="qr-code-container">
+                                        <img src="<?php echo $menu_qr_image; ?>" alt="QR code to view the restaurant menu" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22%3E%3Crect fill=%22%23ffffff%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22monospace%22 font-size=%2214%22 fill=%22%23000%22%3EScan QR Code%3C/text%3E%3Crect x=%2240%22 y=%2240%22 width=%2230%22 height=%2230%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%224%22/%3E%3Crect x=%22130%22 y=%2240%22 width=%2230%22 height=%2230%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%224%22/%3E%3Crect x=%2240%22 y=%22130%22 width=%2230%22 height=%2230%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%224%22/%3E%3Crect x=%2275%22 y=%2275%22 width=%2250%22 height=%2250%22 fill=%22%23000%22/%3E%3C/svg%3E';">
+                                        <div class="scan-corners"><span></span></div>
+                                    </div>
+                                    <span class="qr-label"><i class="fas fa-qrcode"></i> Scan to View Menu</span>
+                                    <span class="qr-subtitle">Instant access on your device</span>
                                 </div>
-                                <span class="qr-label"><i class="fas fa-qrcode"></i> Scan to View Menu</span>
-                                <span class="qr-subtitle">Instant access on your device</span>
                             </div>
-                        </div>
                     </div>
 
                     <!-- Right: Segmented tabs -->
