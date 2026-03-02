@@ -1206,7 +1206,7 @@ try {
             const modal = document.getElementById('availabilityModal');
             if (modal) {
                 modal.classList.remove('modal--active');
-                setTimeout(() => {
+                setTimeout(function() {
                     modal.style.display = 'none';
                     document.body.classList.remove('modal-open');
                 }, 300);
@@ -1491,21 +1491,22 @@ try {
                             if (attr === 'data-max-guests') return preselectedRoom.max_guests;
                             return null;
                         },
-                        classList: { add: function() {} },
-                        classList: { contains: function() { return false; } },
+                        classList: { 
+                            add: function() {},
+                            contains: function() { return false; }
+                        },
                         closest: function() { return this; }
                     };
                     
                     // Call selectRoom to ensure all room-specific settings are applied
                     selectRoom(syntheticRoomOption);
-                }
-            }
-                
-                // Trigger availability check for pre-selected room if dates are provided
-                if (heroCheckIn && heroCheckOut) {
-                    setTimeout(() => {
-                        performAvailabilityCheck();
-                    }, 200);
+
+                    // Trigger availability check for pre-selected room if dates are provided
+                    if (heroCheckIn && heroCheckOut) {
+                        setTimeout(() => {
+                            performAvailabilityCheck();
+                        }, 200);
+                    }
                 }
             }
             
